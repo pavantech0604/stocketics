@@ -1,0 +1,153 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* Stocketics Enterprise Brand Palette (Extracted from logo.jpg) */
+  --stocketics-navy-950: #0a1128;
+  --stocketics-navy-900: #111c44; /* Master Royal Navy */
+  --stocketics-navy-850: #161e47; /* Logo Base Navy */
+  --stocketics-navy-800: #1c2759;
+  --stocketics-navy-700: #263574;
+  
+  --stocketics-blue-600: #0073b7; /* Classic CRM Action Blue */
+  --stocketics-blue-500: #0284c7;
+  --stocketics-blue-400: #00b4d8; /* Logo Growth Arrow Cyan */
+  --stocketics-blue-100: #e0f2fe;
+  --stocketics-blue-50:  #f0f9ff;
+
+  /* Reference CRM KPI Palette */
+  --kpi-blue:       #0088ea;
+  --kpi-orange:     #e58e26;
+  --kpi-teal:       #00a884;
+  --kpi-purple:     #8c31d9;
+  --kpi-red:        #e61919;
+  --kpi-cyan:       #0099ff;
+  --kpi-navy:       #161e47;
+  --kpi-violet:     #9333ea;
+  --kpi-amber:      #d97706;
+
+  /* Apex / Stocketics Department Badges */
+  --dept-hr:       #c5996a; /* Warm Tan/Gold */
+  --dept-it:       #989460; /* Olive Brass */
+  --dept-research: #af65a2; /* Plum/Magenta */
+  --dept-sales:    #0073b7; /* Classic Blue */
+  --dept-finance:  #10B981; /* Emerald */
+  --dept-ops:      #6366F1; /* Indigo */
+
+  /* Compatibility aliases */
+  --apex-navy-950: var(--stocketics-navy-950);
+  --apex-navy-900: var(--stocketics-navy-900);
+  --apex-navy-800: var(--stocketics-navy-850);
+  --apex-navy-700: var(--stocketics-navy-700);
+  --apex-blue-600: var(--stocketics-blue-600);
+  --apex-blue-500: var(--stocketics-blue-500);
+  --apex-blue-400: var(--stocketics-blue-400);
+  --apex-blue-100: var(--stocketics-blue-100);
+  --apex-blue-50:  var(--stocketics-blue-50);
+
+  /* Semantic Feedback */
+  --success:       #10B981;
+  --success-bg:    #ECFDF5;
+  --success-text:  #065F46;
+  
+  --warning:       #F59E0B;
+  --warning-bg:    #FFFBEB;
+  --warning-text:  #92400E;
+
+  --danger:        #EF4444;
+  --danger-bg:     #FEF2F2;
+  --danger-text:   #991B1B;
+
+  --info:          #0073b7;
+  --info-bg:       #F0F9FF;
+  --info-text:     #075985;
+
+  /* Classic CRM Clean White Theme Surfaces & Text (Default) */
+  --bg-canvas:     #f0f3f8; /* Executive cool slate-gray canvas */
+  --bg-surface:    #ffffff; /* Crisp white cards */
+  --bg-surface-alt:#f8fafc;
+  --bg-hover:      #f1f5f9;
+  --bg-active:     #e2e8f0;
+  
+  --border-subtle: #d2d6de; /* Classic CRM border */
+  --border-strong: #cbd5e1;
+  --border-focus:  #0073b7;
+
+  --text-primary:  #161e47; /* Logo Deep Navy for crisp text */
+  --text-secondary:#475569;
+  --text-muted:    #64748b;
+  --text-inverted: #ffffff;
+
+  /* Elevation Shadows */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 4px rgba(22, 30, 71, 0.05), 0 1px 2px rgba(22, 30, 71, 0.03);
+  --shadow-md: 0 4px 12px rgba(22, 30, 71, 0.06), 0 2px 4px rgba(22, 30, 71, 0.03);
+  --shadow-lg: 0 10px 24px -4px rgba(22, 30, 71, 0.08);
+  --shadow-xl: 0 20px 40px -12px rgba(22, 30, 71, 0.12);
+  --shadow-glow: 0 0 16px rgba(48, 165, 255, 0.35);
+
+  /* Geometry & Typography */
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  --sidebar-expanded: 260px;
+  --sidebar-collapsed: 74px;
+  --topbar-height: 64px;
+
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark Theme Overrides */
+[data-theme='dark'] {
+  --bg-canvas:     #050e17;
+  --bg-surface:    #0a1828;
+  --bg-surface-alt:#0d2035;
+  --bg-hover:      #122a44;
+  --bg-active:     #173556;
+
+  --border-subtle: #162f4d;
+  --border-strong: #22446d;
+  --border-focus:  #30a5ff;
+
+  --text-primary:  #f8fafc;
+  --text-secondary:#94a3b8;
+  --text-muted:    #64748b;
+  --text-inverted: #0f172a;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.65);
+  --shadow-glow: 0 0 20px rgba(48, 165, 255, 0.25);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}

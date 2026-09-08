@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <!-- Upper "S" Gradient: Classic CRM Blue to Vibrant Cyan & Teal (From logo.jpg) -->
+    <linearGradient id="topSGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0073b7"/>
+      <stop offset="50%" stop-color="#00b4d8"/>
+      <stop offset="100%" stop-color="#00c49f"/>
+    </linearGradient>
+
+    <!-- Lower "S" Gradient: Deep Royal Navy to Vibrant Sapphire (From logo.jpg) -->
+    <linearGradient id="botSGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="50%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+
+    <!-- Surge Arrowhead Gradient -->
+    <linearGradient id="arrowGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0073b7"/>
+      <stop offset="50%" stop-color="#00b4d8"/>
+      <stop offset="100%" stop-color="#00c49f"/>
+    </linearGradient>
+
+    <!-- Subtle Drop Shadow for Contrast and Depth on Light & Dark Tabs -->
+    <filter id="tileShadow" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Clean Crisp Elevated White Squircle Tile (Matching White CRM Theme & logo.jpg) -->
+  <rect width="64" height="64" rx="16" fill="#ffffff" filter="url(#tileShadow)"/>
+  <rect x="1" y="1" width="62" height="62" rx="15" fill="none" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Upper "S" Swoosh (Bold, High Contrast, Vibrant Stocketics Gradient) -->
+  <path d="M 43 21 C 41 14 35 11 27 12 C 18 13 14 19 15 27 C 15.5 31 18 33 22 34.5" 
+        fill="none" stroke="url(#topSGrad)" stroke-width="7.5" stroke-linecap="round"/>
+
+  <!-- Lower "S" Swoosh (Bold, Royal Sapphire-to-Indigo Gradient) -->
+  <path d="M 23 35 C 19 37 17 41 18 46 C 20 53 29 55 38 52 C 45 49 47 43 46 36 C 45 32 43 29 40 27" 
+        fill="none" stroke="url(#botSGrad)" stroke-width="7.5" stroke-linecap="round"/>
+
+  <!-- 3 Ascending Market Intelligence Pillars (Direct from logo.jpg) -->
+  <!-- Pillar 1: Emerald Growth -->
+  <rect x="22" y="34" width="4.5" height="11" rx="2.25" fill="#10b981"/>
+
+  <!-- Pillar 2: Classic Stocketics Blue -->
+  <rect x="29" y="27" width="4.5" height="18" rx="2.25" fill="#0073b7"/>
+
+  <!-- Pillar 3: Deep Royal Navy -->
+  <rect x="36" y="21" width="4.5" height="24" rx="2.25" fill="#111c44"/>
+
+  <!-- Dynamic Breakout Trendline (Cyan Surge) -->
+  <path d="M 11 38 L 23 26 L 33 31 L 49 13" 
+        fill="none" stroke="url(#arrowGrad)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Dynamic Surge Arrowhead -->
+  <polygon points="36.5,13 52,11.5 50.5,27" fill="url(#arrowGrad)"/>
+
+  <!-- Apex Profit Peak Star -->
+  <circle cx="51" cy="12.5" r="2.2" fill="#0073b7"/>
+</svg>
