@@ -116,10 +116,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return (localStorage.getItem('apex_crm_role') as UserRole) || 'hr';
   });
 
-  // Authentication state
+  // Authentication state - defaults to false on fresh visits so Login Portal is shown
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     const saved = localStorage.getItem('apex_crm_authenticated');
-    return saved === null ? true : saved === 'true';
+    return saved === 'true';
   });
 
   // Role Credentials State
