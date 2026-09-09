@@ -17,10 +17,19 @@ export const pb = new PocketBase(POCKETBASE_URL);
 // Auto cancellation disabled so multiple parallel queries do not abort each other
 pb.autoCancellation(false);
 
+export const isCloudDeployment = 
+  typeof window !== 'undefined' && 
+  window.location.protocol === 'https:' && 
+  (!import.meta.env.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL.startsWith('http://'));
+
 /**
- * Health check helper to see if PocketBase is online
+ * Health check helper to see if PocketBase is online.
+ * On remote HTTPS deployments (such as Vercel), skips insecure localhost HTTP calls to prevent Mixed Content browser errors.
  */
 export async function checkPocketBaseHealth(): Promise<boolean> {
+  if (isCloudDeployment) {
+    return false;
+  }
   try {
     const health = await pb.health.check();
     return health.code === 200;

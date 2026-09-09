@@ -116,11 +116,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return (localStorage.getItem('apex_crm_role') as UserRole) || 'hr';
   });
 
-  // Authentication state - defaults to false on fresh visits so Login Portal is shown
+  // Authentication state - defaults to false on fresh visits so user lands directly on the Login Portal
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    const saved = localStorage.getItem('apex_crm_authenticated');
-    return saved === 'true';
+    if (typeof window !== 'undefined') {
+      const isLoginPath = window.location.pathname === '/login' || window.location.hash === '#/login';
+      if (isLoginPath) {
+        return false;
+      }
+      return sessionStorage.getItem('apex_crm_authenticated') === 'true';
+    }
+    return false;
   });
+
+  // Keep browser URL synchronized with auth state
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!isAuthenticated) {
+      if (window.location.pathname !== '/login' && window.location.hash !== '#/login') {
+        try {
+          window.history.replaceState({}, '', '/login');
+        } catch (_) {}
+      }
+    } else {
+      if (window.location.pathname === '/login') {
+        try {
+          window.history.replaceState({}, '', '/');
+        } catch (_) {}
+      }
+    }
+  }, [isAuthenticated]);
+
+  // Support browser Back/Forward navigation
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handlePopState = () => {
+      const isLoginPath = window.location.pathname === '/login' || window.location.hash === '#/login';
+      if (isLoginPath) {
+        setIsAuthenticated(false);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Role Credentials State
   const [roleCredentials, setRoleCredentials] = useState<Record<UserRole, RoleCredential>>(() => {
@@ -157,15 +194,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRoleState(targetRole);
     localStorage.setItem('apex_crm_role', targetRole);
     setIsAuthenticated(true);
+    sessionStorage.setItem('apex_crm_authenticated', 'true');
     localStorage.setItem('apex_crm_authenticated', 'true');
     setActiveTab('dashboard');
+    if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+      try {
+        window.history.pushState({}, '', '/');
+      } catch (_) {}
+    }
     return { success: true };
   };
 
   const logout = () => {
     setIsAuthenticated(false);
-    localStorage.setItem('apex_crm_authenticated', 'false');
+    sessionStorage.removeItem('apex_crm_authenticated');
+    localStorage.removeItem('apex_crm_authenticated');
     setActiveTab('dashboard');
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      try {
+        window.history.pushState({}, '', '/login');
+      } catch (_) {}
+    }
+    showToast('Logged out safely. Welcome back to Stocketics Portal.', 'info');
   };
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
