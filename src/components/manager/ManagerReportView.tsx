@@ -45,13 +45,13 @@ const REPORT_CONFIGS: ReportCardConfig[] = [
     ],
     columns: ['Date', 'Client Name', 'Mobile', 'Segment', 'Executive', 'Amount (₹)', 'Status'],
     sampleData: [
-      ['08-Sep-2026', 'Sruthi A S', '8891171239', 'INDEX OPTION', 'Sirajul Fasal M', '45,000', 'Success'],
-      ['08-Sep-2026', 'M Subramanyam', '9948527886', 'INDEX OPTION', 'Golla Yugendra', '35,000', 'Success'],
-      ['07-Sep-2026', 'BHARATH', '9952011804', 'INDEX OPTION', 'Devika B', '60,000', 'Success'],
-      ['07-Sep-2026', 'Pasula Laxmi Prasanna', '9491924562', 'Market Pathshala', 'Golla Yugendra', '25,000', 'Success'],
-      ['06-Sep-2026', 'Pugazhendhi S', '8489712962', 'EQUITY PREMIER', 'Rohan Deshmukh', '90,000', 'Success'],
-      ['05-Sep-2026', 'VIVEKANANDHAN PERUMAL', '7904005514', 'FUTURE & OPTIONS', 'Ananya Sen', '1,20,000', 'Success'],
-      ['04-Sep-2026', 'Rajesh Kanna', '9841029182', 'HEDGE & PMS', 'Aditya Roy', '1,50,000', 'Success']
+      ['08-Sep-2026', 'Rajesh K. Singhania', '9820100401', 'INDEX OPTION', 'Rohan Deshmukh', '45,000', 'Success'],
+      ['08-Sep-2026', 'Dr. Harshvardhan Jain', '9425000402', 'INDEX OPTION', 'Sneha Kapur', '35,000', 'Success'],
+      ['07-Sep-2026', 'Col. Vikram Rathore', '9414000405', 'INDEX OPTION', 'Neha Reddy', '60,000', 'Success'],
+      ['07-Sep-2026', 'Kavita Radhakrishnan', '9847000403', 'Market Pathshala', 'Kabir Varma', '25,000', 'Success'],
+      ['06-Sep-2026', 'Manish Chawla', '9912000404', 'EQUITY PREMIER', 'Rohan Deshmukh', '90,000', 'Success'],
+      ['05-Sep-2026', 'Meenakshi Sundaram', '9444000407', 'FUTURE & OPTIONS', 'Ananya Sen', '1,20,000', 'Success'],
+      ['04-Sep-2026', 'Vikramaditya Oberoi', '9810000409', 'HEDGE & PMS', 'Aditya Roy', '1,50,000', 'Success']
     ]
   },
   {
@@ -68,10 +68,10 @@ const REPORT_CONFIGS: ReportCardConfig[] = [
     ],
     columns: ['Executive', 'Calls Made', 'Connects', 'Talktime (min)', 'Interested', 'Sales (₹)', 'Target %'],
     sampleData: [
-      ['Sirajul Fasal M', '84', '42', '148', '6', '45,000', '112%'],
-      ['Golla Yugendra', '92', '51', '162', '8', '35,000', '100%'],
-      ['Devika B', '78', '38', '135', '5', '60,000', '150%'],
-      ['Rohan Deshmukh', '95', '55', '180', '9', '25,000', '85%'],
+      ['Rohan Deshmukh', '84', '42', '148', '6', '45,000', '112%'],
+      ['Sneha Kapur', '92', '51', '162', '8', '35,000', '100%'],
+      ['Neha Reddy', '78', '38', '135', '5', '60,000', '150%'],
+      ['Kabir Varma', '95', '55', '180', '9', '25,000', '85%'],
       ['Ananya Sen', '81', '44', '152', '7', '0', '0%']
     ]
   },
@@ -89,10 +89,10 @@ const REPORT_CONFIGS: ReportCardConfig[] = [
     ],
     columns: ['Lead ID', 'Client Name', 'City', 'Source', 'Alloted To', 'Alloted Time', 'Status'],
     sampleData: [
-      ['LD-8891', 'Naveen Jindal', 'Mumbai', 'Google Search Ads', 'Sirajul Fasal M', '09:15 AM', 'Contacted'],
-      ['LD-8892', 'Pooja Hegde', 'Bangalore', 'Moneycontrol Partner', 'Golla Yugendra', '09:30 AM', 'In Progress'],
-      ['LD-8893', 'Karthik Raja', 'Chennai', 'Economic Times', 'Devika B', '09:45 AM', 'Interested'],
-      ['LD-8894', 'Harish Chandra', 'Delhi NCR', 'Facebook Campaign', 'Rohan Deshmukh', '10:00 AM', 'Payment Due'],
+      ['LD-8891', 'Siddharth Varma', 'Mumbai', 'Google Search Ads', 'Rohan Deshmukh', '09:15 AM', 'Contacted'],
+      ['LD-8892', 'Pooja Hegde', 'Bangalore', 'Moneycontrol Partner', 'Sneha Kapur', '09:30 AM', 'In Progress'],
+      ['LD-8893', 'Karthik Raja', 'Chennai', 'Economic Times', 'Neha Reddy', '09:45 AM', 'Interested'],
+      ['LD-8894', 'Harish Chandra', 'Delhi NCR', 'Facebook Campaign', 'Kabir Varma', '10:00 AM', 'Payment Due'],
       ['LD-8895', 'Meenakshi Iyer', 'Hyderabad', 'Direct Portal Inflow', 'Ananya Sen', '10:15 AM', 'Contacted']
     ]
   },
@@ -110,11 +110,11 @@ const REPORT_CONFIGS: ReportCardConfig[] = [
     ],
     columns: ['Emp ID', 'Staff Name', 'Designation', 'Desk', 'Monthly Sales (₹)', 'Lead Conversion', 'Attendance'],
     sampleData: [
-      ['STK-001', 'Vinod Kumar K J', 'VP & Head of Desk', 'Management', '₹12,53,100 (Team)', '28.4%', 'Present'],
-      ['STK-004', 'Sirajul Fasal M', 'Senior Equity Advisor', 'Advisory', '₹3,45,000', '18.2%', 'Present'],
-      ['STK-005', 'Golla Yugendra', 'Senior Equity Advisor', 'Advisory', '₹3,10,000', '16.5%', 'Present'],
-      ['STK-006', 'Devika B', 'Equity Advisory Specialist', 'Commodities', '₹2,95,000', '15.8%', 'Present'],
-      ['STK-008', 'Rohan Deshmukh', 'Research Associate', 'Derivatives', '₹1,85,000', '14.1%', 'Present'],
+      ['STK-001', 'Arjun Malhotra', 'VP & Head of Desk', 'Management', '₹12,53,100 (Team)', '28.4%', 'Present'],
+      ['STK-004', 'Rohan Deshmukh', 'Senior Equity Advisor', 'Advisory', '₹3,45,000', '18.2%', 'Present'],
+      ['STK-005', 'Sneha Kapur', 'Senior Equity Advisor', 'Advisory', '₹3,10,000', '16.5%', 'Present'],
+      ['STK-006', 'Neha Reddy', 'Equity Advisory Specialist', 'Commodities', '₹2,95,000', '15.8%', 'Present'],
+      ['STK-008', 'Kabir Varma', 'Research Associate', 'Derivatives', '₹1,85,000', '14.1%', 'Present'],
       ['STK-009', 'Ananya Sen', 'Research Associate', 'Options', '₹1,18,100', '12.4%', 'Present']
     ]
   },
@@ -132,11 +132,11 @@ const REPORT_CONFIGS: ReportCardConfig[] = [
     ],
     columns: ['Call Time', 'Staff Name', 'Client Phone', 'Duration', 'Disposition', 'Call Recording', 'Notes'],
     sampleData: [
-      ['02:45 PM', 'Sirajul Fasal M', '+91 88911 71239', '04m 18s', 'Interested - Trial', 'Available', 'Requested NIFTY option levels'],
-      ['02:30 PM', 'Golla Yugendra', '+91 99485 27886', '06m 42s', 'Payment Link Sent', 'Available', 'Wants UPI payment link for 3m'],
-      ['02:15 PM', 'Devika B', '+91 99520 11804', '03m 10s', 'Follow-up Tomorrow', 'Available', 'In office meeting, call at 10 AM'],
-      ['01:50 PM', 'Rohan Deshmukh', '+91 94919 24562', '05m 22s', 'Subscribed', 'Available', 'Completed onboarding KYC'],
-      ['01:20 PM', 'Ananya Sen', '+91 84897 12962', '02m 05s', 'RNR (Ringing No Reply)', 'Not Connected', 'Dialled twice, retry 4 PM']
+      ['02:45 PM', 'Rohan Deshmukh', '+91 98201 00401', '04m 18s', 'Interested - Trial', 'Available', 'Requested NIFTY option levels'],
+      ['02:30 PM', 'Sneha Kapur', '+91 94250 00402', '06m 42s', 'Payment Link Sent', 'Available', 'Wants UPI payment link for 3m'],
+      ['02:15 PM', 'Neha Reddy', '+91 94140 00405', '03m 10s', 'Follow-up Tomorrow', 'Available', 'In office meeting, call at 10 AM'],
+      ['01:50 PM', 'Kabir Varma', '+91 98470 00403', '05m 22s', 'Subscribed', 'Available', 'Completed onboarding KYC'],
+      ['01:20 PM', 'Ananya Sen', '+91 94440 00407', '02m 05s', 'RNR (Ringing No Reply)', 'Not Connected', 'Dialled twice, retry 4 PM']
     ]
   },
   {

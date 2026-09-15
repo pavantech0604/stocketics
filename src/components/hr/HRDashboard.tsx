@@ -22,6 +22,7 @@ import { ComplianceVault } from './ComplianceVault';
 import { AdvisoryPipeline } from '../manager/AdvisoryPipeline';
 import { LeavePortal } from '../employee/LeavePortal';
 import { RefKPIGrid } from '../common/RefKPIGrid';
+import { MarketWorkspace } from '../market/MarketWorkspace';
 import { SalesExecutiveChart, ManagersChart } from '../common/ChartWidgets';
 import { TipsModal } from '../common/TipsModal';
 import { ApproveProspectView } from '../manager/ApproveProspectView';
@@ -44,6 +45,8 @@ import { HRGreetingMessengerView } from './HRGreetingMessengerView';
 import { HRTipArchiveView } from './HRTipArchiveView';
 import { ManagerMailView } from '../manager/ManagerMailView';
 import { ManagerSMSView } from '../manager/ManagerSMSView';
+import { HRTeamsManagementView } from './HRTeamsManagementView';
+import { RACallsDashboardView } from '../common/RACallsDashboardView';
 
 export const HRDashboard: React.FC = () => {
   const { 
@@ -58,6 +61,16 @@ export const HRDashboard: React.FC = () => {
   const [isTipsOpen, setIsTipsOpen] = useState(false);
   const [selectedKpiFilter, setSelectedKpiFilter] = useState<string | null>(null);
 
+  // Market Workspace Route
+  if (activeTab === 'market') {
+    return <MarketWorkspace />;
+  }
+
+  // Live Advisory Calls Route
+  if (activeTab === 'ra-calls' || activeTab === 'advisory-calls' || activeTab === 'trading-calls') {
+    return <RACallsDashboardView />;
+  }
+
   // 0. Configuration & Compliance Vault
   if (
     activeTab === 'configuration' || 
@@ -68,6 +81,16 @@ export const HRDashboard: React.FC = () => {
     activeTab === 'compliance-vault'
   ) {
     return <ComplianceVault />;
+  }
+
+  // Teams & Squads Architecture
+  if (
+    activeTab === 'teams' ||
+    activeTab === 'create-team' ||
+    activeTab === 'all-teams' ||
+    activeTab === 'assign-members'
+  ) {
+    return <HRTeamsManagementView />;
   }
 
   // 1. IT Problem View (Matching Reference Image 3)
@@ -308,11 +331,12 @@ export const HRDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Reference Title */}
-      <h1 className="page-title-ref">Dashboard</h1>
+      <div className="dashboard-full-container">
+        {/* Reference Title */}
+        <h1 className="page-title-ref">Dashboard</h1>
 
-      {/* 6+2 Vibrant Colorful KPI Grid (Direct Match to Reference Image 1) */}
-      <RefKPIGrid 
+          {/* 6+2 Vibrant Colorful KPI Grid (Direct Match to Reference Image 1) */}
+          <RefKPIGrid 
         customRow1={[
           { id: 'followup', value: 0, label: "Today's Followup", colorClass: 'kpi-c-blue' },
           { id: 'prospect', value: 0, label: "Today's Prospect", colorClass: 'kpi-c-orange' },
@@ -379,9 +403,9 @@ export const HRDashboard: React.FC = () => {
       </div>
 
       {/* Operational Two-Column Split: Workforce Roster & Pending Approvals */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem' }}>
+      <div className="dashboard-split-grid">
         {/* Left Column: Recent Staff Directory */}
-        <div className="card">
+        <div className="card" style={{ minWidth: 0 }}>
           <div className="card-header">
             <div>
               <div className="card-title">
@@ -398,50 +422,56 @@ export const HRDashboard: React.FC = () => {
             </button>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table className="data-table">
+          <div style={{ width: '100%', overflow: 'hidden' }}>
+            <table className="data-table" style={{ width: '100%', tableLayout: 'auto', minWidth: 0 }}>
               <thead>
                 <tr>
-                  <th>Personnel</th>
-                  <th>Department</th>
-                  <th>Status</th>
-                  <th>Join Date</th>
+                  <th style={{ padding: '0.65rem 0.5rem', textAlign: 'left' }}>Personnel</th>
+                  <th style={{ width: '95px', padding: '0.65rem 0.35rem', textAlign: 'center', whiteSpace: 'nowrap' }}>Department</th>
+                  <th style={{ width: '75px', padding: '0.65rem 0.35rem', textAlign: 'center', whiteSpace: 'nowrap' }}>Status</th>
+                  <th style={{ width: '100px', padding: '0.65rem 0.5rem', textAlign: 'right', whiteSpace: 'nowrap' }}>Join Date</th>
                 </tr>
               </thead>
               <tbody>
-                {employees.slice(0, 5).map(emp => (
-                  <tr key={emp.id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
-                          <img src={emp.avatar} alt={emp.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {employees.slice(0, 5).map(emp => {
+                  const deptSlug = emp.department ? emp.department.toLowerCase().replace(/\s+/g, '-') : 'ops';
+                  const statusSlug = emp.status ? emp.status.toLowerCase().replace(/\s+/g, '-') : 'active';
+                  return (
+                    <tr key={emp.id}>
+                      <td style={{ padding: '0.65rem 0.5rem', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+                            <img src={emp.avatar} alt={emp.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          </div>
+                          <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                            <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.82rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.name}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={emp.email}>{emp.email}</div>
+                          </div>
                         </div>
-                        <div>
-                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{emp.name}</div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{emp.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`dept-pill dept-${emp.department.toLowerCase()}`}>
-                        {emp.department}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-badge status-${emp.status.toLowerCase()}`}>
-                        {emp.status}
-                      </span>
-                    </td>
-                    <td className="mono-cell">{emp.joinDate}</td>
-                  </tr>
-                ))}
+                      </td>
+                      <td style={{ padding: '0.65rem 0.35rem', textAlign: 'center' }}>
+                        <span className={`dept-pill dept-${deptSlug}`}>
+                          {emp.department}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.65rem 0.35rem', textAlign: 'center' }}>
+                        <span className={`status-badge status-${statusSlug}`}>
+                          {emp.status}
+                        </span>
+                      </td>
+                      <td className="mono-cell" style={{ padding: '0.65rem 0.5rem', textAlign: 'right', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                        {emp.joinDate}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
 
         {/* Right Column: Pending Action Items */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+        <div className="card" style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <div className="card-header">
             <div>
               <div className="card-title">
@@ -499,6 +529,7 @@ export const HRDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+    </div>
 
       {/* Reference Tips Modal */}
       <TipsModal isOpen={isTipsOpen} onClose={() => setIsTipsOpen(false)} />

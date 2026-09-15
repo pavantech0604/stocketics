@@ -31,7 +31,7 @@ export const PayrollProcessor: React.FC = () => {
             Payroll & Compensation Engine
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            Monthly salary disbursements, tax withholdings, statutory PF, and advisory commissions for Apex Edge.
+            Monthly salary disbursements, tax withholdings, statutory PF, and advisory commissions for Stocketics Advisory.
           </p>
         </div>
 
@@ -109,8 +109,8 @@ export const PayrollProcessor: React.FC = () => {
           <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Personnel Compensation Roster</div>
           <span className="badge badge-active">Cycle #09 (Due in 3 Days)</span>
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="data-table">
+        <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+          <table className="data-table table-min-750">
             <thead>
               <tr>
                 <th>Personnel</th>

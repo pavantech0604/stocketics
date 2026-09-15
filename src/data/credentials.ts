@@ -15,7 +15,7 @@ export interface RoleCredential {
 export const DEFAULT_ROLE_CREDENTIALS: Record<UserRole, RoleCredential> = {
   manager: {
     role: 'manager',
-    name: 'Vinod Kumar K J',
+    name: 'Arjun Malhotra',
     title: 'VP, Equity Advisory & Markets',
     department: 'Equity Research & Advisory',
     email: 'manager@stocketics.com',
@@ -26,7 +26,7 @@ export const DEFAULT_ROLE_CREDENTIALS: Record<UserRole, RoleCredential> = {
   },
   hr: {
     role: 'hr',
-    name: 'Sindhu H S',
+    name: 'Priya Sharma',
     title: 'Head of People & HR Operations',
     department: 'Human Resources & Operations',
     email: 'hr@stocketics.com',
@@ -45,6 +45,17 @@ export const DEFAULT_ROLE_CREDENTIALS: Record<UserRole, RoleCredential> = {
     badgeColor: '#10b981',
     description: 'Manages fresh retail leads, live market advisory, customer SMS dispatches & personal work shifts.',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+  },
+  team_leader: {
+    role: 'team_leader',
+    name: 'Vikram Desai',
+    title: 'Team Leader, Equity Advisory',
+    department: 'Equity Advisory Desk',
+    email: 'teamlead@stocketics.com',
+    password: 'teamlead123',
+    badgeColor: '#f59e0b',
+    description: 'Leads and coaches the equity advisory team, tracks daily performance, reassigns leads, and monitors team call quality.',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80'
   }
 };
 

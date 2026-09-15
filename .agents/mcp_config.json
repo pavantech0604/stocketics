@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "openrouter": {
+      "command": "node",
+      "args": [
+        "e:/Apex/.agents/mcp/openrouter-server.cjs"
+      ],
+      "env": {
+        "OPENROUTER_API_KEY": ""
+      }
+    }
+  }
+}

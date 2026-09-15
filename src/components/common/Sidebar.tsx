@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../state/store';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, X, AlertCircle, ArrowRight, PhoneCall } from 'lucide-react';
+import { findClientByPhone, searchDetailedClients, normalizePhone, INITIAL_DETAILED_CLIENTS } from '../../data/clientDatabase';
 import { 
   AddNewLeadModal, 
   CallLogsModal, 
@@ -21,7 +22,7 @@ import {
 } from './ProfileModals';
 import stocketicsLogo from '../../assets/logo.jpg';
 
-// Exact SVG Icons matching the reference CRM at http://106.51.67.248:209/
+// Enterprise SVG Icons matching CRM Specification
 // Profile Dropdown Icons matching reference screenshots (Images 1, 2, 3)
 const ProfileMenuIcon: React.FC = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -71,6 +72,14 @@ const DashboardIcon: React.FC = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
     <path d="m12 14 4-4" />
     <path d="M3.34 19a10 10 0 1 1 17.32 0" />
+  </svg>
+);
+
+const MarketMenuIcon: React.FC = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <line x1="18" y1="20" x2="18" y2="4" />
+    <line x1="6" y1="20" x2="6" y2="16" />
+    <line x1="12" y1="20" x2="12" y2="10" />
   </svg>
 );
 
@@ -151,6 +160,24 @@ const TicketTrayIcon: React.FC = () => (
   </svg>
 );
 
+const RadioIcon: React.FC = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
+    <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" />
+    <circle cx="12" cy="12" r="2" />
+    <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" />
+    <path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1" />
+  </svg>
+);
+
+const FileCheckIcon: React.FC = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+    <polyline points="14 2 14 8 20 8" />
+    <path d="m9 15 2 2 4-4" />
+  </svg>
+);
+
 interface SubItem {
   id: string;
   label: string;
@@ -169,12 +196,15 @@ export const Sidebar: React.FC = () => {
   const { 
     role,
     currentUser,
+    hasPermission,
     isSidebarCollapsed, 
     toggleSidebar, 
     activeTab, 
     setActiveTab, 
     showToast,
-    setCommandPaletteOpen 
+    setCommandPaletteOpen,
+    clientSearchQuery,
+    setClientSearchQuery 
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -355,9 +385,19 @@ export const Sidebar: React.FC = () => {
     { id: 'expenses-head-list', label: 'Expenses Head list' },
   ];
 
-  // HR SPECIFIC MENU (Exact 22 items matching HR Screenshots)
+  // Sub-Options under Teams (HR)
+  const teamsSubItems: SubItem[] = [
+    { id: 'all-teams', label: 'All Teams' },
+    { id: 'create-team', label: 'Create Team' },
+    { id: 'assign-members', label: 'Assign Members' },
+  ];
+
+  // HR SPECIFIC MENU (Exact items matching HR Screenshots + Market)
   const hrMenuItems: NavMenuItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
+    { id: 'market', label: 'Market', icon: <MarketMenuIcon />, hasSubmenu: false },
+    { id: 'ra-calls', label: 'Live Advisory Calls', icon: <RadioIcon />, hasSubmenu: false },
+    { id: 'teams', label: 'Teams', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: teamsSubItems },
     { id: 'leads', label: 'Leads', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: leadsSubItems },
     { id: 'it-problem', label: 'IT Problem', icon: <CircleChevronRightIcon />, hasSubmenu: false },
     { id: 'configuration', label: 'Configuration', icon: <ConfigurationIcon />, hasSubmenu: false },
@@ -381,9 +421,12 @@ export const Sidebar: React.FC = () => {
     { id: 'expenses', label: 'Expenses', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: expensesSubItems },
   ];
 
-  // MANAGER SPECIFIC MENU (Includes KYC Details and Bulk Leads Segregation)
+  // MANAGER SPECIFIC MENU (Includes KYC Details, Bulk Leads, and Market Workspace)
   const managerMenuItems: NavMenuItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
+    { id: 'market', label: 'Market', icon: <MarketMenuIcon />, hasSubmenu: false },
+    { id: 'ra-calls', label: 'Live Advisory Calls', icon: <RadioIcon />, hasSubmenu: false },
+    { id: 'expiry-sms', label: 'Subscription Expiry SMS', icon: <SMSIcon />, hasSubmenu: false },
     { id: 'leads', label: 'Leads', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: managerLeadsSubItems },
     { id: 'kyc', label: 'KYC Details', icon: <ShieldCheckIcon />, hasSubmenu: true, subItems: kycSubItems },
     { id: 'approve', label: 'Approve', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: approveSubItems },
@@ -398,9 +441,12 @@ export const Sidebar: React.FC = () => {
     { id: 'target', label: 'Target', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: targetSubItems },
   ];
 
-  // EMPLOYEE SPECIFIC MENU (Exact 8 items matching Employee Screenshots 1 and 2)
+  // EMPLOYEE SPECIFIC MENU (Includes Market Workspace when permitted)
   const employeeMenuItems: NavMenuItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
+    { id: 'market', label: 'Market', icon: <MarketMenuIcon />, hasSubmenu: false },
+    { id: 'ra-calls', label: 'Live Advisory Calls', icon: <RadioIcon />, hasSubmenu: false },
+    { id: 'kyc-upload', label: 'KYC Verification', icon: <FileCheckIcon />, hasSubmenu: false },
     { id: 'leads', label: 'Leads', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: employeeLeadsSubItems },
     { id: 'client', label: 'Client', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: clientSubItems },
     { id: 'it-problem', label: 'IT Problem', icon: <CircleChevronRightIcon />, hasSubmenu: false },
@@ -410,8 +456,43 @@ export const Sidebar: React.FC = () => {
     { id: 'leave', label: 'Leave', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: employeeLeaveSubItems },
   ];
 
-  // Select menu according to current role
-  const menuItems = role === 'hr' ? hrMenuItems : role === 'employee' ? employeeMenuItems : managerMenuItems;
+  // TEAM LEADER SPECIFIC MENU (Includes Market Workspace)
+  const teamLeaderCoachingSubItems: SubItem[] = [
+    { id: 'coaching-add', label: 'Add Note' },
+    { id: 'coaching-history', label: 'Coaching History' },
+  ];
+
+  const teamLeaderSMSSubItems: SubItem[] = [
+    { id: 'team-sms-send', label: 'Send Team SMS' },
+    { id: 'team-sms-delivery', label: 'SMS Delivery Report' },
+    { id: 'team-sms-broadcast-history', label: 'Broadcast History' },
+  ];
+
+  const teamLeaderMenuItems: NavMenuItem[] = [
+    { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
+    { id: 'market', label: 'Market', icon: <MarketMenuIcon />, hasSubmenu: false },
+    { id: 'ra-calls', label: 'Live Advisory Calls', icon: <RadioIcon />, hasSubmenu: false },
+    { id: 'leads', label: 'Leads', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: employeeLeadsSubItems },
+    { id: 'client', label: 'Client', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: clientSubItems },
+    { id: 'lead-reassignment', label: 'Lead Reassignment', icon: <TargetIcon />, hasSubmenu: false },
+    { id: 'team-leaderboard', label: 'Team Leaderboard', icon: <ReportIcon />, hasSubmenu: false },
+    { id: 'coaching', label: 'Coaching Hub', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: teamLeaderCoachingSubItems },
+    { id: 'daily-standup', label: 'Daily Standup', icon: <CircleChevronRightIcon />, hasSubmenu: false },
+    { id: 'team-targets', label: 'Team Targets', icon: <TargetIcon />, hasSubmenu: false },
+    { id: 'call-logs', label: 'Call Logs', icon: <CircleChevronRightIcon />, hasSubmenu: false },
+    { id: 'team-sms', label: 'Team SMS', icon: <SMSIcon />, hasSubmenu: true, subItems: teamLeaderSMSSubItems },
+    { id: 'it-problem', label: 'IT Problem', icon: <CircleChevronRightIcon />, hasSubmenu: false },
+    { id: 'leave', label: 'Leave', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: employeeLeaveSubItems },
+  ];
+
+  // Select menu according to current role, filtering by permissions
+  const rawMenuItems = role === 'hr' ? hrMenuItems : role === 'employee' ? employeeMenuItems : role === 'team_leader' ? teamLeaderMenuItems : managerMenuItems;
+  const menuItems = rawMenuItems.filter(item => {
+    if (item.id === 'market') {
+      return hasPermission('market_workspace_view');
+    }
+    return true;
+  });
 
   // Synchronize expanded menu state with activeTab and role.
   // On Dashboard or role change, all submenus are collapsed so user sees a pristine Dashboard.
@@ -471,12 +552,63 @@ export const Sidebar: React.FC = () => {
     }
   };
 
-  const filteredItems = menuItems.filter(item => {
-    const q = searchQuery.toLowerCase();
-    if (item.label.toLowerCase().includes(q)) return true;
-    if (item.subItems && item.subItems.some(s => s.label.toLowerCase().includes(q))) return true;
-    return false;
-  });
+  // Handle Redirection to Search Results page
+  const handleRedirectToSearchResults = (queryVal: string, matchedClient?: any) => {
+    const targetQuery = queryVal.trim();
+    if (!targetQuery) return;
+
+    setClientSearchQuery(targetQuery);
+    setActiveTab('active-clients');
+    
+    // Automatically expand the Client menu in sidebar to reflect the active tab
+    setExpandedMenus({ client: true });
+
+    if (matchedClient) {
+      showToast(`Redirecting to Search Results for ${matchedClient.clientName}...`, 'info');
+    } else {
+      showToast(`Searching clients for: ${targetQuery}...`, 'info');
+    }
+  };
+
+  const handleSidebarSearchChange = (val: string) => {
+    setSearchQuery(val);
+
+    // HR does not deal with clients or client lookups
+    if (role === 'hr') return;
+
+    const clean = normalizePhone(val);
+    // If user typed or pasted a complete 10-digit phone number, auto-redirect directly!
+    if (clean.length === 10) {
+      const match = findClientByPhone(val);
+      if (match) {
+        handleRedirectToSearchResults(val, match);
+      }
+    }
+  };
+
+  const handleSidebarSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      if (role === 'hr') return;
+      e.preventDefault();
+      const match = findClientByPhone(searchQuery);
+      handleRedirectToSearchResults(searchQuery, match);
+    }
+  };
+
+  // Keep other sidebar options as it is when searching phone numbers or client terms:
+  const isNumericSearch = role !== 'hr' && /\d/.test(searchQuery.trim());
+  const filteredItems = isNumericSearch
+    ? menuItems // KEEP ALL SIDEBAR OPTIONS DISPLAYED AS IT IS!
+    : menuItems.filter(item => {
+        const q = searchQuery.toLowerCase().trim();
+        if (!q) return true;
+        if (item.label.toLowerCase().includes(q)) return true;
+        if (item.subItems && item.subItems.some(s => s.label.toLowerCase().includes(q))) return true;
+        return false;
+      });
+
+  const matchedClients = searchQuery.trim() ? searchDetailedClients(searchQuery) : [];
+  const topMatchedClient = matchedClients[0];
 
   return (
     <>
@@ -499,14 +631,64 @@ export const Sidebar: React.FC = () => {
         {/* Sidebar Search Bar (Matching Reference) */}
         <div className="sidebar-search-wrap">
           <div className="sidebar-search-box">
+            <Search size={14} className="sidebar-search-icon" />
             <input 
               type="text"
-              placeholder="Search"
+              placeholder={role === 'hr' ? 'Search menu, personnel...' : 'Search phone, client, menu...'}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label="Search CRM menu"
+              onChange={(e) => handleSidebarSearchChange(e.target.value)}
+              onKeyDown={handleSidebarSearchKeyDown}
+              aria-label="Search phone number or CRM menu"
             />
+            {searchQuery && (
+              <button 
+                type="button" 
+                className="sidebar-search-clear"
+                onClick={() => setSearchQuery('')}
+                title="Clear search"
+                aria-label="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
           </div>
+
+          {/* Quick Client Match Banner (Advisors & Managers only; HR does not deal with clients) */}
+          {role !== 'hr' && topMatchedClient && (
+            <div 
+              className="sidebar-search-client-card" 
+              onClick={() => handleRedirectToSearchResults(searchQuery, topMatchedClient)}
+              title="Click to redirect to Search Results"
+            >
+              <div className="sidebar-client-header">
+                <span className="sidebar-client-tag">
+                  {topMatchedClient.response === 'CLOSED OWN' ? 'ACTIVE CLIENT' : topMatchedClient.response}
+                </span>
+                <span className="sidebar-client-code">{topMatchedClient.clientCode}</span>
+              </div>
+              <div className="sidebar-client-name">{topMatchedClient.clientName}</div>
+              <div className="sidebar-client-phone">📞 {topMatchedClient.mobile}</div>
+              <div className="sidebar-client-sub">{topMatchedClient.serviceName} • {topMatchedClient.ownerName}</div>
+              <button 
+                type="button" 
+                className="btn-sidebar-view-results"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRedirectToSearchResults(searchQuery, topMatchedClient);
+                }}
+              >
+                View in Search Results <ArrowRight size={12} />
+              </button>
+            </div>
+          )}
+
+          {/* If 3+ digits typed and no client found (Advisors & Managers only) */}
+          {role !== 'hr' && isNumericSearch && searchQuery.trim().length >= 3 && !topMatchedClient && (
+            <div className="sidebar-search-no-match">
+              <AlertCircle size={13} style={{ flexShrink: 0 }} />
+              <span>No client found for "{searchQuery}"</span>
+            </div>
+          )}
         </div>
 
         {/* Menu Items with Submenus matching reference CRM */}
@@ -578,8 +760,8 @@ export const Sidebar: React.FC = () => {
                 <span>Profile</span>
               </button>
 
-              {/* Option 2: HR Policy (HR & Employee) */}
-              {(role === 'hr' || role === 'employee') && (
+              {/* Option 2: HR Policy (HR, Employee & Team Leader) */}
+              {(role === 'hr' || role === 'employee' || role === 'team_leader') && (
                 <button 
                   type="button" 
                   className="profile-popup-item"
@@ -593,8 +775,8 @@ export const Sidebar: React.FC = () => {
                 </button>
               )}
 
-              {/* Option 3: Training Script (HR & Employee) */}
-              {(role === 'hr' || role === 'employee') && (
+              {/* Option 3: Training Script (HR, Employee & Team Leader) */}
+              {(role === 'hr' || role === 'employee' || role === 'team_leader') && (
                 <button 
                   type="button" 
                   className="profile-popup-item"
@@ -651,7 +833,7 @@ export const Sidebar: React.FC = () => {
               <div className="profile-details-wrap">
                 <div className="profile-user-name">{currentUser.name}</div>
                 <div className="profile-user-role">
-                  {role === 'manager' ? 'VP / Manager' : role === 'hr' ? 'HR Director' : 'Equity Advisor'}
+                  {role === 'manager' ? 'VP / Manager' : role === 'hr' ? 'HR Director' : role === 'team_leader' ? 'Team Leader' : 'Equity Advisor'}
                 </div>
               </div>
             )}

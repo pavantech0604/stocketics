@@ -458,42 +458,44 @@ export const HRPayrollView: React.FC = () => {
       {/* VIEW: ALLOWANCE LIST */}
       {currentTab === 'allowance-list' && (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                <th style={{ padding: '0.85rem 1.25rem' }}>Allowance Name</th>
-                <th style={{ padding: '0.85rem 1rem' }}>Type</th>
-                <th style={{ padding: '0.85rem 1rem' }}>Amount</th>
-                <th style={{ padding: '0.85rem 1rem' }}>Department Eligibility</th>
-                <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allowances.map(alw => (
-                <tr key={alw.id} style={{ borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
-                  <td style={{ padding: '0.85rem 1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {alw.name}
-                  </td>
-                  <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)' }}>
-                    {alw.type}
-                  </td>
-                  <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: 'var(--success)' }}>
-                    ₹{alw.amount.toLocaleString('en-IN')}
-                  </td>
-                  <td style={{ padding: '0.85rem 1rem' }}>
-                    <span className="delta-badge" style={{ background: '#dbeafe', color: '#1d4ed8', fontSize: '0.74rem' }}>
-                      {alw.applicableDepartment}
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
-                    <button className="btn btn-outline btn-sm" onClick={() => showToast(`Editing allowance ${alw.name}`, 'info')}>
-                      Edit
-                    </button>
-                  </td>
+          <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Allowance Name</th>
+                  <th style={{ padding: '0.85rem 1rem' }}>Type</th>
+                  <th style={{ padding: '0.85rem 1rem' }}>Amount</th>
+                  <th style={{ padding: '0.85rem 1rem' }}>Department Eligibility</th>
+                  <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {allowances.map(alw => (
+                  <tr key={alw.id} style={{ borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
+                    <td style={{ padding: '0.85rem 1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {alw.name}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)' }}>
+                      {alw.type}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: 'var(--success)' }}>
+                      ₹{alw.amount.toLocaleString('en-IN')}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem' }}>
+                      <span className="delta-badge" style={{ background: '#dbeafe', color: '#1d4ed8', fontSize: '0.74rem' }}>
+                        {alw.applicableDepartment}
+                      </span>
+                    </td>
+                    <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
+                      <button className="btn btn-outline btn-sm" onClick={() => showToast(`Editing allowance ${alw.name}`, 'info')}>
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -558,42 +560,44 @@ export const HRPayrollView: React.FC = () => {
       {/* VIEW: DEDUCTION LIST */}
       {currentTab === 'deduction-list' && (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                <th style={{ padding: '0.85rem 1.25rem' }}>Deduction Name</th>
-                <th style={{ padding: '0.85rem 1rem' }}>Classification</th>
-                <th style={{ padding: '0.85rem 1rem' }}>Deduction Rate</th>
-                <th style={{ padding: '0.85rem 1rem' }}>Applicable Staff</th>
-                <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {deductions.map(ded => (
-                <tr key={ded.id} style={{ borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
-                  <td style={{ padding: '0.85rem 1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {ded.name}
-                  </td>
-                  <td style={{ padding: '0.85rem 1rem' }}>
-                    <span className="delta-badge" style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '0.74rem' }}>
-                      {ded.deductionType}
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {ded.amountOrPercent}
-                  </td>
-                  <td style={{ padding: '0.85rem 1rem', color: 'var(--text-muted)' }}>
-                    {ded.applicableTo}
-                  </td>
-                  <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
-                    <button className="btn btn-outline btn-sm" onClick={() => showToast(`Editing deduction rule ${ded.name}`, 'info')}>
-                      Edit
-                    </button>
-                  </td>
+          <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Deduction Name</th>
+                  <th style={{ padding: '0.85rem 1rem' }}>Classification</th>
+                  <th style={{ padding: '0.85rem 1rem' }}>Deduction Rate</th>
+                  <th style={{ padding: '0.85rem 1rem' }}>Applicable Staff</th>
+                  <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {deductions.map(ded => (
+                  <tr key={ded.id} style={{ borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
+                    <td style={{ padding: '0.85rem 1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {ded.name}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem' }}>
+                      <span className="delta-badge" style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '0.74rem' }}>
+                        {ded.deductionType}
+                      </span>
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {ded.amountOrPercent}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', color: 'var(--text-muted)' }}>
+                      {ded.applicableTo}
+                    </td>
+                    <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
+                      <button className="btn btn-outline btn-sm" onClick={() => showToast(`Editing deduction rule ${ded.name}`, 'info')}>
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -630,7 +634,7 @@ export const HRPayrollView: React.FC = () => {
                     <option value="Aditya Roy">Aditya Roy</option>
                     <option value="Sneha Kapur">Sneha Kapur</option>
                     <option value="Karan Mehra">Karan Mehra</option>
-                    <option value="Sirajul Fasal M">Sirajul Fasal M</option>
+                    <option value="Kabir Varma">Kabir Varma</option>
                   </select>
                 </div>
 
@@ -902,48 +906,50 @@ export const HRPayrollView: React.FC = () => {
       {/* VIEW: SALARY LIST */}
       {currentTab === 'salary-list' && (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                <th style={{ padding: '0.85rem 1.25rem' }}>Employee Details</th>
-                <th style={{ padding: '0.85rem 1rem' }}>Payroll Period</th>
-                <th style={{ padding: '0.85rem 1rem' }}>Gross (Basic + HRA + Alw)</th>
-                <th style={{ padding: '0.85rem 1rem' }}>Deductions</th>
-                <th style={{ padding: '0.85rem 1rem' }}>Net Disbursed</th>
-                <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Payslip</th>
-              </tr>
-            </thead>
-            <tbody>
-              {salaries.map(sal => (
-                <tr key={sal.id} style={{ borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
-                  <td style={{ padding: '0.85rem 1.25rem' }}>
-                    <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{sal.employeeName}</div>
-                    <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{sal.role}</div>
-                  </td>
-                  <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)' }}>
-                    {sal.month}
-                  </td>
-                  <td style={{ padding: '0.85rem 1rem', fontWeight: 600 }}>
-                    ₹{(sal.basicSalary + sal.hra + sal.allowancesTotal).toLocaleString('en-IN')}
-                  </td>
-                  <td style={{ padding: '0.85rem 1rem', color: 'var(--error)', fontWeight: 600 }}>
-                    -₹{sal.deductionsTotal.toLocaleString('en-IN')}
-                  </td>
-                  <td style={{ padding: '0.85rem 1rem', fontWeight: 800, color: 'var(--success)' }}>
-                    ₹{sal.netSalary.toLocaleString('en-IN')}
-                  </td>
-                  <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
-                    <button 
-                      className="btn btn-outline btn-sm"
-                      onClick={() => showToast(`Downloading PDF Payslip for ${sal.employeeName} (${sal.month})`, 'success')}
-                    >
-                      <Download size={13} /> Payslip
-                    </button>
-                  </td>
+          <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Employee Details</th>
+                  <th style={{ padding: '0.85rem 1rem' }}>Payroll Period</th>
+                  <th style={{ padding: '0.85rem 1rem' }}>Gross (Basic + HRA + Alw)</th>
+                  <th style={{ padding: '0.85rem 1rem' }}>Deductions</th>
+                  <th style={{ padding: '0.85rem 1rem' }}>Net Disbursed</th>
+                  <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Payslip</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {salaries.map(sal => (
+                  <tr key={sal.id} style={{ borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
+                    <td style={{ padding: '0.85rem 1.25rem' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{sal.employeeName}</div>
+                      <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{sal.role}</div>
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)' }}>
+                      {sal.month}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', fontWeight: 600 }}>
+                      ₹{(sal.basicSalary + sal.hra + sal.allowancesTotal).toLocaleString('en-IN')}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', color: 'var(--error)', fontWeight: 600 }}>
+                      -₹{sal.deductionsTotal.toLocaleString('en-IN')}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', fontWeight: 800, color: 'var(--success)' }}>
+                      ₹{sal.netSalary.toLocaleString('en-IN')}
+                    </td>
+                    <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
+                      <button 
+                        className="btn btn-outline btn-sm"
+                        onClick={() => showToast(`Downloading PDF Payslip for ${sal.employeeName} (${sal.month})`, 'success')}
+                      >
+                        <Download size={13} /> Payslip
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

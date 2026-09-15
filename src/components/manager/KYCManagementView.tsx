@@ -22,7 +22,8 @@ import {
 } from 'lucide-react';
 
 export const KYCManagementView: React.FC = () => {
-  const { kycRecords, approveKYC, rejectKYC, setActiveTab, showToast } = useApp();
+  const { kycRecords, approveKYC, rejectKYC, kycDocuments, reviewKYCDocument, setActiveTab, showToast } = useApp();
+  const [mainViewMode, setMainViewMode] = useState<'dossiers' | 'documents_queue'>('dossiers');
   const [selectedTab, setSelectedTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [riskFilter, setRiskFilter] = useState<string>('All');
@@ -32,6 +33,10 @@ export const KYCManagementView: React.FC = () => {
   const [rejectingRecord, setRejectingRecord] = useState<KYCRecord | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [selectedDocType, setSelectedDocType] = useState<'pan' | 'aadhaar' | 'bank'>('pan');
+
+  // Document queue review state
+  const [rejectingDocId, setRejectingDocId] = useState<string | null>(null);
+  const [docRemarks, setDocRemarks] = useState<string>('');
 
   // Filter logic
   const filteredRecords = kycRecords.filter(record => {
@@ -152,7 +157,20 @@ export const KYCManagementView: React.FC = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button 
+            className={`btn btn-sm ${mainViewMode === 'dossiers' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setMainViewMode('dossiers')}
+          >
+            Client Dossiers ({kycRecords.length})
+          </button>
+          <button 
+            className={`btn btn-sm ${mainViewMode === 'documents_queue' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setMainViewMode('documents_queue')}
+            style={mainViewMode === 'documents_queue' ? { background: '#f59e0b', borderColor: '#f59e0b', color: '#fff' } : {}}
+          >
+            Uploads Review Queue ({kycDocuments.filter(d => d.status === 'Pending').length} Pending)
+          </button>
           <button 
             className="btn btn-secondary btn-sm"
             onClick={() => showToast('Exporting KYC Audit Log in CSV format...', 'info')}
@@ -164,7 +182,9 @@ export const KYCManagementView: React.FC = () => {
       </div>
 
       {/* 4 Fast KPI Summary Metric Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+      {mainViewMode === 'dossiers' && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
         <div className="card" style={{ padding: '1.1rem', borderLeft: '4px solid var(--stocketics-blue-500)' }}>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total KYC Applications</div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.25rem' }}>{kycRecords.length}</div>
@@ -388,6 +408,157 @@ export const KYCManagementView: React.FC = () => {
           </table>
         </div>
       </div>
+      </>
+      )}
+
+      {/* ITEM-BY-ITEM DOCUMENT UPLOAD REVIEW QUEUE */}
+      {mainViewMode === 'documents_queue' && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="card-header" style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-surface-alt)' }}>
+            <div>
+              <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <ShieldCheck size={18} style={{ color: '#f59e0b' }} />
+                <span>Uploaded Documents Verification Queue ({kycDocuments.length})</span>
+              </div>
+              <div className="card-subtitle">Review and verify employee-submitted PAN, Aadhaar, and Bank proof uploads</div>
+            </div>
+          </div>
+
+          <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+            <table className="data-table" style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.84rem' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', textTransform: 'uppercase', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  <th style={{ padding: '0.75rem 1rem' }}>Client Details</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Document Type</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Document ID</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Attachment File</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Uploaded By</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Status & Remarks</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Review Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {kycDocuments.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      No uploaded documents in verification queue.
+                    </td>
+                  </tr>
+                ) : (
+                  kycDocuments.map(doc => (
+                    <tr key={doc.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{doc.clientName}</div>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{doc.clientMobile}</div>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        {doc.documentType}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <code style={{ background: 'rgba(0,0,0,0.15)', padding: '2px 6px', borderRadius: 4, color: 'var(--stocketics-blue-500)', fontSize: '0.78rem' }}>
+                          {doc.documentNumber}
+                        </code>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          <FileText size={14} color="#94a3b8" />
+                          <span>{doc.fileName}</span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>({doc.fileSize})</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        <div>{doc.uploadedBy}</div>
+                        <div style={{ fontSize: '0.7rem' }}>{doc.createdAt}</div>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <span className={`delta-badge ${doc.status === 'Verified' ? 'positive' : doc.status === 'Rejected' ? 'negative' : 'warning'}`}>
+                          {doc.status}
+                        </span>
+                        {doc.remarks && (
+                          <div style={{ fontSize: '0.72rem', color: doc.status === 'Rejected' ? '#dc2626' : 'var(--text-muted)', marginTop: 3, maxWidth: 200 }}>
+                            {doc.remarks}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                          {doc.status !== 'Verified' && (
+                            <button
+                              className="btn btn-success btn-sm"
+                              onClick={() => reviewKYCDocument(doc.id, 'Verified', 'Document verified and approved by Manager.')}
+                              style={{ padding: '4px 8px', fontSize: '0.74rem' }}
+                            >
+                              <CheckCircle2 size={12} /> Verify
+                            </button>
+                          )}
+                          {doc.status !== 'Rejected' && (
+                            <button
+                              className="btn btn-outline btn-sm"
+                              onClick={() => {
+                                setRejectingDocId(doc.id);
+                                setDocRemarks('Photo blurry / ID number mismatch against bank details.');
+                              }}
+                              style={{ padding: '4px 8px', fontSize: '0.74rem', color: '#dc2626', borderColor: '#fca5a5' }}
+                            >
+                              <X size={12} /> Reject
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal for Document Rejection Remarks */}
+      {rejectingDocId && (
+        <div className="tips-modal-backdrop" onClick={() => setRejectingDocId(null)}>
+          <div className="tips-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+            <div className="tips-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <AlertTriangle size={18} color="#dc2626" />
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0 }}>Reject KYC Document</h3>
+              </div>
+              <button className="tips-modal-close" onClick={() => setRejectingDocId(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '1.25rem' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
+                Enter Rejection Remarks for Employee:
+              </label>
+              <textarea
+                rows={3}
+                className="form-input"
+                value={docRemarks}
+                onChange={(e) => setDocRemarks(e.target.value)}
+                style={{ width: '100%', marginBottom: '1rem' }}
+                placeholder="State reason (e.g. Blurred photo, Signature missing)..."
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => setRejectingDocId(null)}>Cancel</button>
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ background: '#dc2626', borderColor: '#dc2626' }}
+                  onClick={() => {
+                    if (rejectingDocId) {
+                      reviewKYCDocument(rejectingDocId, 'Rejected', docRemarks || 'Rejected by Manager.');
+                      setRejectingDocId(null);
+                      setDocRemarks('');
+                    }
+                  }}
+                >
+                  Confirm Rejection
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DOCUMENT INSPECTION MODAL */}
       {inspectRecord && (

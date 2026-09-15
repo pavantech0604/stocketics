@@ -37,7 +37,7 @@ const INITIAL_TICKETS: ITTicket[] = [
     problemFor: 'Network / Internet',
     description: 'Trading floor router switch 2 experiencing packet drops during NSE opening bell (09:15 AM).',
     createDate: '08-09-2026',
-    createBy: 'Sirajul Fasal M',
+    createBy: 'Rohan Deshmukh',
     modifiedBy: 'IT Admin (Ramesh)',
     status: 'In Progress',
     priority: 'Urgent'
@@ -47,7 +47,7 @@ const INITIAL_TICKETS: ITTicket[] = [
     problemFor: 'Biometrics / Punch Device',
     description: 'Floor 3 biometric fingerprint scanner failed to sync morning punch records for 4 executives.',
     createDate: '08-09-2026',
-    createBy: 'Sindhu H S',
+    createBy: 'Priya Sharma',
     modifiedBy: 'IT Admin (Ramesh)',
     status: 'Open',
     priority: 'High'
@@ -55,9 +55,9 @@ const INITIAL_TICKETS: ITTicket[] = [
   {
     id: 'it-103',
     problemFor: 'CRM Access & Permissions',
-    description: 'New advisor Devika B requires HNI derivative lead allocation rights in Stocketics CRM.',
+    description: 'New advisor Sneha Kapur requires HNI derivative lead allocation rights in Stocketics CRM.',
     createDate: '07-09-2026',
-    createBy: 'Vinod Kumar K J',
+    createBy: 'Arjun Malhotra',
     modifiedBy: 'Super Admin',
     status: 'Resolved',
     priority: 'Medium'
@@ -116,7 +116,7 @@ export const ITProblemView: React.FC = () => {
       problemFor: newProblemFor,
       description: newDescription.trim(),
       createDate: '08-09-2026',
-      createBy: 'Sindhu H S',
+      createBy: 'Priya Sharma',
       modifiedBy: 'Unassigned',
       status: 'Open',
       priority: newPriority
@@ -136,7 +136,7 @@ export const ITProblemView: React.FC = () => {
           t.status === 'Open' ? 'In Progress' :
           t.status === 'In Progress' ? 'Resolved' :
           t.status === 'Resolved' ? 'Closed' : 'Open';
-        return { ...t, status: nextStatus, modifiedBy: 'Sindhu H S' };
+        return { ...t, status: nextStatus, modifiedBy: 'Priya Sharma' };
       })
     );
     showToast('Updated ticket status', 'info');

@@ -28,7 +28,7 @@ interface ManagerLeaveEntry {
 const INITIAL_MANAGER_LEAVES: ManagerLeaveEntry[] = [
   {
     id: 'l-01',
-    applicant: 'Sirajul Fasal M',
+    applicant: 'Rohan Deshmukh',
     leaveFor: 'Medical Checkup',
     reason: 'Routine health checkup and eye consultation.',
     fromDate: '2026-09-12',
@@ -37,7 +37,7 @@ const INITIAL_MANAGER_LEAVES: ManagerLeaveEntry[] = [
   },
   {
     id: 'l-02',
-    applicant: 'Devika B',
+    applicant: 'Sneha Kapur',
     leaveFor: 'Family Occasion',
     reason: 'Sister marriage ceremony in Coimbatore.',
     fromDate: '2026-09-15',
@@ -46,7 +46,7 @@ const INITIAL_MANAGER_LEAVES: ManagerLeaveEntry[] = [
   },
   {
     id: 'l-03',
-    applicant: 'Golla Yugendra',
+    applicant: 'Kabir Varma',
     leaveFor: 'Personal Emergency',
     reason: 'Bank documentation & property registration.',
     fromDate: '2026-09-20',
@@ -76,7 +76,7 @@ export const ManagerLeavePortal: React.FC = () => {
 
     const newEntry: ManagerLeaveEntry = {
       id: `l-${Date.now()}`,
-      applicant: 'Vinod Kumar K J (Self)',
+      applicant: 'Arjun Malhotra (Self)',
       leaveFor,
       reason,
       fromDate,

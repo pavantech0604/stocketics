@@ -12,9 +12,14 @@ interface AllConfirmedPaymentsViewProps {
 }
 
 export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> = ({ embedded = false }) => {
-  const { setActiveTab, showToast } = useApp();
+  const { setActiveTab, showToast, theme } = useApp();
+  const isDark = theme === 'dark';
   const [paymentsList, setPaymentsList] = useState<ConfirmedPaymentRecord[]>(() => {
     const saved = localStorage.getItem('apex_crm_confirmed_payments');
+    if (saved && (saved.includes('9940721833') || saved.includes('Naveen') || saved.includes('tiruvannamalai') || saved.includes('Ravi R Raju'))) {
+      localStorage.removeItem('apex_crm_confirmed_payments');
+      return INITIAL_CONFIRMED_PAYMENTS_LIST;
+    }
     return saved ? JSON.parse(saved) : INITIAL_CONFIRMED_PAYMENTS_LIST;
   });
 
@@ -43,6 +48,7 @@ export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> =
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
   const [createInvoiceRecord, setCreateInvoiceRecord] = useState<ConfirmedPaymentRecord | null>(null);
   const [isCreateInvoiceOpen, setIsCreateInvoiceOpen] = useState(false);
+  const [selectedScreenshotRecord, setSelectedScreenshotRecord] = useState<ConfirmedPaymentRecord | null>(null);
   const [isTipsOpen, setIsTipsOpen] = useState(false);
 
   const handleCreateInvoice = (record: ConfirmedPaymentRecord) => {
@@ -161,7 +167,7 @@ export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> =
       )}
 
       {/* Filter Row Box (matching Image 2) */}
-      <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '1.25rem 1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+      <div className="payments-filter-card" style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '1.25rem 1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.85rem' }}>
           
           {/* Client Name */}
@@ -224,7 +230,7 @@ export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> =
                 fontSize: '13px',
                 color: '#334155',
                 outline: 'none',
-                background: '#f8fafc'
+                background: '#ffffff'
               }}
             />
           </div>
@@ -247,7 +253,7 @@ export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> =
                 fontSize: '13px',
                 color: '#334155',
                 outline: 'none',
-                background: '#f8fafc'
+                background: '#ffffff'
               }}
             />
           </div>
@@ -320,23 +326,23 @@ export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> =
       </div>
 
       {/* Confirmed Payment Table Card (matching Image 2) */}
-      <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px', color: '#1e293b' }}>
+      <div className="payments-table-card" style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+        <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+          <table className="payments-table" style={{ width: '100%', minWidth: '920px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '11.8px' }}>
             <thead>
-              <tr style={{ borderBottom: '1.5px solid #e2e8f0', background: '#ffffff' }}>
-                <th style={{ padding: '0.85rem 0.75rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>S no.</th>
-                <th style={{ padding: '0.85rem 0.75rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>Owner Name</th>
-                <th style={{ padding: '0.85rem 0.75rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>Client Name</th>
-                <th style={{ padding: '0.85rem 0.75rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>Mobile</th>
-                <th style={{ padding: '0.85rem 0.75rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>Bank</th>
-                <th style={{ padding: '0.85rem 0.75rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>Amount</th>
-                <th style={{ padding: '0.85rem 0.75rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>Staus</th>
-                <th style={{ padding: '0.85rem 0.75rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>Reason</th>
-                <th style={{ padding: '0.85rem 0.75rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>Description</th>
-                <th style={{ padding: '0.85rem 0.75rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>Client status</th>
-                <th style={{ padding: '0.85rem 0.75rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>Date</th>
-                <th style={{ padding: '0.85rem 0.75rem', fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>Action</th>
+              <tr style={{ background: '#ffffff', borderBottom: '1.5px solid #e2e8f0', color: '#475569' }}>
+                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>S no.</th>
+                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Owner Name</th>
+                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Client Name</th>
+                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Mobile</th>
+                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Bank</th>
+                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Amount</th>
+                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Status</th>
+                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Reason</th>
+                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Description</th>
+                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Client status</th>
+                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Date</th>
+                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -345,22 +351,47 @@ export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> =
                   <tr 
                     key={record.id} 
                     style={{ 
-                      borderBottom: '1px solid #f1f5f9',
-                      background: index % 2 === 0 ? '#ffffff' : '#fafafa'
+                      background: index % 2 === 0 ? '#ffffff' : '#fafafa',
+                      borderBottom: '1px solid #e2e8f0'
                     }}
                   >
-                    <td style={{ padding: '0.85rem 0.75rem', color: '#475569' }}>{index + 1}</td>
-                    <td style={{ padding: '0.85rem 0.75rem', color: '#1e293b', fontWeight: 500 }}>{record.ownerName}</td>
-                    <td style={{ padding: '0.85rem 0.75rem', color: '#1e293b', fontWeight: 600 }}>{record.clientName}</td>
-                    <td style={{ padding: '0.85rem 0.75rem', color: '#475569' }}>{record.mobile}</td>
-                    <td style={{ padding: '0.85rem 0.75rem', color: '#1e293b' }}>{record.bank}</td>
-                    <td style={{ padding: '0.85rem 0.75rem', color: '#1e293b', fontWeight: 600 }}>{record.amount}</td>
-                    <td style={{ padding: '0.85rem 0.75rem', color: '#16a34a', fontWeight: 600 }}>{record.status}</td>
-                    <td style={{ padding: '0.85rem 0.75rem', color: '#475569' }}>{record.reason}</td>
-                    <td style={{ padding: '0.85rem 0.75rem', color: '#475569' }}>{record.description}</td>
-                    <td style={{ padding: '0.85rem 0.75rem', color: '#475569' }}>{record.clientStatus}</td>
-                    <td style={{ padding: '0.85rem 0.75rem', color: '#475569', whiteSpace: 'nowrap' }}>{record.date}</td>
-                    <td style={{ padding: '0.85rem 0.75rem', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '0.65rem 0.5rem', color: '#475569' }}>{index + 1}</td>
+                    <td style={{ padding: '0.65rem 0.5rem', color: '#1e293b', fontWeight: 500 }}>{record.ownerName}</td>
+                    <td style={{ padding: '0.65rem 0.5rem', color: '#1e293b', fontWeight: 600 }}>{record.clientName}</td>
+                    <td style={{ padding: '0.65rem 0.5rem', color: '#475569', whiteSpace: 'nowrap' }}>{record.mobile}</td>
+                    <td style={{ padding: '0.65rem 0.5rem', color: '#1e293b' }}>{record.bank}</td>
+                    <td style={{ padding: '0.65rem 0.5rem', color: '#1e293b', fontWeight: 600 }}>₹{record.amount?.toLocaleString('en-IN') || record.amount}</td>
+                    <td style={{ padding: '0.65rem 0.5rem', color: '#16a34a', fontWeight: 600 }}>{record.status}</td>
+                    <td style={{ padding: '0.65rem 0.5rem', color: '#475569', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={record.reason}>{record.reason}</td>
+                    <td style={{ padding: '0.65rem 0.5rem', color: '#475569', maxWidth: '130px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={record.description}>{record.description}</td>
+                    <td style={{ padding: '0.65rem 0.5rem', color: '#475569', whiteSpace: 'nowrap' }}>{record.clientStatus}</td>
+                    <td style={{ padding: '0.65rem 0.5rem', color: '#475569', whiteSpace: 'nowrap' }}>{record.date}</td>
+                    <td style={{ padding: '0.65rem 0.5rem', whiteSpace: 'nowrap' }}>
+                      {record.screenshotUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedScreenshotRecord(record)}
+                          style={{
+                            background: '#8b5cf6',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '0.4rem 0.65rem',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                            transition: 'background 0.15s ease',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            marginRight: '6px'
+                          }}
+                          title="View Client Payment Screenshot"
+                        >
+                          <span>🖼️ Receipt</span>
+                        </button>
+                      )}
                       {record.invoiceCreated ? (
                         /* Vibrant Green View Invoice Button */
                         <button 
@@ -439,6 +470,74 @@ export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> =
 
       {/* Tips Modal */}
       <TipsModal isOpen={isTipsOpen} onClose={() => setIsTipsOpen(false)} />
+
+      {/* Client Payment Screenshot Viewer Modal */}
+      {selectedScreenshotRecord && (
+        <div 
+          className="market-modal-backdrop" 
+          onClick={() => setSelectedScreenshotRecord(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: isDark ? 'rgba(10, 17, 40, 0.75)' : 'rgba(15, 23, 42, 0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem'
+          }}
+        >
+          <div 
+            style={{
+              background: '#ffffff',
+              borderRadius: '8px',
+              maxWidth: '520px',
+              width: '100%',
+              overflow: 'hidden',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>Client Payment Screenshot Proof</h3>
+                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.78rem', color: '#64748b' }}>
+                  {selectedScreenshotRecord.clientName} ({selectedScreenshotRecord.mobile}) • ₹{selectedScreenshotRecord.amount.toLocaleString('en-IN')}
+                </p>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setSelectedScreenshotRecord(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px', fontSize: '16px', fontWeight: 'bold' }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ padding: '1.25rem', textAlign: 'center', background: '#f8fafc' }}>
+              <img 
+                src={selectedScreenshotRecord.screenshotUrl} 
+                alt="Client Payment Screenshot"
+                style={{ maxWidth: '100%', maxHeight: '420px', borderRadius: '6px', border: '1px solid #cbd5e1', boxShadow: '0 2px 4px rgba(0,0,0,0.06)' }}
+              />
+              <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#475569' }}>
+                Bank: <strong>{selectedScreenshotRecord.bank}</strong> • Date: <strong>{selectedScreenshotRecord.date}</strong>
+                {selectedScreenshotRecord.scriptName && (
+                  <div>Advisory Script: <strong>{selectedScreenshotRecord.scriptName}</strong></div>
+                )}
+              </div>
+            </div>
+            <div style={{ padding: '0.85rem 1.25rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end' }}>
+              <button 
+                type="button" 
+                onClick={() => setSelectedScreenshotRecord(null)}
+                style={{ background: '#3b82f6', color: '#ffffff', border: 'none', borderRadius: '4px', padding: '0.45rem 1rem', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

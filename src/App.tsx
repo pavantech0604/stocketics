@@ -7,6 +7,9 @@ import { ToastContainer } from './components/common/ToastContainer';
 import { HRDashboard } from './components/hr/HRDashboard';
 import { ManagerDashboard } from './components/manager/ManagerDashboard';
 import { EmployeeDashboard } from './components/employee/EmployeeDashboard';
+import { TeamLeaderDashboard } from './components/teamlead/TeamLeaderDashboard';
+import { ClientSearchAlertPopup } from './components/common/ClientSearchAlertPopup';
+import { BirthdayCelebrationPopup } from './components/common/BirthdayCelebrationPopup';
 
 import { LoginPortal } from './components/auth/LoginPortal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -36,6 +39,7 @@ const MainContent: React.FC = () => {
           <ErrorBoundary>
             {role === 'hr' && <HRDashboard />}
             {role === 'manager' && <ManagerDashboard />}
+            {role === 'team_leader' && <TeamLeaderDashboard />}
             {role === 'employee' && <EmployeeDashboard />}
           </ErrorBoundary>
         </main>
@@ -44,6 +48,8 @@ const MainContent: React.FC = () => {
       {/* Overlays */}
       <CommandPalette />
       <ToastContainer />
+      <ClientSearchAlertPopup />
+      <BirthdayCelebrationPopup />
     </div>
   );
 };

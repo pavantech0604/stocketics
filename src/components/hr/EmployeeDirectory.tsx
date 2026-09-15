@@ -96,7 +96,7 @@ export const EmployeeDirectory: React.FC = () => {
         <div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)' }}>Employee Directory</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            Workforce roster, profile management & asset verification for Apex Edge Research.
+            Workforce roster, profile management & asset verification for Stocketics Research.
           </p>
         </div>
 
@@ -160,8 +160,8 @@ export const EmployeeDirectory: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table className="data-table">
+        <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+          <table className="data-table table-min-850">
             <thead>
               <tr>
                 <th>Personnel</th>
@@ -257,7 +257,7 @@ export const EmployeeDirectory: React.FC = () => {
                     type="email" 
                     className="form-input" 
                     required 
-                    placeholder="e.g. vikram.s@apexedge.in"
+                    placeholder="e.g. vikram.s@stocketics.com"
                     value={formData.email}
                     onChange={e => setFormData({ ...formData, email: e.target.value })}
                   />

@@ -121,7 +121,7 @@ export const PunchClockWidget: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.74rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
           <Wifi size={13} style={{ color: 'var(--success)' }} />
-          <span>Connected: <strong>106.51.67.248</strong> (Bangalore HQ Gateway)</span>
+          <span>Connected: <strong>10.0.4.150</strong> (Bangalore HQ Gateway)</span>
         </div>
         <div>Clock In: <strong>{clockInTime || '--'}</strong></div>
       </div>

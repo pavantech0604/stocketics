@@ -387,7 +387,8 @@ interface Props {
 }
 
 export const HRCommsAndArchivesView: React.FC<Props> = ({ initialTab = 'messenger' }) => {
-  const { activeTab, setActiveTab, showToast } = useApp();
+  const { activeTab, setActiveTab, showToast, theme } = useApp();
+  const isDark = theme === 'dark';
 
   const resolveTab = (): HRCommsTab => {
     if (activeTab === 'messenger') return 'messenger';
@@ -961,7 +962,8 @@ export const HRCommsAndArchivesView: React.FC<Props> = ({ initialTab = 'messenge
               <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Automated via WhatsApp Business API & Stocketics SMS Gateway</span>
             </div>
 
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+            <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', fontSize: '0.82rem' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', textAlign: 'left' }}>
                   <th style={{ padding: '0.6rem 1rem' }}>Recipient</th>
@@ -1028,6 +1030,7 @@ export const HRCommsAndArchivesView: React.FC<Props> = ({ initialTab = 'messenge
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -1091,7 +1094,8 @@ export const HRCommsAndArchivesView: React.FC<Props> = ({ initialTab = 'messenge
 
           {/* Tip Archive Table */}
           <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+            <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', fontSize: '0.82rem' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', textAlign: 'left' }}>
                   <th style={{ padding: '0.65rem 1rem' }}>Script / Instrument</th>
@@ -1162,6 +1166,7 @@ export const HRCommsAndArchivesView: React.FC<Props> = ({ initialTab = 'messenge
                   ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -1328,7 +1333,8 @@ export const HRCommsAndArchivesView: React.FC<Props> = ({ initialTab = 'messenge
 
           {/* Open Calls Table */}
           <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+            <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', fontSize: '0.82rem' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', textAlign: 'left' }}>
                   <th style={{ padding: '0.65rem 1rem' }}>Instrument</th>
@@ -1415,6 +1421,7 @@ export const HRCommsAndArchivesView: React.FC<Props> = ({ initialTab = 'messenge
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -1448,7 +1455,8 @@ export const HRCommsAndArchivesView: React.FC<Props> = ({ initialTab = 'messenge
 
           {/* Closed Calls Ledger Table */}
           <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+            <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', fontSize: '0.82rem' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', textAlign: 'left' }}>
                   <th style={{ padding: '0.65rem 1rem' }}>Instrument</th>
@@ -1525,6 +1533,7 @@ export const HRCommsAndArchivesView: React.FC<Props> = ({ initialTab = 'messenge
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -1537,7 +1546,7 @@ export const HRCommsAndArchivesView: React.FC<Props> = ({ initialTab = 'messenge
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(15, 23, 42, 0.65)',
+          background: isDark ? 'rgba(10, 17, 40, 0.78)' : 'rgba(15, 23, 42, 0.45)',
           backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',

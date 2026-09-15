@@ -42,15 +42,15 @@ export const SalesExecutiveChart: React.FC<SalesExecutiveChartProps> = ({ initia
   // Dynamic datasets based on period matching reference CRM Image 1
   const dataByPeriod: Record<string, { labels: string[]; values: number[] }> = {
     Month: {
-      labels: ['Shajakhan', 'Golla', 'Sirajul', 'Devika', 'Rohan', 'Ananya'],
+      labels: ['Aditya Roy', 'Sneha Kapur', 'Rohan Deshmukh', 'Kabir Varma', 'Neha Reddy', 'Ananya Sen'],
       values: [540000, 210000, 185000, 160000, 95000, 63100],
     },
     Week: {
-      labels: ['Shajakhan', 'Golla', 'Sirajul', 'Devika', 'Rohan', 'Ananya'],
+      labels: ['Aditya Roy', 'Sneha Kapur', 'Rohan Deshmukh', 'Kabir Varma', 'Neha Reddy', 'Ananya Sen'],
       values: [135000, 52000, 46000, 40000, 24000, 15000],
     },
     Quarter: {
-      labels: ['Shajakhan', 'Golla', 'Sirajul', 'Devika', 'Rohan', 'Ananya'],
+      labels: ['Aditya Roy', 'Sneha Kapur', 'Rohan Deshmukh', 'Kabir Varma', 'Neha Reddy', 'Ananya Sen'],
       values: [1620000, 630000, 555000, 480000, 285000, 189300],
     },
   };

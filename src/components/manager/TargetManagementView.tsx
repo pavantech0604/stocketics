@@ -32,7 +32,7 @@ interface SalesTarget {
 const INITIAL_TARGETS: SalesTarget[] = [
   {
     id: 'tgt-1',
-    executiveName: 'Shajakhan',
+    executiveName: 'Aditya Roy',
     department: 'Advisory Sales Desk A',
     period: 'September 2026',
     revenueTarget: 600000,
@@ -254,7 +254,7 @@ export const TargetManagementView: React.FC = () => {
           </div>
           <div className="stat-info">
             <span className="stat-label">TOP SALES PERFORMER</span>
-            <span className="stat-value">Shajakhan (80%)</span>
+            <span className="stat-value">Aditya Roy (80%)</span>
             <span className="stat-delta-row">
               <span className="delta-badge positive">₹4.8L Booked Revenue</span>
             </span>
@@ -287,7 +287,7 @@ export const TargetManagementView: React.FC = () => {
                   onChange={e => setFormData({ ...formData, executiveName: e.target.value })}
                 >
                   <option value="Rohan Deshmukh">Rohan Deshmukh</option>
-                  <option value="Shajakhan">Shajakhan</option>
+                  <option value="Kabir Varma">Kabir Varma</option>
                   <option value="Ananya Sen">Ananya Sen</option>
                   <option value="Sneha Kapur">Sneha Kapur</option>
                   <option value="Aditya Roy">Aditya Roy</option>

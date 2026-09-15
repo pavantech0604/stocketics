@@ -18,7 +18,7 @@ export const PayslipViewer: React.FC = () => {
             Digital Payslips & Tax Documents
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            Official confidential earnings statements and tax deductions for Apex Edge Research personnel.
+            Official confidential earnings statements and tax deductions for Stocketics Advisory & Research personnel.
           </p>
         </div>
 
@@ -75,7 +75,7 @@ export const PayslipViewer: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid var(--border-subtle)', paddingBottom: '1.25rem', marginBottom: '1.25rem' }}>
             <div>
               <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--apex-navy-900)' }}>
-                APEX EDGE RESEARCH & ADVISORY PVT LTD
+                STOCKETICS ADVISORY & RESEARCH PVT LTD
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                 SEBI Reg: INH000012489 • Level 4, Tech Park, Bangalore HQ - 560001

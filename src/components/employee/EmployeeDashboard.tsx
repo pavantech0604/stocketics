@@ -17,9 +17,13 @@ import {
   CheckCircle2,
   PhoneCall,
   UserCheck,
-  ShieldCheck
+  ShieldCheck,
+  Building2,
+  Gift,
+  Sparkles
 } from 'lucide-react';
 import { RefKPIGrid } from '../common/RefKPIGrid';
+import { MarketWorkspace } from '../market/MarketWorkspace';
 import { SalesExecutiveChart, ManagersChart } from '../common/ChartWidgets';
 import { TipsModal } from '../common/TipsModal';
 import { AdvisoryPipeline } from '../manager/AdvisoryPipeline';
@@ -29,6 +33,11 @@ import { SMSDeliveryReportView } from './SMSDeliveryReportView';
 import { ITProblemView } from '../hr/ITProblemView';
 import { ManagerMailView } from '../manager/ManagerMailView';
 import { ManagerSMSView } from '../manager/ManagerSMSView';
+import { AnnouncementBannerStrip } from '../common/EmployeeAnnouncementModal';
+import { BankDetailsSMSModal } from './BankDetailsSMSModal';
+import { EmployeeKYCView } from './EmployeeKYCView';
+import { RACallsDashboardView } from '../common/RACallsDashboardView';
+import { TicketManagementView } from '../manager/TicketManagementView';
 
 export const EmployeeDashboard: React.FC = () => {
   const { 
@@ -39,10 +48,18 @@ export const EmployeeDashboard: React.FC = () => {
     toggleTask, 
     payslips,
     advisoryLeads,
+    cashbackRules,
+    cashbackRecords,
     showToast
   } = useApp();
 
   const [isTipsOpen, setIsTipsOpen] = useState(false);
+  const [isBankSMSOpen, setIsBankSMSOpen] = useState(false);
+
+  // Dedicated Market Workspace Routing
+  if (activeTab === 'market') {
+    return <MarketWorkspace />;
+  }
 
   // Dedicated Call Logs View (Employee Scoped: Personal Call Records Only)
   if (activeTab === 'call-logs') {
@@ -113,6 +130,15 @@ export const EmployeeDashboard: React.FC = () => {
   // 5. Additional Employee Utilities
   if (activeTab === 'payslips') return <PayslipViewer />;
   if (activeTab === 'tasks') return <TasksView />;
+  if (activeTab === 'kyc' || activeTab === 'kyc-upload' || activeTab === 'kyc-documents' || activeTab === 'kyc-verification') {
+    return <EmployeeKYCView />;
+  }
+  if (activeTab === 'ra-calls' || activeTab === 'advisory-calls' || activeTab === 'trading-calls') {
+    return <RACallsDashboardView />;
+  }
+  if (activeTab === 'ticket' || activeTab === 'tickets') {
+    return <TicketManagementView />;
+  }
 
   const latestSlip = payslips[0];
   const pendingTasks = tasks.filter(t => !t.completed);
@@ -140,6 +166,19 @@ export const EmployeeDashboard: React.FC = () => {
     { id: 'payment', value: 0, label: 'Payment leads', colorClass: 'kpi-c-amber' },
   ];
 
+  // Sales Incentive & Cashback calculations
+  const employeeRevenue = advisoryLeads
+    .filter(l => (l.assignedToId === currentUser.id || l.assignedToName?.toLowerCase() === currentUser.name.toLowerCase()) && l.status === 'Converted')
+    .reduce((sum, l) => sum + (l.expectedRevenue || 0), 0) || 120000;
+
+  const currentRule = cashbackRules.filter(r => employeeRevenue >= (r.salesLimitThreshold ?? r.targetSalesAmount)).pop();
+  const nextRule = cashbackRules.find(r => (r.salesLimitThreshold ?? r.targetSalesAmount) > employeeRevenue) || cashbackRules[cashbackRules.length - 1];
+  const nextThreshold = nextRule ? (nextRule.salesLimitThreshold ?? nextRule.targetSalesAmount) : 200000;
+  const nextReward = nextRule ? (nextRule.cashbackAmount ?? nextRule.cashbackValue) : 5000;
+  const prevLimit = currentRule ? (currentRule.salesLimitThreshold ?? currentRule.targetSalesAmount) : 0;
+  const cashbackProgressPct = nextRule ? Math.min(100, Math.max(0, Math.round(((employeeRevenue - prevLimit) / (nextThreshold - prevLimit)) * 100))) : 100;
+  const myCashbacks = cashbackRecords.filter(c => c.employeeId === currentUser.id || c.employeeName.toLowerCase() === currentUser.name.toLowerCase());
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Subpage Breadcrumb Strip (Matching Reference Image 1) */}
@@ -152,14 +191,132 @@ export const EmployeeDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Reference Title */}
-      <h1 className="page-title-ref" style={{ margin: '0 0 0.5rem 0' }}>Dashboard</h1>
+      <div className="dashboard-full-container">
+        {/* Company Announcements & Greetings Banner */}
+        <AnnouncementBannerStrip />
 
-      {/* 6+3 Vibrant Colorful KPI Grid (Row 1 has 6 cards; Row 2 has 3 cards aligned under cols 1-3) */}
-      <RefKPIGrid 
-        customRow1={employeeRow1}
-        customRow2={employeeRow2}
-      />
+        {/* Quick Enterprise Workflow Actions Strip */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+          <button
+            onClick={() => setIsBankSMSOpen(true)}
+            style={{
+              background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              padding: '8px 14px',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(37,99,235,0.3)'
+            }}
+          >
+            <Building2 size={14} /> Send Bank Details SMS
+          </button>
+
+          <button
+            onClick={() => setActiveTab('kyc-upload')}
+            style={{
+              background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              padding: '8px 14px',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(2,132,199,0.3)'
+            }}
+          >
+            <ShieldCheck size={14} /> Upload Client KYC
+          </button>
+
+          <button
+            onClick={() => setActiveTab('ra-calls')}
+            style={{
+              background: 'linear-gradient(135deg, #f97316, #ea580c)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              padding: '8px 14px',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(249,115,22,0.3)'
+            }}
+          >
+            <PhoneCall size={14} /> Live RA Advisory Board
+          </button>
+        </div>
+
+        {/* Reference Title */}
+        <h1 className="page-title-ref" style={{ margin: '0 0 0.5rem 0' }}>Dashboard</h1>
+
+        {/* 6+3 Vibrant Colorful KPI Grid (Row 1 has 6 cards; Row 2 has 3 cards aligned under cols 1-3) */}
+        <RefKPIGrid 
+          customRow1={employeeRow1}
+          customRow2={employeeRow2}
+        />
+
+        {/* Sales Incentive & Cashback Progress Card */}
+        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(234,179,8,0.06), rgba(245,158,11,0.03))', border: '1px solid rgba(234,179,8,0.25)', marginBottom: '1.25rem' }}>
+          <div className="card-header" style={{ marginBottom: '0.6rem' }}>
+            <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Gift size={18} style={{ color: '#eab308' }} />
+              <span>Sales Target Cashback & Incentive Progress</span>
+              <span style={{ fontSize: '0.72rem', background: 'rgba(234,179,8,0.18)', color: '#ca8a04', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                MONTHLY TARGET BONUS
+              </span>
+            </div>
+            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Current MTD: <strong style={{ color: '#10b981' }}>₹{employeeRevenue.toLocaleString()}</strong>
+            </span>
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
+              <span>Target to Unlock: <strong>₹{nextThreshold.toLocaleString()}</strong></span>
+              <span>Reward: <strong style={{ color: '#eab308' }}>₹{nextReward.toLocaleString()} Instant Cashback</strong></span>
+            </div>
+
+            {/* Progress bar */}
+            <div style={{ height: 8, borderRadius: 4, background: 'var(--border-subtle)', overflow: 'hidden', position: 'relative' }}>
+              <div
+                style={{
+                  height: '100%',
+                  width: `${cashbackProgressPct}%`,
+                  borderRadius: 4,
+                  background: 'linear-gradient(90deg, #fbbf24, #f59e0b)',
+                  transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+              <span>{cashbackProgressPct}% towards next reward slab</span>
+              <span>Need ₹{(Math.max(0, nextThreshold - employeeRevenue)).toLocaleString()} more</span>
+            </div>
+          </div>
+
+          {myCashbacks.length > 0 && (
+            <div style={{ marginTop: '0.75rem', paddingTop: '0.6rem', borderTop: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.75rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>My Disbursed Incentives:</span>
+              {myCashbacks.map(cb => (
+                <span key={cb.id} style={{ background: cb.status === 'Paid' ? 'rgba(16,185,129,0.15)' : 'rgba(56,189,248,0.15)', color: cb.status === 'Paid' ? '#10b981' : '#38bdf8', padding: '2px 8px', borderRadius: 8, fontWeight: 700 }}>
+                  ₹{cb.cashbackEarned.toLocaleString()} ({cb.status})
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
 
       {/* Dual Performance Charts: SALES EXECUTIVE & MANAGERS (Side-by-Side Matching Image 1) */}
       <div className="charts-split-grid">
@@ -337,45 +494,45 @@ export const EmployeeDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table className="data-table">
+        <div style={{ width: '100%', overflow: 'hidden' }}>
+          <table className="data-table" style={{ width: '100%', tableLayout: 'fixed', minWidth: 0 }}>
             <thead>
               <tr>
-                <th>Prospect Profile</th>
-                <th>Service Plan</th>
-                <th>Expected Revenue</th>
-                <th>Last Contact</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Dialer Action</th>
+                <th style={{ width: '26%', padding: '0.65rem 0.6rem' }}>Prospect Profile</th>
+                <th style={{ width: '22%', padding: '0.65rem 0.6rem' }}>Service Plan</th>
+                <th style={{ width: '16%', padding: '0.65rem 0.6rem' }}>Expected Revenue</th>
+                <th style={{ width: '14%', padding: '0.65rem 0.6rem' }}>Last Contact</th>
+                <th style={{ width: '10%', padding: '0.65rem 0.6rem' }}>Status</th>
+                <th style={{ width: '12%', padding: '0.65rem 0.6rem', textAlign: 'right' }}>Dialer Action</th>
               </tr>
             </thead>
             <tbody>
               {advisoryLeads.slice(0, 4).map(lead => (
                 <tr key={lead.id}>
-                  <td>
-                    <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{lead.clientName}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{lead.phone} • {lead.city || 'Mumbai'}</div>
+                  <td style={{ padding: '0.65rem 0.6rem', overflow: 'hidden' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.clientName}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.phone} • {lead.city || 'Mumbai'}</div>
                   </td>
-                  <td>
-                    <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{lead.serviceType}</div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Source: {lead.source || 'Direct Website'}</div>
+                  <td style={{ padding: '0.65rem 0.6rem', overflow: 'hidden' }}>
+                    <div style={{ fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.serviceType}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Source: {lead.source || 'Direct Website'}</div>
                   </td>
-                  <td className="mono-cell" style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                  <td className="mono-cell" style={{ padding: '0.65rem 0.6rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                     ₹{lead.expectedRevenue.toLocaleString()}
                   </td>
-                  <td className="mono-cell" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  <td className="mono-cell" style={{ padding: '0.65rem 0.6rem', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                     {lead.lastContactDate}
                   </td>
-                  <td>
-                    <span className="delta-badge positive">{lead.status}</span>
+                  <td style={{ padding: '0.65rem 0.6rem' }}>
+                    <span className="delta-badge positive" style={{ whiteSpace: 'nowrap', fontSize: '0.72rem', padding: '0.15rem 0.45rem' }}>{lead.status}</span>
                   </td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td style={{ padding: '0.65rem 0.6rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <button 
                       className="btn btn-secondary btn-sm"
                       onClick={() => showToast(`Dialing ${lead.clientName} (${lead.phone}) via PBX Cloud...`, 'info')}
-                      style={{ padding: '0.3rem 0.6rem' }}
+                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.74rem' }}
                     >
-                      <PhoneCall size={13} style={{ color: 'var(--success)' }} />
+                      <PhoneCall size={12} style={{ color: 'var(--success)' }} />
                       <span>Call</span>
                     </button>
                   </td>
@@ -385,8 +542,13 @@ export const EmployeeDashboard: React.FC = () => {
           </table>
         </div>
       </div>
-
-      {/* Reference Tips Modal removed */}
     </div>
-  );
+
+    {/* Direct Bank Details SMS Dispatch Modal */}
+    <BankDetailsSMSModal 
+      isOpen={isBankSMSOpen} 
+      onClose={() => setIsBankSMSOpen(false)} 
+    />
+  </div>
+);
 };

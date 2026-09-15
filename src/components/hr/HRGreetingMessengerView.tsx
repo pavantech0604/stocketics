@@ -33,10 +33,10 @@ const GREETING_SERVICES: ServiceItem[] = [
 ];
 
 const TEMPLATES: Record<string, string> = {
-  'birthday': 'Wishing you a very Happy Birthday! May the upcoming year bring you exceptional joy, good health, and prosperous investments. - Team Apex Edge Research',
-  'anniversary': 'Warmest congratulations on your Work Anniversary! We deeply appreciate your commitment and valuable contributions to the organization. - HR Desk, Apex Edge Research',
-  'festival': 'Wishing you and your family a very happy and prosperous festival! May this festive season illuminate your life with abundance and peace. - Apex Edge Research',
-  'welcome': 'Welcome to Apex Edge Research! We are delighted to partner with you on your financial journey. Your dedicated wealth manager will assist you shortly.',
+  'birthday': 'Wishing you a very Happy Birthday! May the upcoming year bring you exceptional joy, good health, and prosperous investments. - Team Stocketics Advisory & Research',
+  'anniversary': 'Warmest congratulations on your Work Anniversary! We deeply appreciate your commitment and valuable contributions to the organization. - HR Desk, Stocketics Advisory & Research',
+  'festival': 'Wishing you and your family a very happy and prosperous festival! May this festive season illuminate your life with abundance and peace. - Stocketics Advisory & Research',
+  'welcome': 'Welcome to Stocketics Advisory & Research! We are delighted to partner with you on your financial journey. Your dedicated wealth manager will assist you shortly.',
   'market-opening': 'Good morning! Pre-market updates and key resistance/support levels have been published to your client app. Have a profitable trading session.'
 };
 

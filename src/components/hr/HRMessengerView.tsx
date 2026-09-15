@@ -525,42 +525,44 @@ export const HRMessengerView: React.FC = () => {
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', color: '#0f172a' }}>
               Option Advisory Active Recommendations
             </h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: '#051d33', color: '#ffffff' }}>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Script Name</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Segment</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Action</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Entry</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>T1 / T2</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Stop Loss</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Analyst</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '0.65rem', fontWeight: 700 }}>NIFTY 24800 CE</td>
-                  <td style={{ padding: '0.65rem' }}>Index Option</td>
-                  <td style={{ padding: '0.65rem' }}><span className="badge badge-success">BUY</span></td>
-                  <td style={{ padding: '0.65rem' }}>₹165</td>
-                  <td style={{ padding: '0.65rem' }}>₹210 / ₹245</td>
-                  <td style={{ padding: '0.65rem' }}>₹135</td>
-                  <td style={{ padding: '0.65rem' }}>Aditya Roy</td>
-                  <td style={{ padding: '0.65rem' }}><span className="badge badge-success">Target 2 Hit</span></td>
-                </tr>
-                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '0.65rem', fontWeight: 700 }}>BANKNIFTY 51200 CE</td>
-                  <td style={{ padding: '0.65rem' }}>Index Option</td>
-                  <td style={{ padding: '0.65rem' }}><span className="badge badge-success">BUY</span></td>
-                  <td style={{ padding: '0.65rem' }}>₹310</td>
-                  <td style={{ padding: '0.65rem' }}>₹380 / ₹440</td>
-                  <td style={{ padding: '0.65rem' }}>₹275</td>
-                  <td style={{ padding: '0.65rem' }}>Sneha Kapur</td>
-                  <td style={{ padding: '0.65rem' }}><span className="badge badge-primary">Live CMP ₹362</span></td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#051d33', color: '#ffffff' }}>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Script Name</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Segment</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Action</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Entry</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>T1 / T2</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Stop Loss</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Analyst</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '0.65rem', fontWeight: 700 }}>NIFTY 24800 CE</td>
+                    <td style={{ padding: '0.65rem' }}>Index Option</td>
+                    <td style={{ padding: '0.65rem' }}><span className="badge badge-success">BUY</span></td>
+                    <td style={{ padding: '0.65rem' }}>₹165</td>
+                    <td style={{ padding: '0.65rem' }}>₹210 / ₹245</td>
+                    <td style={{ padding: '0.65rem' }}>₹135</td>
+                    <td style={{ padding: '0.65rem' }}>Aditya Roy</td>
+                    <td style={{ padding: '0.65rem' }}><span className="badge badge-success">Target 2 Hit</span></td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '0.65rem', fontWeight: 700 }}>BANKNIFTY 51200 CE</td>
+                    <td style={{ padding: '0.65rem' }}>Index Option</td>
+                    <td style={{ padding: '0.65rem' }}><span className="badge badge-success">BUY</span></td>
+                    <td style={{ padding: '0.65rem' }}>₹310</td>
+                    <td style={{ padding: '0.65rem' }}>₹380 / ₹440</td>
+                    <td style={{ padding: '0.65rem' }}>₹275</td>
+                    <td style={{ padding: '0.65rem' }}>Sneha Kapur</td>
+                    <td style={{ padding: '0.65rem' }}><span className="badge badge-primary">Live CMP ₹362</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -573,34 +575,49 @@ export const HRMessengerView: React.FC = () => {
             <div style={{ padding: '1rem', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '4px', marginBottom: '1rem', color: '#065f46', fontSize: '0.88rem' }}>
               Live market feed synced with NSE tick stream • Real-time trailing stop loss enabled.
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: '#051d33', color: '#ffffff' }}>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Script</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Entry</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>CMP</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>T1 / T2</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>SL</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>P&amp;L Points</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '0.65rem', fontWeight: 700 }}>BANKNIFTY 51200 CE</td>
-                  <td style={{ padding: '0.65rem' }}>₹310.00</td>
-                  <td style={{ padding: '0.65rem', color: '#10b981', fontWeight: 700 }}>₹362.50</td>
-                  <td style={{ padding: '0.65rem' }}>₹380 / ₹440</td>
-                  <td style={{ padding: '0.65rem' }}>₹275.00</td>
-                  <td style={{ padding: '0.65rem', color: '#10b981', fontWeight: 800 }}>+52.50 (+16.9%)</td>
-                  <td style={{ padding: '0.65rem' }}>
-                    <button className="btn btn-secondary btn-sm" onClick={() => showToast('Position booked', 'success')}>
-                      Book Profit
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#051d33', color: '#ffffff' }}>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Script</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Entry</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>CMP</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>T1 / T2</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>SL</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>P&amp;L Points</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '0.65rem', fontWeight: 700 }}>RELIANCE FUT</td>
+                    <td style={{ padding: '0.65rem' }}>₹2980.00</td>
+                    <td style={{ padding: '0.65rem', fontWeight: 700, color: '#10b981' }}>₹3018.50</td>
+                    <td style={{ padding: '0.65rem' }}>₹3020 / ₹3050</td>
+                    <td style={{ padding: '0.65rem' }}>₹2950.00</td>
+                    <td style={{ padding: '0.65rem', color: '#10b981', fontWeight: 800 }}>+38.50 pts</td>
+                    <td style={{ padding: '0.65rem' }}>
+                      <button className="btn btn-sm btn-primary" onClick={() => showToast('Trailing SL Updated to Cost!', 'success')}>
+                        Trail SL
+                      </button>
+                    </td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '0.65rem', fontWeight: 700 }}>INFY 1860 CE</td>
+                    <td style={{ padding: '0.65rem' }}>₹28.50</td>
+                    <td style={{ padding: '0.65rem', fontWeight: 700, color: '#10b981' }}>₹34.20</td>
+                    <td style={{ padding: '0.65rem' }}>₹35 / ₹42</td>
+                    <td style={{ padding: '0.65rem' }}>₹22.00</td>
+                    <td style={{ padding: '0.65rem', color: '#10b981', fontWeight: 800 }}>+5.70 pts</td>
+                    <td style={{ padding: '0.65rem' }}>
+                      <button className="btn btn-sm btn-success" onClick={() => showToast('Target 1 Profit Booked!', 'success')}>
+                        Book T1
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -610,36 +627,38 @@ export const HRMessengerView: React.FC = () => {
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', color: '#0f172a' }}>
               Historical Closed Calls
             </h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: '#051d33', color: '#ffffff' }}>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Script</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Entry</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Exit Price</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Return %</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Exit Reason</th>
-                  <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Closed Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '0.65rem', fontWeight: 700 }}>NIFTY 24700 CE</td>
-                  <td style={{ padding: '0.65rem' }}>₹140.00</td>
-                  <td style={{ padding: '0.65rem', fontWeight: 700 }}>₹215.00</td>
-                  <td style={{ padding: '0.65rem', color: '#10b981', fontWeight: 800 }}>+53.6%</td>
-                  <td style={{ padding: '0.65rem' }}><span className="badge badge-success">Target 2 Hit</span></td>
-                  <td style={{ padding: '0.65rem', color: '#64748b' }}>06-Sep 10:45 AM</td>
-                </tr>
-                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '0.65rem', fontWeight: 700 }}>HDFCBANK FUT</td>
-                  <td style={{ padding: '0.65rem' }}>₹1640.00</td>
-                  <td style={{ padding: '0.65rem', fontWeight: 700 }}>₹1672.00</td>
-                  <td style={{ padding: '0.65rem', color: '#10b981', fontWeight: 800 }}>+1.95%</td>
-                  <td style={{ padding: '0.65rem' }}><span className="badge badge-success">Target 1 Hit</span></td>
-                  <td style={{ padding: '0.65rem', color: '#64748b' }}>06-Sep 02:15 PM</td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#051d33', color: '#ffffff' }}>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Script</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Entry</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Exit Price</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Return %</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Exit Reason</th>
+                    <th style={{ padding: '0.65rem', fontSize: '0.82rem' }}>Closed Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '0.65rem', fontWeight: 700 }}>NIFTY 24700 CE</td>
+                    <td style={{ padding: '0.65rem' }}>₹140.00</td>
+                    <td style={{ padding: '0.65rem', fontWeight: 700 }}>₹215.00</td>
+                    <td style={{ padding: '0.65rem', color: '#10b981', fontWeight: 800 }}>+53.6%</td>
+                    <td style={{ padding: '0.65rem' }}><span className="badge badge-success">Target 2 Hit</span></td>
+                    <td style={{ padding: '0.65rem', color: '#64748b' }}>06-Sep 10:45 AM</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '0.65rem', fontWeight: 700 }}>HDFCBANK FUT</td>
+                    <td style={{ padding: '0.65rem' }}>₹1640.00</td>
+                    <td style={{ padding: '0.65rem', fontWeight: 700 }}>₹1672.00</td>
+                    <td style={{ padding: '0.65rem', color: '#10b981', fontWeight: 800 }}>+1.95%</td>
+                    <td style={{ padding: '0.65rem' }}><span className="badge badge-success">Target 1 Hit</span></td>
+                    <td style={{ padding: '0.65rem', color: '#64748b' }}>06-Sep 02:15 PM</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

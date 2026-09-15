@@ -235,8 +235,8 @@ export const LeavePortal: React.FC = () => {
           </span>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table className="data-table" style={{ margin: 0, width: '100%' }}>
+        <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+          <table className="data-table table-min-750" style={{ margin: 0, width: '100%' }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border-subtle)' }}>
                 <th>Leave Category</th>

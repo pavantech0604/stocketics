@@ -245,8 +245,8 @@ export const ClientDirectory: React.FC = () => {
 
       {/* Clients Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                 <th style={{ padding: '0.85rem 1.25rem' }}>Client Details</th>

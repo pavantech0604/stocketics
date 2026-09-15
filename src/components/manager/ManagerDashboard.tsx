@@ -10,7 +10,12 @@ import {
   PhoneCall, 
   Briefcase, 
   ArrowUpRight,
-  Home
+  Home,
+  Gift,
+  Megaphone,
+  BellRing,
+  Flame,
+  Plus
 } from 'lucide-react';
 import { AdvisoryPipeline } from './AdvisoryPipeline';
 import { TeamScheduler } from './TeamScheduler';
@@ -19,6 +24,7 @@ import { EmployeeDirectory } from '../hr/EmployeeDirectory';
 import { AttendanceRoster } from '../hr/AttendanceRoster';
 import { ComplianceVault } from '../hr/ComplianceVault';
 import { RefKPIGrid } from '../common/RefKPIGrid';
+import { MarketWorkspace } from '../market/MarketWorkspace';
 import { SalesExecutiveChart, ManagersChart } from '../common/ChartWidgets';
 import { TipsModal } from '../common/TipsModal';
 import { ApproveProspectView } from './ApproveProspectView';
@@ -33,23 +39,51 @@ import { LeaveManagementView } from './LeaveManagementView';
 import { KYCManagementView } from './KYCManagementView';
 import { CallLogsView } from '../common/CallLogsView';
 import { ITProblemView } from '../hr/ITProblemView';
+import { ExpirySMSManagementView } from './ExpirySMSManagementView';
+import { RACallsDashboardView } from '../common/RACallsDashboardView';
+import { AnnouncementType } from '../../types';
 
 export const ManagerDashboard: React.FC = () => {
   const { 
     activeTab, 
     setActiveTab, 
+    currentUser,
     leaveRequests, 
     updateLeaveStatus, 
     advisoryLeads, 
     employees,
+    cashbackRecords,
+    approveCashback,
+    markCashbackPaid,
+    createAnnouncement,
     showToast 
   } = useApp();
 
   const [isTipsOpen, setIsTipsOpen] = useState(false);
+  const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
+  const [annTitle, setAnnTitle] = useState('');
+  const [annContent, setAnnContent] = useState('');
+  const [annType, setAnnType] = useState<'MorningGreeting' | 'Celebration' | 'Milestone' | 'General' | 'Urgent'>('MorningGreeting');
+  const [annAudience, setAnnAudience] = useState<'All' | 'Employees' | 'TeamLeads'>('All');
+
+  // Dedicated Market Workspace Routing
+  if (activeTab === 'market') {
+    return <MarketWorkspace />;
+  }
 
   // Dedicated Call Logs View (Manager Scoped: All Employees Master Feed & Audit)
   if (activeTab === 'call-logs') {
     return <CallLogsView />;
+  }
+
+  // Subscription Expiry SMS Automation View
+  if (activeTab === 'expiry-sms' || activeTab === 'subscription-expiry' || activeTab === 'sms-expiry') {
+    return <ExpirySMSManagementView />;
+  }
+
+  // Research Analyst (RA) Live Calls Board
+  if (activeTab === 'ra-calls' || activeTab === 'advisory-calls') {
+    return <RACallsDashboardView />;
   }
 
   // Exact Manager Dashboard Options and Sub-Options Routing
@@ -216,15 +250,16 @@ export const ManagerDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Reference Title */}
-      <h1 className="page-title-ref">Dashboard</h1>
+      <div className="dashboard-full-container">
+        {/* Reference Title */}
+        <h1 className="page-title-ref">Dashboard</h1>
 
-      {/* 6+3 Vibrant Colorful KPI Grid */}
-      <RefKPIGrid 
-        customRow1={managerRow1}
-        customRow2={managerRow2}
-        onCardClick={handleKPIClick}
-      />
+        {/* 6+3 Vibrant Colorful KPI Grid */}
+        <RefKPIGrid 
+          customRow1={managerRow1}
+          customRow2={managerRow2}
+          onCardClick={handleKPIClick}
+        />
 
       {/* Dual Charts: Sales Executive & Managers */}
       <div className="charts-split-grid">
@@ -247,6 +282,18 @@ export const ManagerDashboard: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => setAnnouncementModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #f59e0b', color: '#f59e0b' }}>
+            <Megaphone size={14} />
+            <span>Post Greeting / Announcement</span>
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('expiry-sms')} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <BellRing size={14} />
+            <span>Expiry SMS Center</span>
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('ra-calls')} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <Flame size={14} style={{ color: '#f97316' }} />
+            <span>Live RA Calls</span>
+          </button>
           <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('schedule')}>
             <CalendarDays size={14} />
             <span>Shift Gantt</span>
@@ -262,10 +309,91 @@ export const ManagerDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Sales Target Cashback & Incentive Approval Queue */}
+      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(234,179,8,0.04), rgba(245,158,11,0.02))', border: '1px solid rgba(234,179,8,0.25)' }}>
+        <div className="card-header" style={{ marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Gift size={18} style={{ color: '#eab308' }} />
+            <span>Employee Sales Limit Cashback & Incentive Approvals</span>
+            <span style={{ fontSize: '0.72rem', background: 'rgba(234,179,8,0.18)', color: '#ca8a04', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+              {cashbackRecords.filter(c => c.status === 'Pending').length} Pending Payouts
+            </span>
+          </div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            Cashback bonuses unlocked upon crossing sales limit slabs
+          </span>
+        </div>
+
+        <div style={{ overflowX: 'auto' }}>
+          <table className="data-table" style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', textTransform: 'uppercase', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                <th style={{ padding: '0.6rem 0.8rem' }}>Employee Name</th>
+                <th style={{ padding: '0.6rem 0.8rem' }}>Sales Achieved MTD</th>
+                <th style={{ padding: '0.6rem 0.8rem' }}>Target Limit Slab</th>
+                <th style={{ padding: '0.6rem 0.8rem' }}>Bonus Cashback</th>
+                <th style={{ padding: '0.6rem 0.8rem' }}>Status</th>
+                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'right' }}>Authorization Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cashbackRecords.map(cb => (
+                <tr key={cb.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <td style={{ padding: '0.6rem 0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {cb.employeeName}
+                  </td>
+                  <td style={{ padding: '0.6rem 0.8rem', color: '#10b981', fontWeight: 700 }}>
+                    ₹{(cb.salesAchieved ?? cb.currentSales).toLocaleString()}
+                  </td>
+                  <td style={{ padding: '0.6rem 0.8rem', color: 'var(--text-secondary)' }}>
+                    ₹{(cb.salesLimitTarget ?? cb.targetSalesAmount).toLocaleString()}
+                  </td>
+                  <td style={{ padding: '0.6rem 0.8rem', color: '#eab308', fontWeight: 800 }}>
+                    ₹{cb.cashbackEarned.toLocaleString()}
+                  </td>
+                  <td style={{ padding: '0.6rem 0.8rem' }}>
+                    <span className={`delta-badge ${cb.status === 'Paid' ? 'positive' : cb.status === 'Approved' ? 'warning' : 'negative'}`}>
+                      {cb.status}
+                    </span>
+                  </td>
+                  <td style={{ padding: '0.6rem 0.8rem', textAlign: 'right' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                      {cb.status === 'Pending' && (
+                        <button
+                          className="btn btn-success btn-sm"
+                          onClick={() => approveCashback(cb.id)}
+                          style={{ padding: '3px 8px', fontSize: '0.72rem' }}
+                        >
+                          Approve Bonus
+                        </button>
+                      )}
+                      {cb.status === 'Approved' && (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => markCashbackPaid(cb.id)}
+                          style={{ padding: '3px 8px', fontSize: '0.72rem' }}
+                        >
+                          Mark as Paid
+                        </button>
+                      )}
+                      {cb.status === 'Paid' && (
+                        <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 700 }}>
+                          ✓ Disbursed
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Operational Split: Pending Approvals & Advisory Leads Overview */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr', gap: '1.5rem' }}>
+      <div className="dashboard-split-equal">
         {/* Actionable Approvals Queue */}
-        <div className="card">
+        <div className="card" style={{ minWidth: 0 }}>
           <div className="card-header">
             <div>
               <div className="card-title">
@@ -345,7 +473,7 @@ export const ManagerDashboard: React.FC = () => {
         </div>
 
         {/* Advisory Leads Quick Pipeline */}
-        <div className="card">
+        <div className="card" style={{ minWidth: 0 }}>
           <div className="card-header">
             <div>
               <div className="card-title">
@@ -404,9 +532,115 @@ export const ManagerDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+    </div>
 
       {/* Tips Modal */}
       <TipsModal isOpen={isTipsOpen} onClose={() => setIsTipsOpen(false)} />
+
+      {/* Manager Create Announcement Modal */}
+      {announcementModalOpen && (
+        <div className="tips-modal-backdrop" onClick={() => setAnnouncementModalOpen(false)}>
+          <div className="tips-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+            <div className="tips-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Megaphone size={18} color="#f59e0b" />
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>Broadcast Company Announcement</h3>
+              </div>
+              <button className="tips-modal-close" onClick={() => setAnnouncementModalOpen(false)}>✕</button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!annTitle || !annContent) {
+                  showToast('Please provide both title and announcement content.', 'error');
+                  return;
+                }
+                createAnnouncement({
+                  title: annTitle,
+                  message: annContent,
+                  type: annType as AnnouncementType,
+                  audience: (annAudience === 'Employees' ? 'role' : annAudience === 'TeamLeads' ? 'role' : 'all'),
+                  targetRole: annAudience === 'Employees' ? 'employee' : annAudience === 'TeamLeads' ? 'team_leader' : undefined,
+                  createdBy: 'Ashish Sharma (Director / Manager)',
+                  createdById: currentUser.id,
+                  startDate: new Date().toISOString().split('T')[0],
+                  endDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+                  isActive: true
+                });
+                setAnnouncementModalOpen(false);
+                setAnnTitle('');
+                setAnnContent('');
+              }}
+              style={{ padding: '1.25rem' }}
+            >
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                <div>
+                  <label className="form-label">Announcement Type</label>
+                  <select
+                    className="form-select"
+                    value={annType}
+                    onChange={(e) => setAnnType(e.target.value as any)}
+                  >
+                    <option value="MorningGreeting">Morning Greeting</option>
+                    <option value="Celebration">Celebration / Achievement</option>
+                    <option value="Milestone">Sales Milestone</option>
+                    <option value="Urgent">Urgent / Important Alert</option>
+                    <option value="General">General Notice</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label">Target Audience</label>
+                  <select
+                    className="form-select"
+                    value={annAudience}
+                    onChange={(e) => setAnnAudience(e.target.value as any)}
+                  >
+                    <option value="All">All Staff (Company-wide)</option>
+                    <option value="Employees">Employees Only</option>
+                    <option value="TeamLeads">Team Leaders Only</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '0.75rem' }}>
+                <label className="form-label">Announcement Headline *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Good Morning Stocketics Team! Market Bull Run Ahead"
+                  className="form-input"
+                  value={annTitle}
+                  onChange={(e) => setAnnTitle(e.target.value)}
+                />
+              </div>
+
+              <div style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Message Content *</label>
+                <textarea
+                  required
+                  rows={4}
+                  placeholder="Type announcement message or morning motivational briefing..."
+                  className="form-input"
+                  value={annContent}
+                  onChange={(e) => setAnnContent(e.target.value)}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setAnnouncementModalOpen(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ background: '#f59e0b', borderColor: '#f59e0b', color: '#fff' }}>
+                  Broadcast Immediately
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

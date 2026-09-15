@@ -34,7 +34,7 @@ export const ComplianceVault: React.FC = () => {
       id: 'doc-04',
       title: 'Master Client Disclosures & Risk Profiling Mandate',
       refNo: 'DP-DISCL-V4',
-      issuedBy: 'Apex Edge Legal & Compliance',
+      issuedBy: 'Stocketics Legal & Compliance',
       validTill: 'Permanent',
       status: 'Active',
       type: 'Policy Document',
@@ -48,7 +48,7 @@ export const ComplianceVault: React.FC = () => {
           SEBI Compliance & Regulatory Vault
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-          Statutory financial advisory licenses, analyst registrations, and audit trails for Apex Edge Research & Advisory Pvt Ltd.
+          Statutory financial advisory licenses, analyst registrations, and audit trails for Stocketics Advisory & Research Pvt Ltd.
         </p>
       </div>
 
@@ -91,8 +91,8 @@ export const ComplianceVault: React.FC = () => {
         <div className="table-toolbar">
           <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Registered Statutory Documents & Certifications</div>
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="data-table">
+        <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+          <table className="data-table table-min-750">
             <thead>
               <tr>
                 <th>Document / License Title</th>

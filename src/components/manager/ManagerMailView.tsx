@@ -39,15 +39,15 @@ const INITIAL_INBOX: MailMessage[] = [
   {
     id: 'mail-2',
     date: '08-Sep-2026',
-    sendFrom: 'Sirajul Fasal M (Equity Advisor)',
-    subject: 'Client High-Value Renewal Request: Sruthi A S',
-    message: 'Client Sruthi A S has expressed interest in upgrading to the Annual Index Options Advisory desk. Proposed package discount approved by Team Lead.',
+    sendFrom: 'Rohan Deshmukh (Equity Advisor)',
+    subject: 'Client High-Value Renewal Request: Rajesh K. Singhania',
+    message: 'Client Rajesh K. Singhania has expressed interest in upgrading to the Annual Index Options Advisory desk. Proposed package discount approved by Team Lead.',
     file: 'KYC_Verification_Ack.pdf'
   },
   {
     id: 'mail-3',
     date: '07-Sep-2026',
-    sendFrom: 'Golla Yugendra (Senior Advisor)',
+    sendFrom: 'Kabir Varma (Senior Advisor)',
     subject: 'EOD Desk Report - 07 September 2026',
     message: 'Achieved 100% daily target with 51 connects and ₹35,000 in direct bookings under Index Option segment. Payment receipt verified in bank statement.'
   }
@@ -57,7 +57,7 @@ const INITIAL_SENT: MailMessage[] = [
   {
     id: 'sent-1',
     date: '08-Sep-2026',
-    sendFrom: 'Vinod Kumar K J',
+    sendFrom: 'Arjun Malhotra (VP, Markets)',
     sendTo: 'All Research Analysts & Advisors',
     subject: 'Market Volatility Guidelines for NIFTY Expiry',
     message: 'Please advise all clients to maintain strict trailing stop-losses for tomorrow expiry trades. No high-leverage naked call selling allowed.'
@@ -85,7 +85,7 @@ export const ManagerMailView: React.FC = () => {
     const newSent: MailMessage = {
       id: `sent-${Date.now()}`,
       date: '08-Sep-2026',
-      sendFrom: 'Vinod Kumar K J',
+      sendFrom: 'Arjun Malhotra (VP, Markets)',
       sendTo: composeTo,
       subject: composeSubject,
       message: composeMessage,

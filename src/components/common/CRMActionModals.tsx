@@ -104,10 +104,10 @@ export const CallLogsModal: React.FC<ModalProps & { isUnknown?: boolean }> = ({ 
     { id: 'u2', phone: '+91 88712 90123', time: '11:15 AM', duration: '1m 20s', status: 'Callback Req', location: 'Ahmedabad, GJ' },
     { id: 'u3', phone: '+91 91024 43219', time: '01:05 PM', duration: '0m 18s', status: 'Disconnected', location: 'Bengaluru, KA' },
   ] : [
-    { id: 'c1', client: 'Rajesh K. Singhania', advisor: 'Sneha Patil', phone: '+91 98201 23456', time: '09:30 AM', duration: '8m 22s', outcome: 'Interested in Options HNI' },
-    { id: 'c2', client: 'Anita Roy', advisor: 'Amit Verma', phone: '+91 98111 87654', time: '10:15 AM', duration: '4m 10s', outcome: 'Followup scheduled for 4 PM' },
-    { id: 'c3', client: 'Col. Vikram Rathore', advisor: 'Shajakhan M', phone: '+91 94140 11223', time: '11:45 AM', duration: '12m 40s', outcome: 'Payment Link Sent' },
-    { id: 'c4', client: 'Pooja Kulkarni', advisor: 'Neha Reddy', phone: '+91 99220 44556', time: '01:20 PM', duration: '6m 15s', outcome: 'KYC Verification Pending' },
+    { id: 'c1', client: 'Rajesh K. Singhania', advisor: 'Sneha Kapur', phone: '+91 98201 00401', time: '09:30 AM', duration: '8m 22s', outcome: 'Interested in Options HNI' },
+    { id: 'c2', client: 'Anita Roy', advisor: 'Kabir Varma', phone: '+91 98111 00413', time: '10:15 AM', duration: '4m 10s', outcome: 'Followup scheduled for 4 PM' },
+    { id: 'c3', client: 'Col. Vikram Rathore', advisor: 'Aditya Roy', phone: '+91 94140 00405', time: '11:45 AM', duration: '12m 40s', outcome: 'Payment Link Sent' },
+    { id: 'c4', client: 'Pooja Kulkarni', advisor: 'Neha Reddy', phone: '+91 99220 00406', time: '01:20 PM', duration: '6m 15s', outcome: 'KYC Verification Pending' },
   ];
 
   return (

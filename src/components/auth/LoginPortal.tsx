@@ -117,6 +117,13 @@ export const LoginPortal: React.FC = () => {
           </button>
           <button 
             type="button"
+            className={`login-role-tab ${selectedRole === 'team_leader' ? 'active' : ''}`}
+            onClick={() => handleRoleTabChange('team_leader')}
+          >
+            <span>Team Leader</span>
+          </button>
+          <button 
+            type="button"
             className={`login-role-tab ${selectedRole === 'employee' ? 'active' : ''}`}
             onClick={() => handleRoleTabChange('employee')}
           >
@@ -272,8 +279,8 @@ export const LoginPortal: React.FC = () => {
                 <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '0.35rem' }}>
                   Select Role
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-                  {(['hr', 'manager', 'employee'] as UserRole[]).map((r) => (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.5rem' }}>
+                  {(['hr', 'manager', 'team_leader', 'employee'] as UserRole[]).map((r) => (
                     <button
                       key={r}
                       type="button"
@@ -283,9 +290,9 @@ export const LoginPortal: React.FC = () => {
                         setEditEmail(roleCredentials[r].email);
                         setEditPassword(roleCredentials[r].password);
                       }}
-                      style={{ textTransform: 'capitalize', fontSize: '0.78rem' }}
+                      style={{ textTransform: 'capitalize', fontSize: '0.72rem' }}
                     >
-                      {r}
+                      {r === 'team_leader' ? 'TL' : r}
                     </button>
                   ))}
                 </div>

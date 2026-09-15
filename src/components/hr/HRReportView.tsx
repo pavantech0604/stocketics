@@ -48,12 +48,12 @@ const HR_REPORT_CONFIGS: ReportCardConfig[] = [
     ],
     columns: ['Date', 'Client Name', 'Mobile', 'Segment', 'Executive', 'Amount (₹)', 'Status'],
     sampleData: [
-      ['08-Sep-2026', 'Sruthi A S', '8891171239', 'INDEX OPTION', 'Sirajul Fasal M', '45,000', 'Success'],
-      ['08-Sep-2026', 'M Subramanyam', '9948527886', 'INDEX OPTION', 'Golla Yugendra', '35,000', 'Success'],
-      ['07-Sep-2026', 'BHARATH', '9952011804', 'INDEX OPTION', 'Devika B', '60,000', 'Success'],
-      ['07-Sep-2026', 'Pasula Laxmi Prasanna', '9491924562', 'Market Pathshala', 'Golla Yugendra', '25,000', 'Success'],
-      ['06-Sep-2026', 'Pugazhendhi S', '8489712962', 'EQUITY PREMIER', 'Rohan Deshmukh', '90,000', 'Success'],
-      ['05-Sep-2026', 'VIVEKANANDHAN PERUMAL', '7904005514', 'FUTURE & OPTIONS', 'Ananya Sen', '1,20,000', 'Success']
+      ['08-Sep-2026', 'Rajesh K. Singhania', '9820100401', 'INDEX OPTION', 'Rohan Deshmukh', '45,000', 'Success'],
+      ['08-Sep-2026', 'Dr. Harshvardhan Jain', '9425000402', 'INDEX OPTION', 'Sneha Kapur', '35,000', 'Success'],
+      ['07-Sep-2026', 'Col. Vikram Rathore', '9414000405', 'INDEX OPTION', 'Neha Reddy', '60,000', 'Success'],
+      ['07-Sep-2026', 'Kavita Radhakrishnan', '9847000403', 'Market Pathshala', 'Kabir Varma', '25,000', 'Success'],
+      ['06-Sep-2026', 'Manish Chawla', '9912000404', 'EQUITY PREMIER', 'Rohan Deshmukh', '90,000', 'Success'],
+      ['05-Sep-2026', 'Meenakshi Sundaram', '9444000407', 'FUTURE & OPTIONS', 'Ananya Sen', '1,20,000', 'Success']
     ]
   },
   {
@@ -70,11 +70,11 @@ const HR_REPORT_CONFIGS: ReportCardConfig[] = [
     ],
     columns: ['Txn ID', 'Client Name', 'Payment Mode', 'Bank Account', 'UTR / Ref No', 'Amount (₹)', 'Audit Status'],
     sampleData: [
-      ['TXN-9011', 'Sruthi A S', 'NEFT', 'HDFC Bank - 0021', 'HDFCN26090881', '45,000', 'Reconciled'],
-      ['TXN-9012', 'M Subramanyam', 'UPI / QR', 'ICICI Bank - 4410', 'UPI-260908129', '35,000', 'Reconciled'],
-      ['TXN-9013', 'BHARATH', 'NetBanking', 'HDFC Bank - 0021', 'HDFCN26090714', '60,000', 'Reconciled'],
-      ['TXN-9014', 'Pasula Laxmi', 'Credit Card', 'Razorpay Route', 'RZP-881923019', '25,000', 'Verified'],
-      ['TXN-9015', 'Pugazhendhi S', 'RTGS', 'Axis Bank - 9912', 'AXISRTGS260906', '90,000', 'Reconciled']
+      ['TXN-9011', 'Rajesh K. Singhania', 'NEFT', 'HDFC Bank - 0021', 'HDFCN26090881', '45,000', 'Reconciled'],
+      ['TXN-9012', 'Dr. Harshvardhan Jain', 'UPI / QR', 'ICICI Bank - 4410', 'UPI-260908129', '35,000', 'Reconciled'],
+      ['TXN-9013', 'Col. Vikram Rathore', 'NetBanking', 'HDFC Bank - 0021', 'HDFCN26090714', '60,000', 'Reconciled'],
+      ['TXN-9014', 'Kavita Radhakrishnan', 'Credit Card', 'Razorpay Route', 'RZP-881923019', '25,000', 'Verified'],
+      ['TXN-9015', 'Manish Chawla', 'RTGS', 'Axis Bank - 9912', 'AXISRTGS260906', '90,000', 'Reconciled']
     ]
   },
   {
@@ -91,11 +91,11 @@ const HR_REPORT_CONFIGS: ReportCardConfig[] = [
     ],
     columns: ['Client Name', 'PAN Number', 'Risk Category', 'Aadhaar e-Sign', 'Mandate Date', 'SEBI Reg', 'Audit Clearance'],
     sampleData: [
-      ['Sruthi A S', 'BNVPS8821K', 'High Growth', 'Verified', '08-Sep-2026', 'INA000012345', 'Compliant'],
-      ['M Subramanyam', 'CRKPM9941L', 'Moderate Aggressive', 'Verified', '08-Sep-2026', 'INA000012345', 'Compliant'],
-      ['BHARATH', 'AGLPB1104D', 'High Growth', 'Verified', '07-Sep-2026', 'INA000012345', 'Compliant'],
-      ['Pasula Laxmi', 'DJWPL4562E', 'Conservative', 'Verified', '07-Sep-2026', 'INA000012345', 'Compliant'],
-      ['Pugazhendhi S', 'ALXPS2962Q', 'High Growth', 'Verified', '06-Sep-2026', 'INA000012345', 'Compliant']
+      ['Rajesh K. Singhania', 'AAACS1024K', 'High Growth', 'Verified', '08-Sep-2026', 'INA000012345', 'Compliant'],
+      ['Dr. Harshvardhan Jain', 'BKMPM3412E', 'Moderate Aggressive', 'Verified', '08-Sep-2026', 'INA000012345', 'Compliant'],
+      ['Col. Vikram Rathore', 'ALOPR7741F', 'High Growth', 'Verified', '07-Sep-2026', 'INA000012345', 'Compliant'],
+      ['Kavita Radhakrishnan', 'BFFPR4419M', 'Conservative', 'Verified', '07-Sep-2026', 'INA000012345', 'Compliant'],
+      ['Manish Chawla', 'AVBPD5521H', 'High Growth', 'Verified', '06-Sep-2026', 'INA000012345', 'Compliant']
     ]
   },
   {
@@ -112,10 +112,10 @@ const HR_REPORT_CONFIGS: ReportCardConfig[] = [
     ],
     columns: ['Executive', 'Calls Made', 'Connects', 'Talktime (min)', 'Interested', 'Sales (₹)', 'Target %'],
     sampleData: [
-      ['Sirajul Fasal M', '84', '42', '148', '6', '45,000', '112%'],
-      ['Golla Yugendra', '92', '51', '162', '8', '35,000', '100%'],
-      ['Devika B', '78', '38', '135', '5', '60,000', '150%'],
-      ['Rohan Deshmukh', '95', '55', '180', '9', '25,000', '85%'],
+      ['Rohan Deshmukh', '84', '42', '148', '6', '45,000', '112%'],
+      ['Sneha Kapur', '92', '51', '162', '8', '35,000', '100%'],
+      ['Neha Reddy', '78', '38', '135', '5', '60,000', '150%'],
+      ['Kabir Varma', '95', '55', '180', '9', '25,000', '85%'],
       ['Ananya Sen', '81', '44', '152', '7', '0', '0%']
     ]
   },
@@ -135,10 +135,10 @@ const HR_REPORT_CONFIGS: ReportCardConfig[] = [
     ],
     columns: ['Lead ID', 'Client Name', 'City', 'Source', 'Alloted To', 'Alloted Time', 'Status'],
     sampleData: [
-      ['LD-8891', 'Naveen Jindal', 'Mumbai', 'Google Search Ads', 'Sirajul Fasal M', '09:15 AM', 'Contacted'],
-      ['LD-8892', 'Pooja Hegde', 'Bangalore', 'Moneycontrol Partner', 'Golla Yugendra', '09:30 AM', 'In Progress'],
-      ['LD-8893', 'Karthik Raja', 'Chennai', 'Economic Times', 'Devika B', '09:45 AM', 'Interested'],
-      ['LD-8894', 'Harish Chandra', 'Delhi NCR', 'Facebook Campaign', 'Rohan Deshmukh', '10:00 AM', 'Payment Due'],
+      ['LD-8891', 'Siddharth Varma', 'Mumbai', 'Google Search Ads', 'Rohan Deshmukh', '09:15 AM', 'Contacted'],
+      ['LD-8892', 'Pooja Hegde', 'Bangalore', 'Moneycontrol Partner', 'Sneha Kapur', '09:30 AM', 'In Progress'],
+      ['LD-8893', 'Karthik Raja', 'Chennai', 'Economic Times', 'Neha Reddy', '09:45 AM', 'Interested'],
+      ['LD-8894', 'Harish Chandra', 'Delhi NCR', 'Facebook Campaign', 'Kabir Varma', '10:00 AM', 'Payment Due'],
       ['LD-8895', 'Meenakshi Iyer', 'Hyderabad', 'Direct Portal Inflow', 'Ananya Sen', '10:15 AM', 'Contacted']
     ]
   },
@@ -156,11 +156,11 @@ const HR_REPORT_CONFIGS: ReportCardConfig[] = [
     ],
     columns: ['Emp ID', 'Name', 'Department', 'Designation', 'Present Days', 'Monthly Sales', 'Status'],
     sampleData: [
-      ['EMP-001', 'Sindhu H S', 'HR', 'Head of People & HR Operations', '22', '-', 'Active'],
-      ['EMP-004', 'Vinod Kumar K J', 'Equity Research', 'VP, Equity Advisory & Markets', '22', '₹12,53,100', 'Active'],
+      ['EMP-001', 'Priya Sharma', 'HR', 'Head of People & HR Operations', '22', '-', 'Active'],
+      ['EMP-004', 'Arjun Malhotra', 'Equity Research', 'VP, Equity Advisory & Markets', '22', '₹12,53,100', 'Active'],
       ['EMP-008', 'Aditya Roy', 'Equity Research', 'Senior Research Analyst', '21', '₹4,50,000', 'Active'],
-      ['EMP-012', 'Sirajul Fasal M', 'Advisory Sales', 'Senior Advisory Executive', '22', '₹3,40,000', 'Active'],
-      ['EMP-015', 'Golla Yugendra', 'Advisory Sales', 'Business Development Lead', '21', '₹2,85,000', 'Active']
+      ['EMP-012', 'Rohan Deshmukh', 'Advisory Sales', 'Senior Advisory Executive', '22', '₹3,40,000', 'Active'],
+      ['EMP-015', 'Sneha Kapur', 'Advisory Sales', 'Business Development Lead', '21', '₹2,85,000', 'Active']
     ]
   },
   {
@@ -177,11 +177,11 @@ const HR_REPORT_CONFIGS: ReportCardConfig[] = [
     ],
     columns: ['Timestamp', 'Executive', 'Client Mobile', 'Direction', 'Duration (sec)', 'Disposition', 'Recording'],
     sampleData: [
-      ['08-Sep 10:45 AM', 'Sirajul Fasal M', '8891171239', 'Outbound', '245s', 'Payment Done', 'Audio Available'],
-      ['08-Sep 10:32 AM', 'Golla Yugendra', '9948527886', 'Outbound', '180s', 'Follow-up Set', 'Audio Available'],
-      ['08-Sep 10:15 AM', 'Devika B', '9952011804', 'Inbound', '310s', 'Package Upgrade', 'Audio Available'],
-      ['08-Sep 09:55 AM', 'Rohan Deshmukh', '9491924562', 'Outbound', '125s', 'Interested', 'Audio Available'],
-      ['08-Sep 09:40 AM', 'Ananya Sen', '7904005514', 'Outbound', '90s', 'RNR', 'No Answer']
+      ['08-Sep 10:45 AM', 'Rohan Deshmukh', '9820100401', 'Outbound', '245s', 'Payment Done', 'Audio Available'],
+      ['08-Sep 10:32 AM', 'Sneha Kapur', '9425000402', 'Outbound', '180s', 'Follow-up Set', 'Audio Available'],
+      ['08-Sep 10:15 AM', 'Neha Reddy', '9414000405', 'Inbound', '310s', 'Package Upgrade', 'Audio Available'],
+      ['08-Sep 09:55 AM', 'Kabir Varma', '9847000403', 'Outbound', '125s', 'Interested', 'Audio Available'],
+      ['08-Sep 09:40 AM', 'Ananya Sen', '9444000407', 'Outbound', '90s', 'RNR', 'No Answer']
     ]
   },
   {
@@ -217,14 +217,14 @@ export const HRReportView: React.FC = () => {
   const renderIcon = (type: ReportCardConfig['iconType']) => {
     switch (type) {
       case 'tag':
-        return <Tag size={28} strokeWidth={2.2} />;
+        return <Tag size={26} color="#ffffff" strokeWidth={2.2} />;
       case 'flag':
-        return <Flag size={28} strokeWidth={2.2} />;
+        return <Flag size={26} color="#ffffff" strokeWidth={2.2} />;
       case 'quill':
-        return <PenTool size={28} strokeWidth={2.2} />;
+        return <PenTool size={26} color="#ffffff" strokeWidth={2.2} />;
       case 'pencil':
       default:
-        return <Edit3 size={28} strokeWidth={2.2} />;
+        return <Edit3 size={26} color="#ffffff" strokeWidth={2.2} />;
     }
   };
 
@@ -266,7 +266,7 @@ export const HRReportView: React.FC = () => {
       <h1 className="page-title-ref">Report</h1>
 
       {/* 8 Two-Tone Report Cards (Exact 4x2 Grid Matching Image 2) */}
-      <div className="report-two-tone-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <div className="report-two-tone-grid">
         {HR_REPORT_CONFIGS.map(report => (
           <div 
             key={report.id}
@@ -280,9 +280,9 @@ export const HRReportView: React.FC = () => {
             </div>
 
             {/* Right White Content Block */}
-            <div className="report-card-content-box">
-              <span className="report-card-title">{report.title}</span>
-              <span className="report-card-subtitle">{report.subtitle}</span>
+            <div className="report-card-text-box">
+              <div className="report-card-title">{report.title}</div>
+              <div className="report-card-subtitle">{report.subtitle}</div>
             </div>
           </div>
         ))}

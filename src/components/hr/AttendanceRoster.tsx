@@ -26,7 +26,7 @@ export const AttendanceRoster: React.FC = () => {
           Real-Time Attendance & Biometric Roster
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-          Live IP-geofenced punches, shift coverage and late-arrival monitor for Apex Edge HQ.
+          Live IP-geofenced punches, shift coverage and late-arrival monitor for Stocketics HQ.
         </p>
       </div>
 
@@ -79,12 +79,12 @@ export const AttendanceRoster: React.FC = () => {
 
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
-            <span>HQ Office IP: 106.51.67.248 (Verified)</span>
+            <span>HQ Office IP: 10.0.4.150 (Verified)</span>
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table className="data-table">
+        <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+          <table className="data-table table-min-750">
             <thead>
               <tr>
                 <th>Personnel</th>
@@ -128,7 +128,7 @@ export const AttendanceRoster: React.FC = () => {
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>{rec.location}</span>
                   </td>
                   <td>
-                    {rec.ipAddress === '106.51.67.248' ? (
+                    {rec.ipAddress === '10.0.4.150' ? (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.74rem', color: 'var(--success)', fontWeight: 600 }}>
                         <CheckCircle size={13} /> Trusted Office
                       </span>

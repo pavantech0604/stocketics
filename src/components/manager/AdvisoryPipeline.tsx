@@ -32,7 +32,7 @@ import { TipsModal } from '../common/TipsModal';
 import confetti from 'canvas-confetti';
 
 export const AdvisoryPipeline: React.FC = () => {
-  const { role, activeTab, setActiveTab, advisoryLeads, updateLeadStatus, showToast, employees } = useApp();
+  const { role, activeTab, setActiveTab, advisoryLeads, updateLeadStatus, showToast, employees, currentUser, triggerClientSearchAlert } = useApp();
   
   // View mode: 'table' (clean compact table matching CRM) or 'cards' (responsive cards, zero horizontal scroll)
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
@@ -41,6 +41,37 @@ export const AdvisoryPipeline: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedService, setSelectedService] = useState('All');
   const [selectedAdvisor, setSelectedAdvisor] = useState('All');
+
+  // Cross-employee search tracking
+  useEffect(() => {
+    if (searchQuery.trim().length >= 3) {
+      const timer = setTimeout(() => {
+        const q = searchQuery.toLowerCase();
+        const otherLead = advisoryLeads.find(l => {
+          const match = l.clientName.toLowerCase().includes(q) || l.phone.includes(q);
+          const isOther = l.assignedToName && l.assignedToName.toLowerCase() !== currentUser.name.toLowerCase() && l.assignedToName.toLowerCase() !== 'unassigned';
+          return match && isOther;
+        });
+
+        if (otherLead) {
+          triggerClientSearchAlert({
+            clientId: otherLead.id,
+            clientName: otherLead.clientName,
+            clientMobile: otherLead.phone,
+            targetType: 'lead',
+            ownerName: otherLead.assignedToName,
+            searchedById: currentUser.id,
+            searchedByName: currentUser.name,
+            searchedByRole: currentUser.title || currentUser.role,
+            searchedByAvatar: currentUser.avatar,
+            searchQuery: searchQuery.trim(),
+            searchLocation: 'Leads Advisory Pipeline'
+          });
+        }
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [searchQuery, advisoryLeads, currentUser.name]);
   
   // Modals
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
@@ -648,15 +679,16 @@ export const AdvisoryPipeline: React.FC = () => {
                 maxWidth: '100%'
               }}
             >
-              <table 
-                style={{ 
-                  width: '100%', 
-                  tableLayout: 'fixed',
-                  borderCollapse: 'collapse', 
-                  textAlign: 'left',
-                  fontSize: '12px'
-                }}
-              >
+              <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+                <table 
+                  style={{ 
+                    width: '100%', 
+                    minWidth: 0,
+                    borderCollapse: 'collapse', 
+                    textAlign: 'left',
+                    fontSize: '12px'
+                  }}
+                >
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0' }}>
                     <th style={{ width: '28%', padding: '10px 12px', fontWeight: 700, color: '#475569' }}>Prospect Profile</th>
@@ -850,6 +882,7 @@ export const AdvisoryPipeline: React.FC = () => {
                   })}
                 </tbody>
               </table>
+              </div>
 
               {/* Table Footer */}
               <div 

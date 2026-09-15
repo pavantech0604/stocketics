@@ -42,7 +42,7 @@ interface ClosedCallRecord {
 const INITIAL_CLOSED_RECORDS: ClosedCallRecord[] = [
   {
     id: 1,
-    sentBy: 'Kiran Kumar B P',
+    sentBy: 'Aditya Roy',
     service: 'INDEX OPTION',
     scriptType: 'INDEX OPTION',
     scriptName: 'NIFTY',
@@ -61,7 +61,7 @@ const INITIAL_CLOSED_RECORDS: ClosedCallRecord[] = [
   },
   {
     id: 2,
-    sentBy: 'Kiran Kumar B P',
+    sentBy: 'Aditya Roy',
     service: 'INDEX OPTION',
     scriptType: 'INDEX OPTION',
     scriptName: 'SENSEX',
@@ -80,7 +80,7 @@ const INITIAL_CLOSED_RECORDS: ClosedCallRecord[] = [
   },
   {
     id: 3,
-    sentBy: 'Sirajul Fasal M',
+    sentBy: 'Rohan Deshmukh',
     service: 'INDEX OPTION',
     scriptType: 'INDEX OPTION',
     scriptName: 'BANKNIFTY',
@@ -132,7 +132,7 @@ export const HRTipArchiveView: React.FC<Props> = ({ defaultMode }) => {
 
   // New Call Form State
   const [newCallForm, setNewCallForm] = useState({
-    sentBy: 'Sindhu H S',
+    sentBy: 'Priya Sharma',
     service: 'INDEX OPTION',
     scriptType: 'INDEX OPTION',
     scriptName: 'NIFTY 24800 CE',
@@ -397,17 +397,17 @@ export const HRTipArchiveView: React.FC<Props> = ({ defaultMode }) => {
               style={{ width: '160px', height: '38px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
             >
               <option value="All">All</option>
-              <option value="Kiran Kumar B P">Kiran Kumar B P</option>
-              <option value="Sirajul Fasal M">Sirajul Fasal M</option>
-              <option value="Sindhu H S">Sindhu H S</option>
+              <option value="Aditya Roy">Aditya Roy</option>
+              <option value="Rohan Deshmukh">Rohan Deshmukh</option>
+              <option value="Priya Sharma">Priya Sharma</option>
             </select>
           </div>
 
           <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '1.25rem 0' }} />
 
           {/* 14-Column Table Header Schema Matching Image 7 */}
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', marginBottom: '1rem' }}>
+          <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: '1200px', borderCollapse: 'collapse', textAlign: 'left', marginBottom: '1rem' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: '0.82rem', fontWeight: 700 }}>
                   <th style={{ padding: '0.65rem 0.5rem' }}>#</th>
@@ -530,8 +530,8 @@ export const HRTipArchiveView: React.FC<Props> = ({ defaultMode }) => {
               style={{ width: '160px', height: '38px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
             >
               <option value="All">All</option>
-              <option value="Kiran Kumar B P">Kiran Kumar B P</option>
-              <option value="Sirajul Fasal M">Sirajul Fasal M</option>
+              <option value="Aditya Roy">Aditya Roy</option>
+              <option value="Rohan Deshmukh">Rohan Deshmukh</option>
             </select>
           </div>
 
@@ -551,8 +551,8 @@ export const HRTipArchiveView: React.FC<Props> = ({ defaultMode }) => {
           </div>
 
           {/* Table Matching Image 8 with Dark Charcoal Header */}
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: '1350px', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ background: '#334155', color: '#ffffff' }}>
                   <th style={{ padding: '0.75rem 0.5rem', fontSize: '0.8rem', fontWeight: 800 }}>#</th>

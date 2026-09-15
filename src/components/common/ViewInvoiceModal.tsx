@@ -2,6 +2,7 @@ import React from 'react';
 import { InvoiceData } from '../../types';
 import { X, Printer } from 'lucide-react';
 import stocketicsLogo from '../../assets/logo.jpg';
+import { useApp } from '../../state/store';
 
 interface ViewInvoiceModalProps {
   isOpen: boolean;
@@ -10,6 +11,9 @@ interface ViewInvoiceModalProps {
 }
 
 export const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({ isOpen, onClose, invoiceData }) => {
+  const { theme } = useApp();
+  const isDark = theme === 'dark';
+
   if (!isOpen || !invoiceData) return null;
 
   const handlePrint = () => {
@@ -23,7 +27,7 @@ export const ViewInvoiceModal: React.FC<ViewInvoiceModalProps> = ({ isOpen, onCl
       style={{ 
         position: 'fixed',
         inset: 0,
-        background: 'rgba(15, 23, 42, 0.75)',
+        background: isDark ? 'rgba(10, 17, 40, 0.78)' : 'rgba(15, 23, 42, 0.45)',
         backdropFilter: 'blur(6px)',
         WebkitBackdropFilter: 'blur(6px)',
         zIndex: 9999, 

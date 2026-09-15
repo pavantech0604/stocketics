@@ -363,8 +363,8 @@ export const HRExpensesView: React.FC = () => {
                     style={{ height: '38px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                   >
                     <option value="Administrator">Administrator</option>
-                    <option value="Sindhu H S (HR)">Sindhu H S (HR)</option>
-                    <option value="Vinod Kumar K J (VP)">Vinod Kumar K J (VP)</option>
+                    <option value="Priya Sharma (HR)">Priya Sharma (HR)</option>
+                    <option value="Arjun Malhotra (VP)">Arjun Malhotra (VP)</option>
                     <option value="Finance Desk">Finance Desk</option>
                   </select>
                 </div>
@@ -456,7 +456,8 @@ export const HRExpensesView: React.FC = () => {
           </div>
 
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   <th style={{ padding: '0.85rem 1.25rem' }}>Voucher & Vendor</th>
@@ -503,6 +504,7 @@ export const HRExpensesView: React.FC = () => {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       )}
@@ -570,7 +572,8 @@ export const HRExpensesView: React.FC = () => {
       {/* TAB 4: EXPENSES HEAD LIST */}
       {currentTab === 'heads-list' && (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                 <th style={{ padding: '0.85rem 1.25rem' }}>Expense Head Title</th>
@@ -614,6 +617,7 @@ export const HRExpensesView: React.FC = () => {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

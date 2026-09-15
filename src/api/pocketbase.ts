@@ -22,18 +22,31 @@ export const isCloudDeployment =
   window.location.protocol === 'https:' && 
   (!import.meta.env.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL.startsWith('http://'));
 
+let lastHealthCheckTime = 0;
+let lastHealthCheckResult = false;
+
 /**
  * Health check helper to see if PocketBase is online.
  * On remote HTTPS deployments (such as Vercel), skips insecure localhost HTTP calls to prevent Mixed Content browser errors.
+ * Caches offline status for 10 seconds to avoid duplicate ERR_CONNECTION_REFUSED logs during React StrictMode initial mount.
  */
 export async function checkPocketBaseHealth(): Promise<boolean> {
   if (isCloudDeployment) {
     return false;
   }
+
+  const now = Date.now();
+  if (!lastHealthCheckResult && (now - lastHealthCheckTime < 10000)) {
+    return false;
+  }
+  lastHealthCheckTime = now;
+
   try {
     const health = await pb.health.check();
-    return health.code === 200;
+    lastHealthCheckResult = health.code === 200;
+    return lastHealthCheckResult;
   } catch {
+    lastHealthCheckResult = false;
     return false;
   }
 }

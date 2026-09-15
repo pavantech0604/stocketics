@@ -12,9 +12,14 @@ import {
   User, 
   ShieldCheck, 
   AlertCircle,
-  Save
+  Save,
+  Plus
 } from 'lucide-react';
 import { TipsModal } from '../common/TipsModal';
+import { ActiveClientRecordDetailed } from '../../types';
+import { INITIAL_DETAILED_CLIENTS } from '../../data/clientDatabase';
+import { ClientSearchResultsView } from '../employee/ClientSearchResultsView';
+import { ClientEditView } from '../employee/ClientEditView';
 
 export type ClientSubTab = 
   | 'register' 
@@ -27,6 +32,7 @@ export type ClientSubTab =
 
 interface RegisterClientRecord {
   id: string;
+  clientCode?: string;
   clientName: string;
   mobile: string;
   kycStatus: string;
@@ -34,35 +40,18 @@ interface RegisterClientRecord {
   assignedEmployee?: string;
 }
 
-interface ActiveClientRecord {
-  id: string;
-  ownerName: string;
-  clientName: string;
-  mobile: string;
-  serviceName: string;
-  startDate: string;
-  endDate: string;
-}
-
 const INITIAL_REGISTER_CLIENTS: RegisterClientRecord[] = [
-  { id: 'reg-1', clientName: 'Sruthi A S', mobile: '8891171239', kycStatus: 'Approved', riskProfile: 'Not Fill', assignedEmployee: 'Sirajul Fasal M' },
-  { id: 'reg-2', clientName: 'M Subramanyam', mobile: '9948527886', kycStatus: 'Approved', riskProfile: 'Not Fill', assignedEmployee: 'Golla Yugendra' },
-  { id: 'reg-3', clientName: 'M Subramanyam', mobile: '9948527886', kycStatus: 'Approved', riskProfile: 'Not Fill', assignedEmployee: 'Golla Yugendra' },
-  { id: 'reg-4', clientName: 'BHARATH', mobile: '9952011804', kycStatus: 'Approved', riskProfile: 'Not Fill', assignedEmployee: 'Devika B' },
-  { id: 'reg-5', clientName: 'Pasula Laxmi Prasanna', mobile: '9491924562', kycStatus: 'Approved', riskProfile: 'Not Fill', assignedEmployee: 'Golla Yugendra' },
-  { id: 'reg-6', clientName: 'Pugazhendhi S', mobile: '8489712962', kycStatus: 'Approved', riskProfile: 'Not Fill', assignedEmployee: 'Rohan Deshmukh' },
-  { id: 'reg-7', clientName: 'VIVEKANANDHAN PERUMAL', mobile: '7904005514', kycStatus: 'Approved', riskProfile: 'Not Fill', assignedEmployee: 'Ananya Sen' },
-];
-
-const INITIAL_ACTIVE_CLIENTS: ActiveClientRecord[] = [
-  { id: 'act-1', ownerName: 'Sirajul Fasal M', clientName: 'Sruthi A S', mobile: '8891171239', serviceName: 'INDEX OPTION', startDate: '2026-09-05', endDate: '2026-09-21' },
-  { id: 'act-2', ownerName: 'Golla Yugendra', clientName: 'M Subramanyam', mobile: '9948527886', serviceName: 'INDEX OPTION', startDate: '2026-09-05', endDate: '2026-09-21' },
-  { id: 'act-3', ownerName: 'Devika B', clientName: 'BHARATH', mobile: '9952011804', serviceName: 'INDEX OPTION', startDate: '2026-09-04', endDate: '2026-09-24' },
-  { id: 'act-4', ownerName: 'Golla Yugendra', clientName: 'Pasula Laxmi Prasanna', mobile: '9491924562', serviceName: 'Market Pathshala', startDate: '2026-09-04', endDate: '2027-01-01' },
+  { id: 'reg-1', clientName: 'Rajesh K. Singhania', mobile: '9820100401', kycStatus: 'Approved', riskProfile: 'Aggressive', assignedEmployee: 'Rohan Deshmukh' },
+  { id: 'reg-2', clientName: 'Dr. Harshvardhan Jain', mobile: '9425000402', kycStatus: 'Approved', riskProfile: 'Moderate', assignedEmployee: 'Sneha Kapur' },
+  { id: 'reg-3', clientName: 'Kavita Radhakrishnan', mobile: '9847000403', kycStatus: 'Approved', riskProfile: 'Moderate', assignedEmployee: 'Kabir Varma' },
+  { id: 'reg-4', clientName: 'Col. Vikram Rathore', mobile: '9414000405', kycStatus: 'Approved', riskProfile: 'Conservative', assignedEmployee: 'Neha Reddy' },
+  { id: 'reg-5', clientName: 'Pooja Kulkarni', mobile: '9922000406', kycStatus: 'Approved', riskProfile: 'Moderate', assignedEmployee: 'Sneha Kapur' },
+  { id: 'reg-6', clientName: 'Manish Chawla', mobile: '9912000404', kycStatus: 'Approved', riskProfile: 'Aggressive', assignedEmployee: 'Rohan Deshmukh' },
+  { id: 'reg-7', clientName: 'Meenakshi Sundaram', mobile: '9444000407', kycStatus: 'Approved', riskProfile: 'Moderate', assignedEmployee: 'Ananya Sen' },
 ];
 
 export const ClientManagementView: React.FC = () => {
-  const { activeTab, setActiveTab, showToast } = useApp();
+  const { activeTab, setActiveTab, showToast, currentUser, triggerClientSearchAlert } = useApp();
 
   const getSubTab = (): ClientSubTab => {
     if (activeTab === 'register-clients' || activeTab === 'add-client') return 'register';
@@ -72,25 +61,17 @@ export const ClientManagementView: React.FC = () => {
     if (activeTab === 'hold-clients') return 'hold';
     if (activeTab === 'hold-expire') return 'hold-expire';
     if (activeTab === 'payment-reminder') return 'reminder';
-    return 'register';
+    return 'active'; // Default to active matching reference workflows
   };
 
   const [currentTab, setCurrentTab] = useState<ClientSubTab>(getSubTab());
-  const [isTipsOpen, setIsTipsOpen] = useState(false);
+  const [detailedClients, setDetailedClients] = useState<ActiveClientRecordDetailed[]>(INITIAL_DETAILED_CLIENTS);
+  const [editingDetailedClient, setEditingDetailedClient] = useState<ActiveClientRecordDetailed | null>(null);
 
   // Register Clients state
   const [registerClients, setRegisterClients] = useState<RegisterClientRecord[]>(INITIAL_REGISTER_CLIENTS);
   const [regSelectedEmployee, setRegSelectedEmployee] = useState('');
   const [regMobileQuery, setRegMobileQuery] = useState('');
-
-  // Active Clients state
-  const [activeClients, setActiveClients] = useState<ActiveClientRecord[]>(INITIAL_ACTIVE_CLIENTS);
-  const [actSelectedEmployee, setActSelectedEmployee] = useState('');
-  const [actMobileQuery, setActMobileQuery] = useState('');
-  const [actFromDate, setActFromDate] = useState('');
-
-  // Edit Active Client Modal
-  const [editingClient, setEditingClient] = useState<ActiveClientRecord | null>(null);
 
   useEffect(() => {
     setCurrentTab(getSubTab());
@@ -103,56 +84,80 @@ export const ClientManagementView: React.FC = () => {
     return matchEmp && matchMobile;
   });
 
-  // Handle Search for Active Clients
-  const filteredActiveClients = activeClients.filter(client => {
-    const matchEmp = !actSelectedEmployee || client.ownerName === actSelectedEmployee;
-    const matchMobile = !actMobileQuery || client.mobile.includes(actMobileQuery) || client.clientName.toLowerCase().includes(actMobileQuery.toLowerCase());
-    const matchDate = !actFromDate || client.startDate >= actFromDate;
-    return matchEmp && matchMobile && matchDate;
-  });
-
-  const handleSaveEditedClient = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingClient) return;
-
-    setActiveClients(prev => prev.map(item => item.id === editingClient.id ? editingClient : item));
-    showToast(`Updated subscription details for ${editingClient.clientName}!`, 'success');
-    setEditingClient(null);
+  // Client Navigation for Edit screen (<< and >>)
+  const handlePrevClient = () => {
+    if (!editingDetailedClient) return;
+    const currentIdx = detailedClients.findIndex(c => c.id === editingDetailedClient.id);
+    const prevIdx = currentIdx > 0 ? currentIdx - 1 : detailedClients.length - 1;
+    setEditingDetailedClient(detailedClients[prevIdx]);
   };
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      {/* Subpage Breadcrumb Strip */}
-      <div className="subpage-header-strip">
-        <div className="subpage-breadcrumb">
-          <span className="home-link" onClick={() => setActiveTab('dashboard')} style={{ cursor: 'pointer' }}>
-            <Home size={15} />
-            <span style={{ color: '#ea580c', fontWeight: 600 }}>/ Dashboard</span>
-          </span>
-        </div>
-      </div>
+  const handleNextClient = () => {
+    if (!editingDetailedClient) return;
+    const currentIdx = detailedClients.findIndex(c => c.id === editingDetailedClient.id);
+    const nextIdx = currentIdx < detailedClients.length - 1 ? currentIdx + 1 : 0;
+    setEditingDetailedClient(detailedClients[nextIdx]);
+  };
 
-      {/* VIEW 1: ALL REGISTER CLIENT (Matching Reference Image 4) */}
-      {currentTab === 'register' && (
+  // Update client record in master state
+  const handleUpdateClient = (updated: ActiveClientRecordDetailed) => {
+    setDetailedClients(prev => prev.map(c => c.id === updated.id ? updated : c));
+    if (editingDetailedClient?.id === updated.id) {
+      setEditingDetailedClient(updated);
+    }
+  };
+
+  const handleSaveAndNext = (updated: ActiveClientRecordDetailed) => {
+    handleUpdateClient(updated);
+    const currentIdx = detailedClients.findIndex(c => c.id === updated.id);
+    const nextIdx = currentIdx < detailedClients.length - 1 ? currentIdx + 1 : 0;
+    setEditingDetailedClient(detailedClients[nextIdx]);
+  };
+
+  // IF AN ACTIVE CLIENT IS BEING EDITED: Render Edit Page matching Image 2
+  if (editingDetailedClient) {
+    return (
+      <ClientEditView
+        client={editingDetailedClient}
+        onBack={() => setEditingDetailedClient(null)}
+        onSave={(updated) => handleUpdateClient(updated)}
+        onSaveAndNext={handleSaveAndNext}
+        onPrevClient={handlePrevClient}
+        onNextClient={handleNextClient}
+      />
+    );
+  }
+
+  // IF REGISTER CLIENTS TAB:
+  if (currentTab === 'register') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        {/* Subpage Breadcrumb Strip */}
+        <div className="subpage-header-strip" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', padding: '0.4rem 0.75rem', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+          <div className="subpage-breadcrumb">
+            <span className="home-link" onClick={() => setActiveTab('dashboard')} style={{ cursor: 'pointer' }}>
+              <Home size={15} />
+              <span style={{ color: '#ea580c', fontWeight: 600 }}>/ Dashboard</span>
+            </span>
+          </div>
+        </div>
+
+        {/* VIEW 1: ALL REGISTER CLIENT */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <h1 className="page-title-ref">All Register Client</h1>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button 
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  setCurrentTab('active');
-                  setActiveTab('active-clients');
-                }}
-              >
-                View Active Clients &gt;&gt;
-              </button>
-            </div>
+            <button 
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                setCurrentTab('active');
+                setActiveTab('active-clients');
+              }}
+            >
+              View Search Results & Active Clients &gt;&gt;
+            </button>
           </div>
 
           <div className="client-panel-card">
-            {/* Filter Bar (Matching Reference Image 4) */}
             <div className="client-filter-bar">
               <select 
                 className="client-filter-select"
@@ -160,38 +165,55 @@ export const ClientManagementView: React.FC = () => {
                 onChange={(e) => setRegSelectedEmployee(e.target.value)}
               >
                 <option value="">Select Employee</option>
-                <option value="Sirajul Fasal M">Sirajul Fasal M</option>
-                <option value="Golla Yugendra">Golla Yugendra</option>
-                <option value="Devika B">Devika B</option>
                 <option value="Rohan Deshmukh">Rohan Deshmukh</option>
+                <option value="Sneha Kapur">Sneha Kapur</option>
+                <option value="Kabir Varma">Kabir Varma</option>
+                <option value="Neha Reddy">Neha Reddy</option>
                 <option value="Ananya Sen">Ananya Sen</option>
               </select>
 
               <input 
-                type="text"
-                placeholder="Mobile"
+                type="text" 
+                placeholder="Mobile" 
                 className="client-filter-input"
                 value={regMobileQuery}
                 onChange={(e) => setRegMobileQuery(e.target.value)}
               />
 
               <button 
-                type="button"
+                type="button" 
                 className="client-search-btn-blue"
-                onClick={() => showToast(`Filtered ${filteredRegisterClients.length} registered clients`, 'info')}
+                onClick={() => {
+                  if (regSelectedEmployee && regSelectedEmployee.toLowerCase() !== currentUser.name.toLowerCase()) {
+                    const match = filteredRegisterClients[0];
+                    triggerClientSearchAlert({
+                      clientId: match?.id || `reg-${Date.now()}`,
+                      clientCode: match?.clientCode || 'REG',
+                      clientName: match?.clientName || `Registered Clients (${regSelectedEmployee})`,
+                      clientMobile: match?.mobile || '',
+                      targetType: 'client',
+                      ownerName: regSelectedEmployee,
+                      searchedById: currentUser.id,
+                      searchedByName: currentUser.name,
+                      searchedByRole: currentUser.title || currentUser.role,
+                      searchedByAvatar: currentUser.avatar,
+                      searchQuery: regMobileQuery || `Filtered by ${regSelectedEmployee}`,
+                      searchLocation: 'Register Clients Directory'
+                    });
+                  }
+                  showToast(`Filtered ${filteredRegisterClients.length} registered clients`, 'info');
+                }}
               >
                 search
               </button>
             </div>
 
-            {/* Total Records Green Badge */}
             <div className="total-records-strip">
               <span className="total-records-pill">
                 Total Records ({filteredRegisterClients.length})
               </span>
             </div>
 
-            {/* Register Clients Table */}
             <div style={{ overflowX: 'auto' }}>
               <table className="client-ref-table">
                 <thead>
@@ -204,269 +226,38 @@ export const ClientManagementView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRegisterClients.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                        Record Not Available
+                  {filteredRegisterClients.map((client, idx) => (
+                    <tr key={client.id}>
+                      <td style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
+                      <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{client.clientName}</td>
+                      <td style={{ color: '#0284c7', fontFamily: 'monospace' }}>{client.mobile}</td>
+                      <td>
+                        <span style={{ color: '#2e7d32', fontWeight: 600 }}>
+                          {client.kycStatus}
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{ color: '#c62828', fontWeight: 500 }}>
+                          {client.riskProfile}
+                        </span>
                       </td>
                     </tr>
-                  ) : (
-                    filteredRegisterClients.map((client, idx) => (
-                      <tr key={client.id}>
-                        <td style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{client.clientName}</td>
-                        <td style={{ color: '#0284c7', fontFamily: 'monospace' }}>{client.mobile}</td>
-                        <td>
-                          <span style={{ color: '#2e7d32', fontWeight: 600 }}>
-                            {client.kycStatus}
-                          </span>
-                        </td>
-                        <td>
-                          <span style={{ color: '#c62828', fontWeight: 500 }}>
-                            {client.riskProfile}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* VIEW 2: ALL ACTIVE CLIENT (Matching Reference Image 5) */}
-      {(currentTab === 'active' || currentTab === 'expire' || currentTab === 'expired' || currentTab === 'hold' || currentTab === 'hold-expire' || currentTab === 'reminder') && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {/* Header with << Back Button (Matching Image 5) */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h1 className="page-title-ref">All Active Client</h1>
-            <button 
-              type="button"
-              className="client-back-btn"
-              onClick={() => {
-                setCurrentTab('register');
-                setActiveTab('register-clients');
-              }}
-              title="Return to Registered Clients"
-            >
-              &lt;&lt; Back
-            </button>
-          </div>
-
-          <div className="client-panel-card">
-            {/* Filter Bar with Date (Matching Reference Image 5) */}
-            <div className="client-filter-bar">
-              <select 
-                className="client-filter-select"
-                value={actSelectedEmployee}
-                onChange={(e) => setActSelectedEmployee(e.target.value)}
-              >
-                <option value="">Select Employee</option>
-                <option value="Sirajul Fasal M">Sirajul Fasal M</option>
-                <option value="Golla Yugendra">Golla Yugendra</option>
-                <option value="Devika B">Devika B</option>
-              </select>
-
-              <input 
-                type="text"
-                placeholder="Mobile"
-                className="client-filter-input"
-                value={actMobileQuery}
-                onChange={(e) => setActMobileQuery(e.target.value)}
-              />
-
-              <input 
-                type="date"
-                placeholder="From Date"
-                className="client-filter-input"
-                value={actFromDate}
-                onChange={(e) => setActFromDate(e.target.value)}
-                style={{ color: actFromDate ? 'var(--text-primary)' : 'var(--text-muted)' }}
-              />
-
-              <button 
-                type="button"
-                className="client-search-btn-orange"
-                onClick={() => showToast(`Filtered ${filteredActiveClients.length} active client subscriptions`, 'info')}
-              >
-                Search
-              </button>
-            </div>
-
-            {/* Total Records Green Badge */}
-            <div className="total-records-strip">
-              <span className="total-records-pill">
-                Total Records ({filteredActiveClients.length})
-              </span>
-            </div>
-
-            {/* Active Clients Table */}
-            <div style={{ overflowX: 'auto' }}>
-              <table className="client-ref-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '45px' }}>#</th>
-                    <th>Owner Name</th>
-                    <th>Client Name</th>
-                    <th>Mobile</th>
-                    <th>Service Name</th>
-                    <th>Start date</th>
-                    <th>End date</th>
-                    <th style={{ textAlign: 'center', width: '70px' }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredActiveClients.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                        Record Not Available
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredActiveClients.map((client, idx) => (
-                      <tr key={client.id}>
-                        <td style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
-                        <td style={{ fontWeight: 600 }}>{client.ownerName}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{client.clientName}</td>
-                        <td style={{ color: '#0284c7', fontFamily: 'monospace' }}>{client.mobile}</td>
-                        <td>
-                          <span className="segment-badge">
-                            {client.serviceName}
-                          </span>
-                        </td>
-                        <td style={{ color: 'var(--text-secondary)' }}>{client.startDate}</td>
-                        <td style={{ color: 'var(--text-secondary)' }}>{client.endDate}</td>
-                        <td style={{ textAlign: 'center' }}>
-                          <button 
-                            type="button"
-                            className="client-edit-btn"
-                            onClick={() => setEditingClient(client)}
-                            title="Edit Client Subscription"
-                          >
-                            <Edit size={14} color="#ffffff" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Active Client Modal */}
-      {editingClient && (
-        <div className="tips-modal-backdrop" onClick={() => setEditingClient(null)}>
-          <div className="tips-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
-            <div className="tips-modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <div className="tip-icon-wrap" style={{ width: '36px', height: '36px', background: '#e0f2fe', color: '#0284c7' }}>
-                  <Edit size={18} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>Edit Client Subscription</h3>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Modify package, service validity, or desk advisor</p>
-                </div>
-              </div>
-              <button className="btn btn-secondary btn-sm" onClick={() => setEditingClient(null)}>
-                <X size={15} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEditedClient} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.3rem' }}>
-                  Client Name
-                </label>
-                <input 
-                  type="text"
-                  value={editingClient.clientName}
-                  onChange={(e) => setEditingClient({ ...editingClient, clientName: e.target.value })}
-                  className="form-control"
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.3rem' }}>
-                  Desk Owner Advisor
-                </label>
-                <select 
-                  value={editingClient.ownerName}
-                  onChange={(e) => setEditingClient({ ...editingClient, ownerName: e.target.value })}
-                  className="form-select"
-                >
-                  <option value="Sirajul Fasal M">Sirajul Fasal M</option>
-                  <option value="Golla Yugendra">Golla Yugendra</option>
-                  <option value="Devika B">Devika B</option>
-                  <option value="Rohan Deshmukh">Rohan Deshmukh</option>
-                  <option value="Ananya Sen">Ananya Sen</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.3rem' }}>
-                  Advisory Service Package
-                </label>
-                <select 
-                  value={editingClient.serviceName}
-                  onChange={(e) => setEditingClient({ ...editingClient, serviceName: e.target.value })}
-                  className="form-select"
-                >
-                  <option value="INDEX OPTION">INDEX OPTION</option>
-                  <option value="Market Pathshala">Market Pathshala</option>
-                  <option value="FUTURE & OPTIONS">FUTURE & OPTIONS</option>
-                  <option value="EQUITY PREMIER">EQUITY PREMIER</option>
-                  <option value="HEDGE & PMS">HEDGE & PMS</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.3rem' }}>
-                    Start Date
-                  </label>
-                  <input 
-                    type="date"
-                    value={editingClient.startDate}
-                    onChange={(e) => setEditingClient({ ...editingClient, startDate: e.target.value })}
-                    className="form-control"
-                    required
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.3rem' }}>
-                    End Date
-                  </label>
-                  <input 
-                    type="date"
-                    value={editingClient.endDate}
-                    onChange={(e) => setEditingClient({ ...editingClient, endDate: e.target.value })}
-                    className="form-control"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditingClient(null)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary btn-sm">
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Guidance Tips Modal */}
-      <TipsModal isOpen={isTipsOpen} onClose={() => setIsTipsOpen(false)} />
-    </div>
+  // DEFAULT VIEW: SEARCH RESULTS & ACTIVE CLIENTS (Exact Reference Image 1)
+  return (
+    <ClientSearchResultsView 
+      clients={detailedClients}
+      onEditClient={(client) => setEditingDetailedClient(client)}
+      onUpdateClient={handleUpdateClient}
+    />
   );
 };

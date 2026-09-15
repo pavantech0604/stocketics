@@ -34,7 +34,8 @@ import confetti from 'canvas-confetti';
 import { TipsModal } from './TipsModal';
 
 export const CallLogsView: React.FC = () => {
-  const { role, currentUser, employees, callLogs, addCallLog, updateCallLogScore, showToast, setActiveTab } = useApp();
+  const { role, currentUser, employees, callLogs, addCallLog, updateCallLogScore, showToast, setActiveTab, theme } = useApp();
+  const isDark = theme === 'dark';
 
   // Selected Advisor filter for Manager/HR
   const [selectedAdvisorId, setSelectedAdvisorId] = useState<string>('all');
@@ -744,8 +745,8 @@ export const CallLogsView: React.FC = () => {
           overflow: 'hidden'
         }}
       >
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                 {role !== 'employee' && (
@@ -1130,7 +1131,7 @@ export const CallLogsView: React.FC = () => {
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(15, 23, 42, 0.75)',
+            background: isDark ? 'rgba(10, 17, 40, 0.78)' : 'rgba(15, 23, 42, 0.45)',
             backdropFilter: 'blur(6px)',
             display: 'flex',
             alignItems: 'center',
@@ -1567,6 +1568,8 @@ const LogCallModal: React.FC<LogCallModalProps> = ({
   employees,
   role
 }) => {
+  const { theme } = useApp();
+  const isDark = theme === 'dark';
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [clientCity, setClientCity] = useState('');
@@ -1618,7 +1621,7 @@ const LogCallModal: React.FC<LogCallModalProps> = ({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(15, 23, 42, 0.75)',
+        background: isDark ? 'rgba(10, 17, 40, 0.78)' : 'rgba(15, 23, 42, 0.45)',
         backdropFilter: 'blur(5px)',
         display: 'flex',
         alignItems: 'center',
