@@ -81,23 +81,6 @@ export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> =
     showToast('Filtered confirmed payment records.', 'info');
   };
 
-  const handleExport = () => {
-    const headers = "S no.,Owner Name,Client Name,Mobile,Bank,Amount,Status,Reason,Description,Client status,Date\n";
-    const rows = filteredPayments.map((p, idx) => 
-      `${idx + 1},"${p.ownerName}","${p.clientName}",${p.mobile},"${p.bank}",${p.amount},"${p.status}","${p.reason}","${p.description}","${p.clientStatus}",${p.date}`
-    ).join('\n');
-
-    const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Confirmed_Payments_Export_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('Exported confirmed payments to CSV.', 'success');
-  };
-
   const handleViewInvoice = (record: ConfirmedPaymentRecord) => {
     setSelectedInvoiceRecord(record);
     setIsInvoiceOpen(true);
@@ -304,24 +287,6 @@ export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> =
           </button>
 
           {/* export Button (Amber/Orange matching Image 2) */}
-          <button 
-            type="button" 
-            onClick={handleExport}
-            style={{ 
-              background: '#f59e0b', 
-              color: '#ffffff', 
-              border: 'none', 
-              borderRadius: '4px', 
-              padding: '0 1.1rem', 
-              height: '36px',
-              fontSize: '13px', 
-              fontWeight: 600, 
-              cursor: 'pointer',
-              transition: 'background 0.15s ease'
-            }}
-          >
-            export
-          </button>
         </div>
       </div>
 

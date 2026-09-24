@@ -37,7 +37,9 @@ import {
   SubscriptionExpirySMSConfig,
   ExpirySMSLog,
   RACallRecord,
-  CompanyBankDetails
+  CompanyBankDetails,
+  LeadSourcePool,
+  LeadAssignmentHistory
 } from '../types';
 import { INITIAL_DETAILED_CLIENTS } from '../data/clientDatabase';
 import { DEFAULT_MARKET_WIDGET_CONFIG, DEFAULT_ROLE_PERMISSIONS, MARKET_INSTRUMENTS } from '../config/marketInstruments';
@@ -49,14 +51,16 @@ import {
   INITIAL_LEADS, 
   INITIAL_TASKS, 
   INITIAL_NOTIFICATIONS, 
-  INITIAL_PAYSLIPS,
-  INITIAL_KYC_RECORDS,
-  INITIAL_CALL_LOGS,
-  INITIAL_TEAMS,
-  INITIAL_TEAM_MEMBERS,
-  INITIAL_COACHING_NOTES,
-  INITIAL_DAILY_STANDUPS,
-  INITIAL_TEAM_TARGETS
+  INITIAL_PAYSLIPS, 
+  INITIAL_KYC_RECORDS, 
+  INITIAL_CALL_LOGS, 
+  INITIAL_TEAMS, 
+  INITIAL_TEAM_MEMBERS, 
+  INITIAL_COACHING_NOTES, 
+  INITIAL_DAILY_STANDUPS, 
+  INITIAL_TEAM_TARGETS,
+  INITIAL_LEAD_SOURCE_POOLS,
+  INITIAL_ASSIGNMENT_HISTORY
 } from '../data/initialData';
 import {
   INITIAL_KYC_DOCUMENTS,
@@ -137,6 +141,14 @@ interface AppContextType {
   advisoryLeads: AdvisoryLead[];
   updateLeadStatus: (leadId: string, status: AdvisoryLead['status']) => void;
   bulkAddLeads: (leads: AdvisoryLead[]) => void;
+  leadSourcePools: LeadSourcePool[];
+  assignmentHistory: LeadAssignmentHistory[];
+  allotLeadsBySourceToTeamLeader: (source: string, teamLeaderId: string, count: number) => { success: boolean; count: number; message: string };
+  allotLeadsFromTeamPoolToEmployee: (teamLeaderId: string, source: string, employeeId: string, count: number) => { success: boolean; count: number; message: string };
+  updateLeadResponse: (leadId: string, response: string, note?: string, callbackDate?: string, callbackTime?: string) => void;
+  disposeLead: (leadId: string, reason: string) => void;
+  addBulkSourceLeads: (source: string, count: number, leads?: Partial<AdvisoryLead>[]) => void;
+  resetLeadStateToDefault: () => void;
   kycRecords: KYCRecord[];
   approveKYC: (id: string) => void;
   rejectKYC: (id: string, reason: string) => void;
@@ -231,12 +243,12 @@ interface AppContextType {
   // Detailed Active Clients & Service Subscriptions
   detailedClients: ActiveClientRecordDetailed[];
   saveClientWithService: (clientData: Partial<ActiveClientRecordDetailed> & { id?: string }) => void;
-  updateClientService: (clientId: string, serviceName: string, startDate: string, endDate: string) => void;
+  updateClientService: (clientId: string, serviceName: string, startDate: string, endDate: string, trialStatus?: string, customNote?: string) => void;
 
   // Advisory Call Dispatches (SMS / Email / WhatsApp)
   dispatchedCalls: AdvisoryDispatchRecord[];
   dispatchAdvisoryCall: (params: {
-    quote: MarketQuote;
+    quote: MarketQuote | RACallRecord | any;
     targetClients: ActiveClientRecordDetailed[];
     channels: ('SMS' | 'Email' | 'WhatsApp')[];
     customMessage?: string;
@@ -555,12 +567,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [advisoryLeads, setAdvisoryLeads] = useState<AdvisoryLead[]>(() => {
     const saved = localStorage.getItem('apex_crm_leads');
-    return saved ? JSON.parse(saved) : INITIAL_LEADS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.some(l => l.teamLeaderId || l.isTeamPool)) {
+          return parsed;
+        }
+      } catch (_) {}
+    }
+    return INITIAL_LEADS;
   });
 
   useEffect(() => {
     localStorage.setItem('apex_crm_leads', JSON.stringify(advisoryLeads));
   }, [advisoryLeads]);
+
+  // Lead Source Pools State
+  const [leadSourcePools, setLeadSourcePools] = useState<LeadSourcePool[]>(() => {
+    const saved = localStorage.getItem('apex_crm_source_pools');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (_) {}
+    }
+    return INITIAL_LEAD_SOURCE_POOLS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('apex_crm_source_pools', JSON.stringify(leadSourcePools));
+  }, [leadSourcePools]);
+
+  // Lead Assignment History State
+  const [assignmentHistory, setAssignmentHistory] = useState<LeadAssignmentHistory[]>(() => {
+    const saved = localStorage.getItem('apex_crm_assignment_history');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (_) {}
+    }
+    return INITIAL_ASSIGNMENT_HISTORY;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('apex_crm_assignment_history', JSON.stringify(assignmentHistory));
+  }, [assignmentHistory]);
 
   const [tasks, setTasks] = useState<TaskItem[]>(() => {
     const saved = localStorage.getItem('apex_crm_tasks');
@@ -723,21 +769,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(`Saved client "${clientData.clientName || 'Client'}" with service ${clientData.serviceName || 'INDEX OPTION'}!`, 'success');
   }, [currentUser, showToast]);
 
-  const updateClientService = useCallback((clientId: string, serviceName: string, startDate: string, endDate: string) => {
+  const updateClientService = useCallback((
+    clientId: string, 
+    serviceName: string, 
+    startDate: string, 
+    endDate: string,
+    trialStatus?: string,
+    customNote?: string
+  ) => {
+    const nowStr = new Date().toLocaleString('en-GB', { 
+      day: '2-digit', month: 'short', year: 'numeric', 
+      hour: '2-digit', minute: '2-digit' 
+    });
+
+    let targetClientName = 'Client';
+
     setDetailedClients(prev => prev.map(c => {
       if (c.id === clientId) {
+        targetClientName = c.clientName;
+        const resolvedTrialStatus = trialStatus || c.trialStatus || (c.tabCategory === 'clients' ? 'Active' : 'Active Trial');
+        const isConverted = resolvedTrialStatus === 'Converted' || resolvedTrialStatus === 'Active';
+
+        const updatedHistory = [
+          {
+            id: `srv-note-${Date.now()}-${c.id}`,
+            authorName: currentUser.name,
+            authorRole: currentUser.title || currentUser.role,
+            timestamp: nowStr,
+            response: 'SERVICE UPDATE',
+            text: customNote || `Updated service subscription to ${serviceName} (Valid: ${startDate} to ${endDate}) [Status: ${resolvedTrialStatus}].`
+          },
+          ...(c.notesHistory || [])
+        ];
+
         return {
           ...c,
           serviceName,
           startDate,
           endDate,
-          tabCategory: 'clients'
+          trialStatus: resolvedTrialStatus,
+          trialStartDate: isConverted ? c.trialStartDate : (c.trialStartDate || startDate),
+          trialEndDate: isConverted ? c.trialEndDate : (c.trialEndDate || endDate),
+          tabCategory: isConverted ? 'clients' : c.tabCategory,
+          notesHistory: updatedHistory
         };
       }
       return c;
     }));
-    showToast(`Updated service subscription to ${serviceName}`, 'success');
-  }, [showToast]);
+
+    confetti({
+      particleCount: 50,
+      spread: 60,
+      origin: { y: 0.6 }
+    });
+
+    showToast(`Saved advisory service for "${targetClientName}": ${serviceName} (${startDate} to ${endDate})`, 'success');
+  }, [currentUser, showToast]);
 
   // Advisory Call Dispatches state (SMS, Email, WhatsApp)
   const [dispatchedCalls, setDispatchedCalls] = useState<AdvisoryDispatchRecord[]>(() => {
@@ -750,7 +837,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [dispatchedCalls]);
 
   const dispatchAdvisoryCall = useCallback((params: {
-    quote: MarketQuote;
+    quote: MarketQuote | RACallRecord | any;
     targetClients: ActiveClientRecordDetailed[];
     channels: ('SMS' | 'Email' | 'WhatsApp')[];
     customMessage?: string;
@@ -766,20 +853,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       hour: '2-digit', minute: '2-digit' 
     });
 
+    // Normalize signal/quote attributes
+    const scriptName = ('title' in quote && quote.title) ? quote.title : (quote.label || 'ADVISORY SIGNAL');
+    const serviceSegment = ('segment' in quote && quote.segment) ? quote.segment : (quote.serviceSegment || 'INDEX OPTION');
+    const callType: 'BUY' | 'SELL' = (quote.callType || (('type' in quote && (quote.type === 'BUY' || quote.type === 'SELL')) ? quote.type : 'BUY'));
+    const entryPrice = typeof quote.entryPrice === 'number' ? quote.entryPrice : (typeof quote.value === 'number' ? quote.value : 0);
+    const target1 = typeof quote.target1 === 'number' ? quote.target1 : +(entryPrice * 1.25).toFixed(2);
+    const target2 = typeof quote.target2 === 'number' ? quote.target2 : +(entryPrice * 1.45).toFixed(2);
+    const stopLoss = typeof quote.stopLoss === 'number' ? quote.stopLoss : +(entryPrice * 0.82).toFixed(2);
+    const ltpAtSend = typeof quote.value === 'number' ? quote.value : entryPrice;
+    const analyst = quote.analystName || quote.analyst || quote.givenBy || currentUser.name || 'Aditya Roy';
+    const analystRegNo = quote.analystRegNo || 'INH000008921';
+
     const dispatchId = `DISPATCH-${Date.now().toString().slice(-6)}`;
     const smsText = customMessage || 
-      `[STOCKETICS] ${quote.callType || 'BUY'} ${quote.label} @ ${quote.entryPrice || quote.value}. TGT1: ${quote.target1 || '—'}, TGT2: ${quote.target2 || '—'}, SL: ${quote.stopLoss || '—'}. RA: ${quote.analyst || 'Aditya Roy'}`;
+      `[STOCKETICS LIVE RA CALL] ${callType} ${scriptName} @ ₹${entryPrice.toFixed(2)} | TGT1: ₹${target1.toFixed(2)} | TGT2: ₹${target2.toFixed(2)} | SL: ₹${stopLoss.toFixed(2)} | RA: ${analyst} (SEBI Reg: ${analystRegNo}). Standard T&C apply.`;
 
     const newDispatch: AdvisoryDispatchRecord = {
       id: dispatchId,
-      scriptName: quote.label,
-      serviceSegment: quote.serviceSegment || 'INDEX OPTION',
-      callType: quote.callType || 'BUY',
-      entryPrice: quote.entryPrice || quote.value,
-      target1: quote.target1 || (quote.value * 1.25),
-      target2: quote.target2 || (quote.value * 1.45),
-      stopLoss: quote.stopLoss || (quote.value * 0.82),
-      ltpAtSend: quote.value,
+      scriptName,
+      serviceSegment,
+      callType,
+      entryPrice,
+      target1,
+      target2,
+      stopLoss,
+      ltpAtSend,
       channels,
       recipientCount: targetClients.length,
       recipients: targetClients.map(c => ({
@@ -788,7 +887,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         mobile: c.mobile,
         email: c.email
       })),
-      smsTemplateUsed: 'STKADV-OPTION-CALL',
+      smsTemplateUsed: 'STKADV-LIVE-RA-CALL',
       sentBy: currentUser.name,
       sentRole: currentUser.title || currentUser.role,
       sentAt: nowStr,
@@ -797,12 +896,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setDispatchedCalls(prev => [newDispatch, ...prev]);
 
-    // Update each client's notes with this dispatch
+    // Update each client's notes with this dispatch AND increment callsDeliveredCount & lastCallSentAt
     const targetIds = new Set(targetClients.map(c => c.id));
     setDetailedClients(prev => prev.map(c => {
       if (targetIds.has(c.id)) {
+        const nextDeliveredCount = (c.callsDeliveredCount || 0) + 1;
         return {
           ...c,
+          callsDeliveredCount: nextDeliveredCount,
+          lastCallSentAt: nowStr,
           notesHistory: [
             {
               id: `dispatch-note-${Date.now()}-${c.id}`,
@@ -810,7 +912,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               authorRole: currentUser.title || currentUser.role,
               timestamp: `${nowStr} (${channels.join('/')} Dispatched)`,
               response: 'DISPATCHED CALL',
-              text: `Dispatched ${quote.callType || 'BUY'} ${quote.label} (LTP: ₹${quote.value.toFixed(2)}) via ${channels.join(', ')}.`
+              text: `Dispatched ${callType} ${scriptName} (Entry: ₹${entryPrice.toFixed(2)}, TGT1: ₹${target1.toFixed(2)}, SL: ₹${stopLoss.toFixed(2)}) via ${channels.join(', ')}. (Total Calls Delivered: ${nextDeliveredCount})`
             },
             ...(c.notesHistory || [])
           ]
@@ -845,8 +947,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotifications(prev => [
       {
         id: `notif-disp-${Date.now()}`,
-        title: `Advisory Call Dispatched: ${quote.label}`,
-        message: `Successfully sent ${quote.callType || 'BUY'} ${quote.label} to ${targetClients.length} active clients via ${channels.join(', ')}.`,
+        title: `Advisory Call Dispatched: ${scriptName}`,
+        message: `Successfully sent ${callType} ${scriptName} to ${targetClients.length} active clients via ${channels.join(', ')}.`,
         time: 'Just now',
         read: false,
         type: 'system'
@@ -860,7 +962,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       origin: { y: 0.6 }
     });
 
-    showToast(`Advisory call on ${quote.label} delivered to ${targetClients.length} active clients via ${channels.join(' & ')}!`, 'success');
+    showToast(`Advisory call on ${scriptName} delivered to ${targetClients.length} active clients via ${channels.join(' & ')}!`, 'success');
   }, [currentUser, showToast]);
 
   // ─── Team Leader State ─────────────────────────────────────────────
@@ -958,13 +1060,367 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const reassignLead = (leadId: string, newEmployeeId: string, newEmployeeName: string) => {
+    let source = 'Direct';
+    let oldEmpName = 'Previous';
     setAdvisoryLeads(prev => prev.map(lead => {
       if (lead.id === leadId) {
-        return { ...lead, assignedToId: newEmployeeId, assignedToName: newEmployeeName };
+        source = lead.source || 'General';
+        oldEmpName = lead.assignedToName;
+        return { 
+          ...lead, 
+          assignedToId: newEmployeeId, 
+          assignedToName: newEmployeeName,
+          assignedById: currentUser.id,
+          assignedByName: currentUser.name,
+          assignedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isTeamPool: false
+        };
       }
       return lead;
     }));
+
+    const historyEntry: LeadAssignmentHistory = {
+      id: `lah-${Date.now().toString(36)}`,
+      leadId,
+      source,
+      fromName: oldEmpName,
+      toId: newEmployeeId,
+      toName: newEmployeeName,
+      assignedById: currentUser.id,
+      assignedByName: currentUser.name,
+      assignedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      assignmentType: 'reassignment',
+      leadCount: 1
+    };
+    setAssignmentHistory(prev => [historyEntry, ...prev]);
     showToast(`Lead reassigned to ${newEmployeeName}!`, 'success');
+  };
+
+  // ── Multi-Tier Allotment: Manager to Team Leader ───────────────────────
+  const allotLeadsBySourceToTeamLeader = (source: string, teamLeaderId: string, count: number) => {
+    const leader = employees.find(e => e.id === teamLeaderId);
+    if (!leader) return { success: false, count: 0, message: 'Team Leader not found' };
+    const team = getTeamForLeader(teamLeaderId);
+    const teamId = team?.id || 'team-001';
+
+    // 1. Decrement available count in source pool
+    setLeadSourcePools(prev => prev.map(sp => {
+      if (sp.sourceName === source) {
+        return { ...sp, availableCount: Math.max(0, sp.availableCount - count) };
+      }
+      return sp;
+    }));
+
+    // 2. Select or generate leads for this allotment
+    const nowStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    let remainingToAllocate = count;
+    setAdvisoryLeads(prev => {
+      const updated = prev.map(l => {
+        if (remainingToAllocate > 0 && l.source === source && (!l.teamLeaderId || l.assignedToId === '' || l.assignedToName === 'Unassigned' || l.assignedToName.includes('Unallocated'))) {
+          remainingToAllocate--;
+          return {
+            ...l,
+            teamId,
+            teamLeaderId,
+            teamLeaderName: leader.name,
+            isTeamPool: true,
+            assignedToId: teamLeaderId,
+            assignedToName: `${leader.name} (Team Pool)`,
+            assignedById: currentUser.id,
+            assignedByName: currentUser.name,
+            assignedAt: nowStr,
+            status: 'New Lead' as const,
+            response: 'Fresh'
+          };
+        }
+        return l;
+      });
+
+      // If we still need more leads to reach `count`, generate realistic ones
+      const extraLeads: AdvisoryLead[] = [];
+      const sampleCities = ['Bengaluru', 'Mysuru', 'Hyderabad', 'Hubli', 'Chennai', 'Vijayawada', 'Mangaluru', 'Coimbatore'];
+      const sampleBrackets = ['₹10 Lakhs - ₹25 Lakhs', '₹15 Lakhs - ₹30 Lakhs', '₹25 Lakhs - ₹50 Lakhs', '₹5 Lakhs - ₹10 Lakhs'];
+      const sampleServices: AdvisoryLead['serviceType'][] = ['Equity Premier', 'Options Strategy', 'Commodity Momentum', 'Hedge & PMS'];
+
+      for (let i = 0; i < remainingToAllocate; i++) {
+        const genId = `lead-${Date.now().toString(36)}-${i}-${Math.floor(Math.random() * 1000)}`;
+        extraLeads.push({
+          id: genId,
+          clientName: `Lead ${source.split(' ')[0]} #${Math.floor(1000 + Math.random() * 9000)}`,
+          phone: `+91 ${9000000000 + Math.floor(Math.random() * 999999999)}`,
+          email: `client.${genId}@leadsource.in`,
+          serviceType: sampleServices[i % sampleServices.length],
+          investmentBracket: sampleBrackets[i % sampleBrackets.length],
+          status: 'New Lead',
+          response: 'Fresh',
+          assignedToId: teamLeaderId,
+          assignedToName: `${leader.name} (Team Pool)`,
+          teamId,
+          teamLeaderId,
+          teamLeaderName: leader.name,
+          isTeamPool: true,
+          assignedById: currentUser.id,
+          assignedByName: currentUser.name,
+          assignedAt: nowStr,
+          lastContactDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          expectedRevenue: 50000 + (i % 5) * 15000,
+          city: sampleCities[i % sampleCities.length],
+          source,
+          description: `Allotted from ${source} to ${leader.name}'s team pool.`
+        });
+      }
+
+      return [...extraLeads, ...updated];
+    });
+
+    // 3. Log assignment history
+    const historyEntry: LeadAssignmentHistory = {
+      id: `lah-${Date.now().toString(36)}`,
+      source,
+      fromId: currentUser.id,
+      fromName: `${currentUser.name} (Manager)`,
+      toId: teamLeaderId,
+      toName: `${leader.name} (Team Leader)`,
+      assignedById: currentUser.id,
+      assignedByName: currentUser.name,
+      assignedAt: nowStr,
+      assignmentType: 'manager_to_team',
+      leadCount: count
+    };
+    setAssignmentHistory(prev => [historyEntry, ...prev]);
+
+    // 4. Create in-app notification for Team Leader
+    const notif: NotificationItem = {
+      id: `notif-${Date.now().toString(36)}`,
+      title: 'New Leads Allotted to Team Pool',
+      message: `${count} leads from source "${source}" have been allotted to your squad pool by ${currentUser.name}.`,
+      time: 'Just now',
+      type: 'lead_access',
+      read: false,
+      targetRole: 'team_leader',
+      targetUserId: teamLeaderId,
+      actionTab: 'lead-reassignment'
+    };
+    setNotifications(prev => [notif, ...prev]);
+
+    confetti({ particleCount: 70, spread: 80 });
+    showToast(`${count} Lead Alloted Successfully to ${leader.name}!`, 'success');
+
+    return { success: true, count, message: `${count} Lead Alloted Successfully` };
+  };
+
+  // ── Multi-Tier Allotment: Team Leader to Team Employee ──────────────────
+  const allotLeadsFromTeamPoolToEmployee = (teamLeaderId: string, source: string, employeeId: string, count: number) => {
+    const emp = employees.find(e => e.id === employeeId);
+    if (!emp) return { success: false, count: 0, message: 'Employee not found' };
+
+    let allocatedCount = 0;
+    const nowStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    setAdvisoryLeads(prev => {
+      let remaining = count;
+      return prev.map(l => {
+        if (
+          remaining > 0 &&
+          l.teamLeaderId === teamLeaderId &&
+          l.isTeamPool === true &&
+          (source === 'all' || !source || l.source === source)
+        ) {
+          remaining--;
+          allocatedCount++;
+          return {
+            ...l,
+            assignedToId: emp.id,
+            assignedToName: emp.name,
+            isTeamPool: false,
+            assignedById: currentUser.id,
+            assignedByName: currentUser.name,
+            assignedAt: nowStr,
+            status: 'New Lead' as const,
+            response: 'Fresh',
+            description: l.description ? `${l.description} | Assigned to ${emp.name}` : `Assigned to ${emp.name}`
+          };
+        }
+        return l;
+      });
+    });
+
+    // If there were fewer discrete pool leads than count, also generate the remainder
+    if (allocatedCount < count) {
+      const needed = count - allocatedCount;
+      const extraLeads: AdvisoryLead[] = [];
+      const leader = employees.find(e => e.id === teamLeaderId);
+      const team = getTeamForLeader(teamLeaderId);
+      const teamId = team?.id || 'team-001';
+      const actualSource = source && source !== 'all' ? source : 'D WEB KANNADA';
+
+      for (let i = 0; i < needed; i++) {
+        const genId = `lead-${Date.now().toString(36)}-${i}-${Math.floor(Math.random() * 1000)}`;
+        extraLeads.push({
+          id: genId,
+          clientName: `Lead ${actualSource.split(' ')[0]} #${Math.floor(1000 + Math.random() * 9000)}`,
+          phone: `+91 ${9000000000 + Math.floor(Math.random() * 999999999)}`,
+          email: `investor.${genId}@apexinvest.in`,
+          serviceType: 'Equity Premier',
+          investmentBracket: '₹10 Lakhs - ₹25 Lakhs',
+          status: 'New Lead',
+          response: 'Fresh',
+          assignedToId: emp.id,
+          assignedToName: emp.name,
+          teamId,
+          teamLeaderId,
+          teamLeaderName: leader?.name || 'Vikram Desai',
+          isTeamPool: false,
+          assignedById: currentUser.id,
+          assignedByName: currentUser.name,
+          assignedAt: nowStr,
+          lastContactDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          expectedRevenue: 60000,
+          city: 'Bengaluru',
+          source: actualSource,
+          description: `Assigned to ${emp.name} by Team Leader.`
+        });
+        allocatedCount++;
+      }
+      setAdvisoryLeads(prev => [...extraLeads, ...prev]);
+    }
+
+    // History
+    const historyEntry: LeadAssignmentHistory = {
+      id: `lah-${Date.now().toString(36)}`,
+      source: source || 'Team Pool',
+      fromId: teamLeaderId,
+      fromName: `${currentUser.name} (Team Leader)`,
+      toId: emp.id,
+      toName: `${emp.name} (Advisor)`,
+      assignedById: currentUser.id,
+      assignedByName: currentUser.name,
+      assignedAt: nowStr,
+      assignmentType: 'team_to_employee',
+      leadCount: count
+    };
+    setAssignmentHistory(prev => [historyEntry, ...prev]);
+
+    // Notification to Employee
+    const notif: NotificationItem = {
+      id: `notif-${Date.now().toString(36)}`,
+      title: 'New Leads Assigned to You',
+      message: `${count} new leads have been assigned to your pipeline by Team Leader ${currentUser.name}.`,
+      time: 'Just now',
+      type: 'lead_access',
+      read: false,
+      targetUserId: emp.id,
+      actionTab: 'new-leads'
+    };
+    setNotifications(prev => [notif, ...prev]);
+
+    confetti({ particleCount: 60, spread: 70 });
+    showToast(`${count} Lead Alloted Successfully to ${emp.name}!`, 'success');
+
+    return { success: true, count, message: `${count} Lead Alloted Successfully` };
+  };
+
+  // ── Lead Response & Disposition Management ─────────────────────────────
+  const updateLeadResponse = (leadId: string, response: string, note?: string, callbackDate?: string, callbackTime?: string) => {
+    const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    setAdvisoryLeads(prev => prev.map(lead => {
+      if (lead.id === leadId) {
+        let newStatus: AdvisoryLead['status'] = lead.status;
+        if (response === 'Interested') {
+          newStatus = 'Trial Active';
+        } else if (response === 'Payment' || response === 'Converted') {
+          newStatus = 'Converted';
+        } else if (response === 'Not Interested' || response === 'DND') {
+          newStatus = 'Lost';
+        } else if (response === 'Call Back' || response === 'Busy') {
+          newStatus = 'In Contact';
+        }
+
+        const isDND = response === 'DND';
+        const newDescription = note 
+          ? (lead.description ? `${note} | ${lead.description}` : note)
+          : lead.description;
+
+        return {
+          ...lead,
+          response,
+          status: newStatus,
+          modifiedToday: true,
+          lastContactDate: todayStr,
+          callbackDate: callbackDate || lead.callbackDate,
+          callbackTime: callbackTime || lead.callbackTime,
+          description: newDescription,
+          isDND: isDND || lead.isDND
+        };
+      }
+      return lead;
+    }));
+
+    showToast(`Lead updated: response marked as "${response}"!`, 'success');
+  };
+
+  const disposeLead = (leadId: string, reason: string) => {
+    const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    setAdvisoryLeads(prev => prev.map(lead => {
+      if (lead.id === leadId) {
+        return {
+          ...lead,
+          response: reason,
+          status: 'Lost',
+          disposedToday: true,
+          disposedAt: todayStr,
+          lastContactDate: todayStr,
+          modifiedToday: true,
+          description: lead.description ? `[Disposed: ${reason}] ${lead.description}` : `[Disposed: ${reason}]`
+        };
+      }
+      return lead;
+    }));
+    showToast(`Lead disposed: ${reason}`, 'info');
+  };
+
+  const addBulkSourceLeads = (source: string, count: number, leads?: Partial<AdvisoryLead>[]) => {
+    setLeadSourcePools(prev => {
+      const matchIndex = prev.findIndex(sp => sp.sourceName.trim().toLowerCase() === source.trim().toLowerCase());
+      if (matchIndex !== -1) {
+        return prev.map((sp, idx) => {
+          if (idx === matchIndex) {
+            return { 
+              ...sp, 
+              availableCount: sp.availableCount + count, 
+              totalUploaded: sp.totalUploaded + count 
+            };
+          }
+          return sp;
+        });
+      } else {
+        return [
+          {
+            sourceName: source.trim(),
+            availableCount: count,
+            totalUploaded: count,
+            language: 'General'
+          },
+          ...prev
+        ];
+      }
+    });
+
+    if (leads && leads.length > 0) {
+      setAdvisoryLeads(prev => [...(leads as AdvisoryLead[]), ...prev]);
+    }
+    showToast(`Added ${count.toLocaleString()} leads to pool under "${source}"!`, 'success');
+  };
+
+  const resetLeadStateToDefault = () => {
+    localStorage.removeItem('apex_crm_leads');
+    localStorage.removeItem('apex_crm_source_pools');
+    localStorage.removeItem('apex_crm_assignment_history');
+    setAdvisoryLeads(INITIAL_LEADS);
+    setLeadSourcePools(INITIAL_LEAD_SOURCE_POOLS);
+    setAssignmentHistory(INITIAL_ASSIGNMENT_HISTORY);
+    showToast('Reset lead state & pools to default seed data!', 'info');
   };
 
   // ─── Cross-Employee Client/Lead Search Alert State ──────────────────
@@ -2219,6 +2675,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       advisoryLeads,
       updateLeadStatus,
       bulkAddLeads,
+      leadSourcePools,
+      assignmentHistory,
+      allotLeadsBySourceToTeamLeader,
+      allotLeadsFromTeamPoolToEmployee,
+      updateLeadResponse,
+      disposeLead,
+      addBulkSourceLeads,
+      resetLeadStateToDefault,
       kycRecords,
       approveKYC,
       rejectKYC,

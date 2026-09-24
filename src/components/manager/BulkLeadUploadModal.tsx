@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../state/store';
 import { AdvisoryLead, AdvisoryService, LeadStatus } from '../../types';
+import * as XLSX from 'xlsx';
 import { 
   UploadCloud, 
   FileSpreadsheet, 
@@ -12,7 +13,8 @@ import {
   AlertCircle,
   ArrowRight,
   RefreshCw,
-  Layers
+  Layers,
+  Check
 } from 'lucide-react';
 
 interface BulkLeadUploadModalProps {
@@ -20,32 +22,26 @@ interface BulkLeadUploadModalProps {
   onClose: () => void;
 }
 
-// Sample campaign leads for 1-click testing
+// Clean campaign sample leads reflecting authentic CRM columns
 const MOCK_CAMPAIGN_BATCH = [
-  { name: 'Gautam Singhal', phone: '+91 98112 04510', email: 'gautam.s@singhalsteels.com', service: 'Hedge & PMS', bracket: '₹25L+ HNI', revenue: 125000, city: 'Delhi NCR' },
-  { name: 'Dr. Ananya Mukherjee', phone: '+91 98310 99421', email: 'dr.ananya@kolkatamed.in', service: 'Equity Premier', bracket: '₹10L - ₹25L', revenue: 55000, city: 'Kolkata' },
-  { name: 'Naveen Jindal', phone: '+91 94480 33120', email: 'naveen.j@jindalauto.com', service: 'Options Strategy', bracket: '₹5L - ₹10L', revenue: 42000, city: 'Bengaluru' },
-  { name: 'Sunita Agarwal', phone: '+91 98290 88102', email: 'sunita.agarwal@jaipursilk.in', service: 'Commodity Momentum', bracket: '₹5L - ₹10L', revenue: 38000, city: 'Jaipur' },
-  { name: 'Tariq Mansoor', phone: '+91 97110 55209', email: 'tariq.mansoor@gulfex.com', service: 'Hedge & PMS', bracket: '₹25L+ HNI', revenue: 150000, city: 'Mumbai' },
-  { name: 'Kavita Pillai', phone: '+91 98450 11982', email: 'kavita.p@kochiinfra.com', service: 'Equity Premier', bracket: '₹10L - ₹25L', revenue: 60000, city: 'Kochi' },
-  { name: 'Harpreet Singh Bindra', phone: '+91 98140 22314', email: 'harpreet@bindratransport.com', service: 'Options Strategy', bracket: '₹10L - ₹25L', revenue: 48000, city: 'Chandigarh' },
-  { name: 'Bhavna Kothari', phone: '+91 98220 77192', email: 'bhavna.k@kotharifinance.in', service: 'Equity Premier', bracket: '₹5L - ₹10L', revenue: 35000, city: 'Pune' },
-  { name: 'Devendra Parikh', phone: '+91 98250 44910', email: 'devendra.p@ahmedabadchem.com', service: 'Commodity Momentum', bracket: '₹10L - ₹25L', revenue: 52000, city: 'Ahmedabad' },
-  { name: 'Sujata Venkatraman', phone: '+91 94440 66120', email: 'sujata.v@chennaitech.in', service: 'Options Strategy', bracket: '₹5L - ₹10L', revenue: 40000, city: 'Chennai' },
-  { name: 'Raghavan Nambiar', phone: '+91 98470 33819', email: 'raghavan.n@calicutspices.in', service: 'Equity Premier', bracket: '₹10L - ₹25L', revenue: 50000, city: 'Kozhikode' },
-  { name: 'Prerna Toshniwal', phone: '+91 98300 22718', email: 'prerna.t@kolkatatrading.in', service: 'Hedge & PMS', bracket: '₹25L+ HNI', revenue: 140000, city: 'Kolkata' },
-  { name: 'Manish Chawla', phone: '+91 98101 44520', email: 'manish.chawla@gurgaonit.com', service: 'Options Strategy', bracket: '₹5L - ₹10L', revenue: 45000, city: 'Gurugram' },
-  { name: 'Deepak Solanki', phone: '+91 98260 11980', email: 'deepak.s@indoregrain.in', service: 'Commodity Momentum', bracket: '₹2L - ₹5L', revenue: 25000, city: 'Indore' },
-  { name: 'Urvashi Dave', phone: '+91 98240 88712', email: 'urvashi.dave@vadodaratextiles.com', service: 'Equity Premier', bracket: '₹10L - ₹25L', revenue: 55000, city: 'Vadodara' },
-  { name: 'Lt. Col. Arvind Bakshi', phone: '+91 94190 22410', email: 'arvind.bakshi@defenceretiree.in', service: 'Equity Premier', bracket: '₹5L - ₹10L', revenue: 35000, city: 'Dehradun' },
-  { name: 'Shreya Sengupta', phone: '+91 98360 44102', email: 'shreya.s@bengaldesign.com', service: 'Options Strategy', bracket: '₹5L - ₹10L', revenue: 40000, city: 'Kolkata' },
-  { name: 'Manoj Kumar Tiwari', phone: '+91 94500 11823', email: 'manoj.tiwari@lucknowagro.in', service: 'Commodity Momentum', bracket: '₹2L - ₹5L', revenue: 28000, city: 'Lucknow' },
-  { name: 'Zainab Merchant', phone: '+91 98200 99120', email: 'zainab.m@southmumbaifashion.in', service: 'Hedge & PMS', bracket: '₹25L+ HNI', revenue: 160000, city: 'Mumbai' },
-  { name: 'Venkatesh Prasad', phone: '+91 98451 77209', email: 'venkatesh.p@mysorepharma.in', service: 'Equity Premier', bracket: '₹10L - ₹25L', revenue: 65000, city: 'Mysuru' }
+  { name: 'Gautam Singhal', phone: '+91 98112 04510', source: 'Google Ads', response: 'Interested', city: 'Delhi NCR', description: 'Requested portfolio evaluation' },
+  { name: 'Dr. Ananya Mukherjee', phone: '+91 98310 99421', source: 'Meta Inbound', response: 'Call Back', city: 'Kolkata', description: 'Busy in surgery, call after 5 PM' },
+  { name: 'Naveen Jindal', phone: '+91 94480 33120', source: 'D WEB KANNADA', response: 'Interested', city: 'Bengaluru', description: 'Looking for Nifty options advisory' },
+  { name: 'Sunita Agarwal', phone: '+91 98290 88102', source: 'Direct Website', response: 'New Lead', city: 'Jaipur', description: 'Registered on web portal' },
+  { name: 'Tariq Mansoor', phone: '+91 97110 55209', source: 'Google Ads', response: 'Interested', city: 'Mumbai', description: 'High net-worth equity trader' },
+  { name: 'Kavita Pillai', phone: '+91 98450 11982', source: 'Meta Inbound', response: 'Trial Active', city: 'Kochi', description: 'Trial activated on Monday' },
+  { name: 'Harpreet Singh Bindra', phone: '+91 98140 22314', source: 'D WEB KANNADA', response: 'Call Back', city: 'Chandigarh', description: 'Call back tomorrow morning' },
+  { name: 'Bhavna Kothari', phone: '+91 98220 77192', source: 'Direct Website', response: 'Interested', city: 'Pune', description: 'Wants 3-month advisory tier' },
+  { name: 'Devendra Parikh', phone: '+91 98250 44910', source: 'Google Ads', response: 'New Lead', city: 'Ahmedabad', description: 'Commodities and gold trader' },
+  { name: 'Sujata Venkatraman', phone: '+91 94440 66120', source: 'Meta Inbound', response: 'Interested', city: 'Chennai', description: 'Experienced derivative investor' }
 ];
 
 export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen, onClose }) => {
-  const { employees, bulkAddLeads, showToast, setActiveTab } = useApp();
+  const { employees, bulkAddLeads, showToast, setActiveTab, addBulkSourceLeads, leadSourcePools } = useApp();
+
+  // Mode: Deposit into Lead Source Pool OR Directly Distribute to Advisors
+  const [destinationMode, setDestinationMode] = useState<'pool' | 'direct'>('pool');
+  const [selectedSource, setSelectedSource] = useState<string>('D WEB KANNADA');
 
   // Eligible sales advisors & analysts to receive leads
   const eligibleEmployees = employees.filter(e => 
@@ -60,6 +56,7 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
   // Uploaded parsed leads state
   const [parsedLeads, setParsedLeads] = useState<any[]>([]);
   const [fileName, setFileName] = useState<string>('');
+  const [detectedHeaders, setDetectedHeaders] = useState<string[]>([]);
   const [distributionStrategy, setDistributionStrategy] = useState<'round-robin' | 'balanced'>('round-robin');
 
   if (!isOpen) return null;
@@ -74,8 +71,9 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
 
   const handleQuickLoadSampleBatch = () => {
     setParsedLeads(MOCK_CAMPAIGN_BATCH);
-    setFileName('Digital_Campaign_Q3_Inbound_Leads_20.csv');
-    showToast('Loaded 20 pre-validated campaign leads ready for segregation!', 'info');
+    setFileName('Sample_Vendor_Campaign_Leads_10.xlsx');
+    setDetectedHeaders(['Client Name', 'Mobile', 'Source', 'Response', 'City', 'Description']);
+    showToast('Loaded 10 pre-validated campaign leads ready for segregation!', 'info');
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,50 +82,271 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
 
     setFileName(file.name);
     const reader = new FileReader();
+
     reader.onload = (evt) => {
-      const text = evt.target?.result as string;
-      if (!text) return;
+      try {
+        const buffer = evt.target?.result as ArrayBuffer;
+        if (!buffer) return;
 
-      // Simple CSV parser
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-      if (lines.length <= 1) {
-        // Fallback to sample if empty or single row
-        setParsedLeads(MOCK_CAMPAIGN_BATCH);
-        return;
-      }
-
-      const parsed: any[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const parts = lines[i].split(',').map(p => p.trim().replace(/^["']|["']$/g, ''));
-        if (parts[0]) {
-          parsed.push({
-            name: parts[0] || 'Prospective Investor',
-            phone: parts[1] || '+91 98000 00000',
-            email: parts[2] || 'investor@domain.com',
-            service: (parts[3] || 'Equity Premier') as AdvisoryService,
-            bracket: parts[4] || '₹5L - ₹10L',
-            revenue: parseInt(parts[5]) || 45000,
-            city: parts[6] || 'Metro City'
-          });
+        // Parse Excel workbook (.xlsx, .xls, .csv, .tsv) via SheetJS engine
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName) {
+          showToast('No sheets found in uploaded spreadsheet', 'error');
+          return;
         }
-      }
 
-      if (parsed.length > 0) {
-        setParsedLeads(parsed);
-        showToast(`Parsed ${parsed.length} leads successfully from ${file.name}`, 'success');
-      } else {
-        setParsedLeads(MOCK_CAMPAIGN_BATCH);
+        const worksheet = workbook.Sheets[firstSheetName];
+        // Read raw rows
+        const rawRows: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+        // Filter out completely empty rows
+        const validRows = rawRows.filter(r => r && Array.isArray(r) && r.some(c => c !== undefined && c !== null && String(c).trim() !== ''));
+
+        if (validRows.length === 0) {
+          showToast('The uploaded sheet is completely empty.', 'warning');
+          return;
+        }
+
+        // Header detection: check if first row contains column headers
+        const row0Str = validRows[0].map(c => String(c || '').toLowerCase().trim());
+        const hasHeaderKeywords = row0Str.some(h => 
+          h.includes('name') || h.includes('client') || h.includes('phone') || h.includes('mobile') ||
+          h.includes('source') || h.includes('response') || h.includes('desc') || h.includes('city') ||
+          h.includes('contact') || h.includes('owner') || h.includes('agent') || h.includes('email')
+        );
+
+        let headerRow: string[] = [];
+        let dataStartIndex = 0;
+
+        if (hasHeaderKeywords || validRows.length > 1) {
+          headerRow = row0Str;
+          dataStartIndex = 1;
+        } else {
+          // No recognizable header row, treat row 0 as data
+          dataStartIndex = 0;
+          headerRow = [];
+        }
+
+        const findColIdx = (testFn: (h: string) => boolean) => headerRow.findIndex(testFn);
+
+        // 1. Client Name (exclude owner/agent/employee/tl/leader)
+        let nameIdx = findColIdx(h => 
+          h === 'client name' || h === 'customer name' || h === 'lead name' || h === 'prospect name' ||
+          h === 'client' || h === 'customer' || h === 'prospect'
+        );
+        if (nameIdx === -1) {
+          nameIdx = findColIdx(h => 
+            h.includes('client') || h.includes('customer') || 
+            (h.includes('name') && !h.includes('owner') && !h.includes('agent') && !h.includes('emp') && !h.includes('tl') && !h.includes('leader') && !h.includes('user'))
+          );
+        }
+
+        // 2. Owner Name / Agent / Assigned Employee
+        const ownerIdx = findColIdx(h => 
+          h.includes('owner') || h.includes('agent') || h.includes('executive') || 
+          h.includes('caller') || (h.includes('emp') && !h.includes('client')) || 
+          h === 'tl' || h.includes('leader')
+        );
+
+        // 3. Phone / Mobile Number (explicitly EXCLUDE pincode/zip/area columns)
+        let phoneIdx = findColIdx(h =>
+          (h === 'mobile' || h === 'phone' || h === 'mobile no' || h === 'phone no' ||
+           h === 'mobile number' || h === 'phone number' || h === 'contact number' ||
+           h === 'cell' || h === 'telephone' || h === 'tel' || h === 'mob' ||
+           h === 'contact no' || h === 'whatsapp' || h === 'ph no') &&
+          !h.includes('pin') && !h.includes('zip') && !h.includes('postal') && !h.includes('area')
+        );
+        if (phoneIdx === -1) {
+          // Broader match but still exclude pincode variants
+          phoneIdx = findColIdx(h =>
+            (h.includes('mobile') || h.includes('phone') || h.includes('contact') ||
+             h.includes('cell') || h.includes('tel')) &&
+            !h.includes('pin') && !h.includes('zip') && !h.includes('postal') && !h.includes('area code')
+          );
+        }
+        // Note: intentionally NOT matching 'number' alone – too generic, matches pin/account/serial numbers
+
+        // 4. Source
+        const sourceIdx = findColIdx(h => 
+          h.includes('source') || h.includes('campaign') || h.includes('vendor') || h.includes('channel')
+        );
+
+        // 5. Response / Status / Disposition
+        const responseIdx = findColIdx(h => 
+          h.includes('response') || h.includes('disposition') || h.includes('feedback') || 
+          (h.includes('status') && !h.includes('dnd') && !h.includes('marital'))
+        );
+
+        // 6. Description / Remarks / Comments
+        const descIdx = findColIdx(h => 
+          h.includes('description') || h.includes('remark') || h.includes('comment') || 
+          h.includes('note') || h.includes('details')
+        );
+
+        // 7. City / Location / State
+        const cityIdx = findColIdx(h => 
+          h.includes('city') || h.includes('location') || h.includes('state') || 
+          h.includes('address') || h.includes('place') || h.includes('region')
+        );
+
+        // 8. Email Address
+        const emailIdx = findColIdx(h => 
+          h.includes('email') || h.includes('mail')
+        );
+
+        // 9. Service / Segment (optional - only if explicitly in sheet)
+        const serviceIdx = findColIdx(h => 
+          h.includes('service') || h.includes('segment') || h.includes('product') || h.includes('package')
+        );
+
+        // 10. Investment Bracket (optional - only if explicitly in sheet)
+        const bracketIdx = findColIdx(h => 
+          h.includes('bracket') || h.includes('capital') || h.includes('investment') || h.includes('budget')
+        );
+
+        // 11. Expected Revenue (optional - only if explicitly in sheet)
+        const revenueIdx = findColIdx(h => 
+          h.includes('revenue') || h.includes('expected') || h.includes('amount') || 
+          h.includes('deal') || (h.includes('value') && !h.includes('service'))
+        );
+
+        // 12. Date
+        const dateIdx = findColIdx(h =>
+          h.includes('date') || h.includes('time') || h.includes('created') || h.includes('modified')
+        );
+
+        // 13. Pincode / ZIP (to explicitly avoid confusing with phone)
+        const pincodeIdx = findColIdx(h =>
+          h.includes('pin') || h.includes('zip') || h.includes('postal') || h === 'pincode' || h === 'pin code'
+        );
+
+        // Positional name fallback: use col 0 if no header matched
+        const effectiveNameIdx = nameIdx !== -1 ? nameIdx : 0;
+
+        // Phone fallback: scan data values to find a column that looks like mobile numbers
+        // A valid Indian mobile: 10 digits starting 6-9, or starts with +91/0091/91
+        const isMobileValue = (val: string) => {
+          const digits = val.replace(/[\s\-().+]/g, '');
+          // +91 prefixed 10-digit number, or 10-digit starting with 6-9
+          return /^(91|0{0,2}91)?[6-9]\d{9}$/.test(digits) && digits.length >= 10;
+        };
+
+        let effectivePhoneIdx = phoneIdx !== -1 ? phoneIdx : -1;
+
+        if (effectivePhoneIdx === -1 && validRows.length > dataStartIndex) {
+          // Scan first few data rows to find column whose values look like phone numbers
+          const sampleRows = validRows.slice(dataStartIndex, Math.min(dataStartIndex + 10, validRows.length));
+          const colCount = Math.max(...sampleRows.map(r => r.length));
+          for (let col = 0; col < colCount; col++) {
+            if (col === effectiveNameIdx) continue; // skip name column
+            if (col === pincodeIdx) continue;       // skip known pincode column
+            const mobileHits = sampleRows.filter(r => {
+              const v = String(r[col] ?? '').trim();
+              return v.length >= 10 && isMobileValue(v);
+            }).length;
+            if (mobileHits >= Math.ceil(sampleRows.length * 0.4)) {
+              effectivePhoneIdx = col;
+              break;
+            }
+          }
+        }
+        // If still not found, do NOT fall back to col 1 (which could be pincode)
+        // effectivePhoneIdx === -1 means no phone column found – leave phone blank
+
+        // Collect detected header names for user clarity
+        const foundHeaders: string[] = [];
+        if (nameIdx !== -1) foundHeaders.push('Client Name');
+        if (phoneIdx !== -1) foundHeaders.push('Mobile');
+        if (sourceIdx !== -1) foundHeaders.push('Source');
+        if (responseIdx !== -1) foundHeaders.push('Response');
+        if (descIdx !== -1) foundHeaders.push('Description');
+        if (ownerIdx !== -1) foundHeaders.push('Owner / Agent');
+        if (cityIdx !== -1) foundHeaders.push('City');
+        if (emailIdx !== -1) foundHeaders.push('Email');
+        if (serviceIdx !== -1) foundHeaders.push('Service');
+        if (bracketIdx !== -1) foundHeaders.push('Investment Bracket');
+        if (revenueIdx !== -1) foundHeaders.push('Expected Value');
+        setDetectedHeaders(foundHeaders);
+
+        const parsed: any[] = [];
+        for (let i = dataStartIndex; i < validRows.length; i++) {
+          const row = validRows[i];
+          if (!row || row.length === 0) continue;
+
+          const clientName = String((effectiveNameIdx < row.length ? row[effectiveNameIdx] : '') ?? '').trim();
+          // Only read phone if we found a valid column; otherwise leave blank
+          const rawPhone = effectivePhoneIdx !== -1 && effectivePhoneIdx < row.length
+            ? String(row[effectivePhoneIdx] ?? '').trim()
+            : '';
+          // Format phone: if it's a plain 10-digit Indian mobile, prefix +91
+          const phone = (() => {
+            if (!rawPhone) return '';
+            const digits = rawPhone.replace(/[\s\-().]/g, '');
+            if (/^[6-9]\d{9}$/.test(digits)) return `+91 ${digits.slice(0,5)} ${digits.slice(5)}`;
+            if (/^91[6-9]\d{9}$/.test(digits)) return `+${digits.slice(0,2)} ${digits.slice(2,7)} ${digits.slice(7)}`;
+            return rawPhone; // return as-is if already formatted or unknown format
+          })();
+          const sourceVal = sourceIdx !== -1 && sourceIdx < row.length ? String(row[sourceIdx] ?? '').trim() : '';
+          const responseVal = responseIdx !== -1 && responseIdx < row.length ? String(row[responseIdx] ?? '').trim() : '';
+          const descVal = descIdx !== -1 && descIdx < row.length ? String(row[descIdx] ?? '').trim() : '';
+          const ownerVal = ownerIdx !== -1 && ownerIdx < row.length ? String(row[ownerIdx] ?? '').trim() : '';
+          const cityVal = cityIdx !== -1 && cityIdx < row.length ? String(row[cityIdx] ?? '').trim() : '';
+          const emailVal = emailIdx !== -1 && emailIdx < row.length ? String(row[emailIdx] ?? '').trim() : '';
+          const serviceVal = serviceIdx !== -1 && serviceIdx < row.length ? String(row[serviceIdx] ?? '').trim() : '';
+          const bracketVal = bracketIdx !== -1 && bracketIdx < row.length ? String(row[bracketIdx] ?? '').trim() : '';
+          
+          let revenueVal = 0;
+          if (revenueIdx !== -1 && revenueIdx < row.length) {
+            const rawRev = row[revenueIdx];
+            if (rawRev !== undefined && rawRev !== null && String(rawRev).trim() !== '') {
+              revenueVal = parseInt(String(rawRev).replace(/[^0-9]/g, '')) || 0;
+            }
+          }
+
+          const dateVal = dateIdx !== -1 && dateIdx < row.length ? String(row[dateIdx] ?? '').trim() : '';
+
+          // Only keep valid rows that have client name, phone, or owner
+          if (clientName || phone || ownerVal || descVal) {
+            parsed.push({
+              name: clientName,
+              phone: phone,
+              source: sourceVal || selectedSource,
+              response: responseVal,
+              description: descVal,
+              ownerName: ownerVal,
+              city: cityVal,
+              email: emailVal,
+              service: serviceVal,
+              bracket: bracketVal,
+              revenue: revenueVal,
+              date: dateVal
+            });
+          }
+        }
+
+        if (parsed.length > 0) {
+          setParsedLeads(parsed);
+          showToast(`Successfully analyzed & extracted ${parsed.length} client leads from ${file.name}!`, 'success');
+        } else {
+          setParsedLeads(MOCK_CAMPAIGN_BATCH);
+          showToast('Could not extract valid rows from file, loaded sample batch.', 'warning');
+        }
+      } catch (err: any) {
+        console.error('Error parsing Excel sheet:', err);
+        showToast('Error reading Excel file. Please ensure it is a valid .xlsx or .csv file.', 'error');
       }
     };
-    reader.readAsText(file);
+
+    reader.readAsArrayBuffer(file);
   };
 
   const handleDownloadTemplate = () => {
-    const headers = "Client Name,Phone,Email,Service,Investment Bracket,Expected Revenue,City,Source\n";
+    const headers = "Client Name,Mobile,Source,Response,Description,City\n";
     const rows = [
-      "Sunil Singhal,+91 98201 11223,sunil.s@gmail.com,Equity Premier,₹5L - ₹10L,45000,Mumbai,Google Ads",
-      "Kavita Verma,+91 98110 44556,kavita.v@outlook.com,Options Strategy,₹10L - ₹25L,60000,Delhi,Meta Inbound",
-      "Dr. Raghu Raman,+91 94440 77889,raghu.raman@clinic.org,Hedge & PMS,₹25L+ HNI,150000,Bengaluru,Referral"
+      "Sunil Singhal,+91 98201 11223,Google Ads,Interested,Requested callback for Equity,Mumbai",
+      "Kavita Verma,+91 98110 44556,Meta Inbound,Call Back,Call back after 3 PM,Delhi",
+      "Dr. Raghu Raman,+91 94440 77889,Referral,Interested,High net worth investor,Bengaluru"
     ].join('\n');
 
     const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
@@ -140,6 +359,19 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
     document.body.removeChild(link);
     showToast('Downloaded sample CSV template!', 'info');
   };
+
+  // Determine dynamically which columns have data in the parsed batch (do NOT display irrelevant empty columns)
+  const hasClientName = parsedLeads.some(l => l.name && l.name.trim() !== '');
+  const hasPhone = parsedLeads.some(l => l.phone && l.phone.trim() !== '');
+  const hasSource = parsedLeads.some(l => l.source && l.source.trim() !== '' && l.source !== selectedSource);
+  const hasResponse = parsedLeads.some(l => l.response && l.response.trim() !== '');
+  const hasDescription = parsedLeads.some(l => l.description && l.description.trim() !== '');
+  const hasOwner = parsedLeads.some(l => l.ownerName && l.ownerName.trim() !== '');
+  const hasCity = parsedLeads.some(l => l.city && l.city.trim() !== '');
+  const hasEmail = parsedLeads.some(l => l.email && l.email.trim() !== '');
+  const hasService = parsedLeads.some(l => l.service && l.service.trim() !== '');
+  const hasBracket = parsedLeads.some(l => l.bracket && l.bracket.trim() !== '');
+  const hasRevenue = parsedLeads.some(l => l.revenue && l.revenue > 0);
 
   // Calculate allocation breakdown
   const totalLeadsCount = parsedLeads.length;
@@ -162,6 +394,34 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
       showToast('Please upload a file or click "Load Sample Batch" first', 'warning');
       return;
     }
+
+    if (destinationMode === 'pool') {
+      const sourceLeads: Partial<AdvisoryLead>[] = parsedLeads.map((item, idx) => ({
+        id: `lead-pool-${Date.now()}-${idx + 1}`,
+        clientName: item.name || '',
+        phone: item.phone || '',
+        email: item.email || '',
+        serviceType: (item.service as AdvisoryService) || '',
+        investmentBracket: item.bracket || '',
+        status: (item.response ? 'In Contact' : 'New Lead') as LeadStatus,
+        response: item.response || '',
+        description: item.description || '',
+        expectedRevenue: item.revenue || 0,
+        city: item.city || '',
+        source: item.source || selectedSource,
+        assignedToName: item.ownerName || '',
+        lastContactDate: item.date || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+      }));
+
+      addBulkSourceLeads(selectedSource, sourceLeads.length, sourceLeads);
+      showToast(`Successfully deposited ${parsedLeads.length} vendor leads into "${selectedSource}" pool!`, 'success');
+      setParsedLeads([]);
+      setFileName('');
+      onClose();
+      setActiveTab('allot-leads');
+      return;
+    }
+
     if (activeAdvisors.length === 0) {
       showToast('Please select at least one employee to receive leads', 'error');
       return;
@@ -173,22 +433,25 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
       const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
       return {
         id: `lead-${Date.now()}-${idx + 1}`,
-        clientName: item.name,
-        phone: item.phone,
-        email: item.email,
-        serviceType: (item.service as AdvisoryService) || 'Equity Premier',
-        investmentBracket: item.bracket || '₹5L - ₹10L',
-        status: 'New Lead' as LeadStatus,
+        clientName: item.name || '',
+        phone: item.phone || '',
+        email: item.email || '',
+        serviceType: (item.service as AdvisoryService) || '',
+        investmentBracket: item.bracket || '',
+        status: (item.response ? 'In Contact' : 'New Lead') as LeadStatus,
+        response: item.response || '',
+        description: item.description || '',
         assignedToId: assignedEmp.id,
-        assignedToName: assignedEmp.name,
-        lastContactDate: todayStr,
-        expectedRevenue: item.revenue || 45000,
-        city: item.city || 'India',
-        source: 'Bulk Batch Import'
+        assignedToName: item.ownerName || assignedEmp.name,
+        lastContactDate: item.date || todayStr,
+        expectedRevenue: item.revenue || 0,
+        city: item.city || '',
+        source: item.source || selectedSource || 'Bulk Batch Import'
       };
     });
 
     bulkAddLeads(createdLeads);
+    showToast(`Dispersed ${createdLeads.length} leads across ${activeAdvisors.length} advisors!`, 'success');
     setParsedLeads([]);
     setFileName('');
     onClose();
@@ -197,7 +460,7 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
 
   return (
     <div className="tips-modal-backdrop" onClick={onClose}>
-      <div className="tips-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '840px', width: '92vw' }}>
+      <div className="tips-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '880px', width: '94vw' }}>
         {/* Modal Header */}
         <div className="tips-modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
@@ -209,7 +472,7 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
                 Bulk Lead Upload & Auto-Segregation Engine
               </h3>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Upload prospective client datasets and automatically disperse them across your active advisory team.
+                Upload Excel / CSV vendor files. The engine automatically maps columns and stores data in their respective fields without inventing irrelevant columns.
               </p>
             </div>
           </div>
@@ -241,7 +504,7 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
                   onClick={handleQuickLoadSampleBatch}
                   style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', background: '#059669', borderColor: '#059669' }}
                 >
-                  <Sparkles size={13} /> Load 20 Sample Campaign Leads
+                  <Sparkles size={13} /> Load 10 Sample Campaign Leads
                 </button>
               </div>
             </div>
@@ -262,7 +525,7 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
             }}>
               <input 
                 type="file" 
-                accept=".csv, .txt, .json, .xlsx" 
+                accept=".csv, .txt, .json, .xlsx, .xls" 
                 style={{ display: 'none' }} 
                 onChange={handleFileUpload} 
               />
@@ -271,15 +534,15 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                  {fileName ? fileName : 'Click to select CSV / Excel lead sheet or drag & drop'}
+                  {fileName ? fileName : 'Click to select Excel (.xlsx, .xls) or CSV lead sheet or drag & drop'}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Supports CSV, XLSX, and JSON formatted data with phone numbers and investor brackets
+                  Supports all vendor formats (Owner Name, Client Name, Mobile, Source, Response, City, Description, etc.)
                 </div>
               </div>
               {parsedLeads.length > 0 && (
                 <div className="delta-badge positive" style={{ marginTop: '0.25rem', fontSize: '0.8rem' }}>
-                  ✓ {parsedLeads.length} Leads Ready for Distribution
+                  ✓ {parsedLeads.length} Leads Analyzed & Ready for Distribution
                 </div>
               )}
             </label>
@@ -287,44 +550,84 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
 
           {/* STEP 2: PREVIEW LEADS IN BATCH */}
           {parsedLeads.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  Batch Preview (First 4 of {parsedLeads.length} leads):
+                  Batch Preview (Showing first {Math.min(5, parsedLeads.length)} of {parsedLeads.length} leads):
                 </div>
                 <button 
                   type="button" 
                   className="btn btn-secondary btn-sm" 
-                  onClick={() => { setParsedLeads([]); setFileName(''); }}
+                  onClick={() => { setParsedLeads([]); setFileName(''); setDetectedHeaders([]); }}
                   style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem' }}
                 >
                   Clear Batch
                 </button>
               </div>
 
-              <div className="table-wrapper" style={{ maxHeight: '150px' }}>
-                <table className="crm-table" style={{ fontSize: '0.8rem' }}>
+              {/* Detected Columns Indicator */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', padding: '6px 10px', background: 'var(--bg-surface-alt)', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Active Columns in File:</span>
+                {hasClientName && <span className="delta-badge positive" style={{ fontSize: '10.5px' }}><Check size={10} /> Client Name</span>}
+                {hasPhone && <span className="delta-badge positive" style={{ fontSize: '10.5px' }}><Check size={10} /> Mobile</span>}
+                {hasSource && <span className="delta-badge positive" style={{ fontSize: '10.5px' }}><Check size={10} /> Source</span>}
+                {hasResponse && <span className="delta-badge positive" style={{ fontSize: '10.5px' }}><Check size={10} /> Response</span>}
+                {hasDescription && <span className="delta-badge positive" style={{ fontSize: '10.5px' }}><Check size={10} /> Description</span>}
+                {hasOwner && <span className="delta-badge positive" style={{ fontSize: '10.5px' }}><Check size={10} /> Owner</span>}
+                {hasCity && <span className="delta-badge positive" style={{ fontSize: '10.5px' }}><Check size={10} /> City</span>}
+                {hasEmail && <span className="delta-badge positive" style={{ fontSize: '10.5px' }}><Check size={10} /> Email</span>}
+                {hasService && <span className="delta-badge positive" style={{ fontSize: '10.5px' }}><Check size={10} /> Service</span>}
+                {hasBracket && <span className="delta-badge positive" style={{ fontSize: '10.5px' }}><Check size={10} /> Bracket</span>}
+                {hasRevenue && <span className="delta-badge positive" style={{ fontSize: '10.5px' }}><Check size={10} /> Expected Value</span>}
+              </div>
+
+              <div className="table-wrapper" style={{ maxHeight: '180px', overflowX: 'auto' }}>
+                <table className="crm-table" style={{ fontSize: '0.8rem', minWidth: '600px' }}>
                   <thead>
                     <tr>
-                      <th>#</th>
+                      <th style={{ width: '36px' }}>#</th>
                       <th>Client Name</th>
-                      <th>Phone</th>
-                      <th>Interested Service</th>
-                      <th>Investment Bracket</th>
-                      <th>Expected Value</th>
+                      <th>Mobile</th>
+                      {hasSource && <th>Source</th>}
+                      {hasResponse && <th>Response</th>}
+                      {hasDescription && <th>Description</th>}
+                      {hasOwner && <th>Owner / Agent</th>}
+                      {hasCity && <th>City</th>}
+                      {hasEmail && <th>Email</th>}
+                      {hasService && <th>Service</th>}
+                      {hasBracket && <th>Investment Bracket</th>}
+                      {hasRevenue && <th>Expected Value</th>}
                     </tr>
                   </thead>
                   <tbody>
-                    {parsedLeads.slice(0, 4).map((lead, idx) => (
+                    {parsedLeads.slice(0, 5).map((lead, idx) => (
                       <tr key={idx}>
                         <td>{idx + 1}</td>
-                        <td style={{ fontWeight: 600 }}>{lead.name}</td>
-                        <td className="mono-cell">{lead.phone}</td>
-                        <td>{lead.service}</td>
-                        <td>{lead.bracket}</td>
-                        <td className="mono-cell" style={{ fontWeight: 700, color: 'var(--stocketics-blue-600)' }}>
-                          ₹{(lead.revenue / 1000).toFixed(0)}K
-                        </td>
+                        <td style={{ fontWeight: 600 }}>{lead.name || '-'}</td>
+                        <td className="mono-cell">{lead.phone || '-'}</td>
+                        {hasSource && <td>{lead.source || '-'}</td>}
+                        {hasResponse && (
+                          <td>
+                            <span style={{ fontSize: '11px', fontWeight: 600, padding: '1px 6px', borderRadius: '4px', background: '#eff6ff', color: '#1d4ed8' }}>
+                              {lead.response || '-'}
+                            </span>
+                          </td>
+                        )}
+                        {hasDescription && (
+                          <td style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={lead.description}>
+                            {lead.description || '-'}
+                          </td>
+                        )}
+                        {hasOwner && <td>{lead.ownerName || '-'}</td>}
+                        {hasCity && <td>{lead.city || '-'}</td>}
+                        {hasEmail && <td style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lead.email || '-'}</td>}
+                        {hasService && <td>{lead.service || '-'}</td>}
+                        {hasBracket && <td>{lead.bracket || '-'}</td>}
+                        {hasRevenue && (
+                          <td className="mono-cell" style={{ fontWeight: 700, color: 'var(--stocketics-blue-600)' }}>
+                            {lead.revenue > 0 ? `₹${(lead.revenue / 1000).toFixed(0)}K` : '-'}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -333,113 +636,188 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
             </div>
           )}
 
-          {/* STEP 3: EMPLOYEE SELECTION & SEGREGATION */}
+          {/* STEP 3: DESTINATION MODE & ALLOCATION */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--stocketics-blue-500)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }}>2</span>
-                Choose Team Members to Receive Leads ({selectedEmpIds.length} Selected)
+                Select Ingestion Destination & Distribution
               </div>
 
-              {/* Distribution Strategy Toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Strategy:</span>
-                <select 
-                  className="form-select" 
-                  style={{ height: '30px', fontSize: '0.75rem', padding: '0 0.5rem' }}
-                  value={distributionStrategy}
-                  onChange={e => setDistributionStrategy(e.target.value as any)}
+              {/* Destination Mode Switcher */}
+              <div style={{ display: 'flex', background: 'var(--bg-surface-alt)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
+                <button
+                  type="button"
+                  onClick={() => setDestinationMode('pool')}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '11.5px',
+                    fontWeight: destinationMode === 'pool' ? 700 : 500,
+                    background: destinationMode === 'pool' ? '#0073b7' : 'transparent',
+                    color: destinationMode === 'pool' ? '#ffffff' : 'var(--text-secondary)',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
                 >
-                  <option value="round-robin">Equal Round-Robin</option>
-                  <option value="balanced">Quota Capacity Balanced</option>
-                </select>
+                  Deposit to Source Pool (CRM Workflow)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDestinationMode('direct')}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '11.5px',
+                    fontWeight: destinationMode === 'direct' ? 700 : 500,
+                    background: destinationMode === 'direct' ? '#0073b7' : 'transparent',
+                    color: destinationMode === 'direct' ? '#ffffff' : 'var(--text-secondary)',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Direct Round-Robin to Advisors
+                </button>
               </div>
             </div>
 
-            {/* Team Member Cards Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.6rem' }}>
-              {eligibleEmployees.map(emp => {
-                const isSelected = selectedEmpIds.includes(emp.id);
-                const alloc = allocationSummary.find(a => a.employee.id === emp.id);
-
-                return (
-                  <div 
-                    key={emp.id}
-                    onClick={() => handleToggleEmployee(emp.id)}
+            {destinationMode === 'pool' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', background: '#f0f9ff', padding: '16px', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#0369a1', marginBottom: '6px' }}>
+                    Select Target Lead Source Pool *:
+                  </label>
+                  <select
+                    value={selectedSource}
+                    onChange={e => setSelectedSource(e.target.value)}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.6rem',
-                      padding: '0.65rem 0.8rem',
-                      borderRadius: 'var(--radius-md)',
-                      border: `1.5px solid ${isSelected ? 'var(--stocketics-blue-500)' : 'var(--border-subtle)'}`,
-                      background: isSelected ? 'var(--bg-surface)' : 'var(--bg-surface-alt)',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      opacity: isSelected ? 1 : 0.65
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      borderRadius: '5px',
+                      border: '1.5px solid #0284c7',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      outline: 'none'
                     }}
                   >
-                    <input 
-                      type="checkbox" 
-                      checked={isSelected} 
-                      onChange={() => {}} 
-                      style={{ cursor: 'pointer' }}
-                    />
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
-                      <img src={emp.avatar} alt={emp.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                    <div style={{ overflow: 'hidden', flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                        {emp.name}
-                      </div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                        {emp.title.split(' ')[0]} {emp.title.split(' ')[1]}
-                      </div>
-                    </div>
-
-                    {isSelected && totalLeadsCount > 0 && (
-                      <span className="delta-badge positive" style={{ fontSize: '0.72rem', padding: '1px 6px' }}>
-                        +{alloc?.count} Leads
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Live Distribution Summary Bar */}
-            {totalLeadsCount > 0 && (
-              <div style={{ 
-                background: 'var(--bg-surface-alt)', 
-                border: '1px solid var(--border-subtle)', 
-                borderRadius: 'var(--radius-md)', 
-                padding: '0.75rem 1rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '0.6rem',
-                marginTop: '0.25rem'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Users size={16} style={{ color: 'var(--stocketics-blue-600)' }} />
-                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Segregation Formula: {totalLeadsCount} Leads ÷ {selectedEmpIds.length} Team Members
-                  </span>
+                    {leadSourcePools.map(pool => (
+                      <option key={pool.sourceName} value={pool.sourceName}>
+                        {pool.sourceName} ({pool.availableCount.toLocaleString()} Leads Available)
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {allocationSummary.map(a => (
-                    <span 
-                      key={a.employee.id} 
-                      className="delta-badge" 
-                      style={{ fontSize: '0.72rem', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
-                    >
-                      {a.employee.name.split(' ')[0]}: <strong>{a.count}</strong>
-                    </span>
-                  ))}
+                <div style={{ fontSize: '12px', color: '#0369a1', lineHeight: '1.5' }}>
+                  ℹ️ <strong>CRM Lead Pipeline Integration:</strong> Uploading into <strong>{selectedSource}</strong> will increment this pool. The Floor Manager will see these leads in <strong>Configuration &gt; Allot Leads</strong> to distribute to Team Leaders, and Team Leaders will allot them directly to tele-calling executives.
                 </div>
               </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Choose Advisors ({selectedEmpIds.length} Selected):</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Strategy:</span>
+                    <select 
+                      className="form-select" 
+                      style={{ height: '30px', fontSize: '0.75rem', padding: '0 0.5rem' }}
+                      value={distributionStrategy}
+                      onChange={e => setDistributionStrategy(e.target.value as any)}
+                    >
+                      <option value="round-robin">Equal Round-Robin</option>
+                      <option value="balanced">Quota Capacity Balanced</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Team Member Cards Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.6rem' }}>
+                  {eligibleEmployees.map(emp => {
+                    const isSelected = selectedEmpIds.includes(emp.id);
+                    const alloc = allocationSummary.find(a => a.employee.id === emp.id);
+
+                    return (
+                      <div 
+                        key={emp.id}
+                        onClick={() => handleToggleEmployee(emp.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.6rem',
+                          padding: '0.65rem 0.8rem',
+                          borderRadius: 'var(--radius-md)',
+                          border: `1.5px solid ${isSelected ? 'var(--stocketics-blue-500)' : 'var(--border-subtle)'}`,
+                          background: isSelected ? 'var(--bg-surface)' : 'var(--bg-surface-alt)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          opacity: isSelected ? 1 : 0.65
+                        }}
+                      >
+                        <input 
+                          type="checkbox" 
+                          checked={isSelected} 
+                          onChange={() => {}} 
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+                          <img src={emp.avatar} alt={emp.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                        <div style={{ overflow: 'hidden', flex: 1 }}>
+                          <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                            {emp.name}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                            {emp.title.split(' ')[0]} {emp.title.split(' ')[1]}
+                          </div>
+                        </div>
+
+                        {isSelected && totalLeadsCount > 0 && (
+                          <span className="delta-badge positive" style={{ fontSize: '0.72rem', padding: '1px 6px' }}>
+                            +{alloc?.count} Leads
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Live Distribution Summary Bar */}
+                {totalLeadsCount > 0 && (
+                  <div style={{ 
+                    background: 'var(--bg-surface-alt)', 
+                    border: '1px solid var(--border-subtle)', 
+                    borderRadius: 'var(--radius-md)', 
+                    padding: '0.75rem 1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.6rem',
+                    marginTop: '0.25rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Users size={16} style={{ color: 'var(--stocketics-blue-600)' }} />
+                      <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        Segregation Formula: {totalLeadsCount} Leads ÷ {selectedEmpIds.length} Team Members
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {allocationSummary.map(a => (
+                        <span 
+                          key={a.employee.id} 
+                          className="delta-badge" 
+                          style={{ fontSize: '0.72rem', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
+                        >
+                          {a.employee.name.split(' ')[0]}: <strong>{a.count}</strong>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -452,12 +830,17 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
             <button 
               type="button" 
               className="btn btn-primary"
-              disabled={parsedLeads.length === 0 || selectedEmpIds.length === 0}
+              disabled={parsedLeads.length === 0 || (destinationMode === 'direct' && selectedEmpIds.length === 0)}
               onClick={handleExecuteSegregation}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', background: destinationMode === 'pool' ? '#0073b7' : undefined }}
             >
               <CheckCircle2 size={16} />
-              <span>Disperse & Distribute {parsedLeads.length > 0 ? `${parsedLeads.length} Leads` : ''}</span>
+              <span>
+                {destinationMode === 'pool' 
+                  ? `Deposit ${parsedLeads.length > 0 ? `${parsedLeads.length} Leads` : ''} into Pool`
+                  : `Disperse & Distribute ${parsedLeads.length > 0 ? `${parsedLeads.length} Leads` : ''}`
+                }
+              </span>
             </button>
           </div>
 

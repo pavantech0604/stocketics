@@ -78,6 +78,10 @@ export const EmployeeDashboard: React.FC = () => {
     activeTab === 'active-prospect' || 
     activeTab === 'past-prospect' ||
     activeTab === 'unknown-calls' ||
+    activeTab === 'modified-today' ||
+    activeTab === 'disposed-today' ||
+    activeTab === 'interested-leads' ||
+    activeTab === 'payment-leads' ||
     activeTab === 'add-new-lead'
   ) {
     return <AdvisoryPipeline />;
@@ -105,6 +109,11 @@ export const EmployeeDashboard: React.FC = () => {
   // 4. IT Problem
   if (activeTab === 'it-problem') {
     return <ITProblemView />;
+  }
+
+  // 4.5 Tickets Desk
+  if (activeTab === 'ticket' || activeTab === 'tickets' || activeTab === 'tickets-category') {
+    return <TicketManagementView />;
   }
 
   // 5. Mail & SMS Broadcast
@@ -143,28 +152,70 @@ export const EmployeeDashboard: React.FC = () => {
   const latestSlip = payslips[0];
   const pendingTasks = tasks.filter(t => !t.completed);
 
-  // Dynamic Employee KPIs strictly matching Image 1
+  // Dynamic Employee KPIs strictly matching Image 1, scoped to logged in employee
+  const myLeads = advisoryLeads.filter(l => 
+    (l.assignedToId === currentUser.id || l.assignedToName?.toLowerCase() === currentUser.name.toLowerCase()) && !l.isTeamPool
+  );
+
+  const myFollowupCount = myLeads.filter(l => l.status === 'In Contact' || l.response === 'Call Back' || l.callbackDate?.includes('2026-09') || l.lastContactDate === '22-Sep-2026').length;
+  const myProspectCount = myLeads.filter(l => l.status === 'Trial Active' || l.response === 'Interested').length;
+  const myAvailableCount = myLeads.filter(l => l.status === 'New Lead' || l.response === 'Fresh').length;
+  const myModifiedTodayCount = myLeads.filter(l => l.modifiedToday || l.lastContactDate?.includes('22-Sep')).length;
+  const myDisposedTodayCount = myLeads.filter(l => l.disposedToday || (l.status === 'Lost' && l.disposedAt)).length;
+  const myInterestedCount = myLeads.filter(l => l.response === 'Interested').length;
+  const myPaymentCount = myLeads.filter(l => l.status === 'Converted' || l.response === 'Payment').length;
+  const myTodaySale = myLeads.filter(l => (l.status === 'Converted' || l.response === 'Payment') && (l.modifiedToday || l.lastContactDate?.includes('22-Sep'))).reduce((sum, l) => sum + (l.expectedRevenue || 35000), 0);
+  const myMonthlySale = myLeads.filter(l => l.status === 'Converted').reduce((sum, l) => sum + (l.expectedRevenue || 35000), 25000);
+
   const employeeRow1 = [
-    { id: 'followup', value: 0, label: "Today's Followup", colorClass: 'kpi-c-blue' },
-    { id: 'prospect', value: 0, label: "Today's Prospect", colorClass: 'kpi-c-orange' },
-    { id: 'available', value: 0, label: 'Available Leads', colorClass: 'kpi-c-teal' },
-    { id: 'modified', value: 0, label: 'Modified Today', colorClass: 'kpi-c-purple' },
-    { id: 'dispose', value: 0, label: 'Dispose Today', colorClass: 'kpi-c-red' },
-    { id: 'today-sale', value: 0, label: "Today's Sale", colorClass: 'kpi-c-cyan' },
+    { id: 'followup', value: myFollowupCount, label: "Today's Followup", colorClass: 'kpi-c-blue' },
+    { id: 'prospect', value: myProspectCount, label: "Today's Prospect", colorClass: 'kpi-c-orange' },
+    { id: 'available', value: myAvailableCount, label: 'Available Leads', colorClass: 'kpi-c-teal' },
+    { id: 'modified', value: myModifiedTodayCount, label: 'Modified Today', colorClass: 'kpi-c-purple' },
+    { id: 'dispose', value: myDisposedTodayCount, label: 'Dispose Today', colorClass: 'kpi-c-red' },
+    { id: 'today-sale', value: myTodaySale, format: 'currency' as const, decimals: 0, label: "Today's Sale", colorClass: 'kpi-c-cyan' },
   ];
 
   const employeeRow2 = [
     { 
       id: 'monthly-sale', 
-      value: 25000.00, 
+      value: myMonthlySale, 
       format: 'currency' as const, 
       decimals: 2, 
       label: 'Monthly Sale', 
       colorClass: 'kpi-c-navy' 
     },
-    { id: 'interested', value: 0, label: 'Interested leads', colorClass: 'kpi-c-violet' },
-    { id: 'payment', value: 0, label: 'Payment leads', colorClass: 'kpi-c-amber' },
+    { id: 'interested', value: myInterestedCount, label: 'Interested leads', colorClass: 'kpi-c-violet' },
+    { id: 'payment', value: myPaymentCount, label: 'Payment leads', colorClass: 'kpi-c-amber' },
   ];
+
+  const handleCardClick = (cardId: string) => {
+    if (cardId === 'followup') {
+      setActiveTab('today-followup');
+      showToast("Filtering my leads: Today's Follow-up", 'info');
+    } else if (cardId === 'prospect') {
+      setActiveTab('active-prospect');
+      showToast("Filtering my leads: Active Prospects", 'info');
+    } else if (cardId === 'available') {
+      setActiveTab('new-leads');
+      showToast("Filtering my leads: Available / Fresh Leads", 'info');
+    } else if (cardId === 'modified') {
+      setActiveTab('modified-today');
+      showToast("Filtering my leads: Modified Today", 'info');
+    } else if (cardId === 'dispose') {
+      setActiveTab('disposed-today');
+      showToast("Filtering my leads: Disposed Today", 'info');
+    } else if (cardId === 'today-sale' || cardId === 'monthly-sale') {
+      setActiveTab('confirmed-payment');
+      showToast("Filtering my leads: Confirmed Payments", 'info');
+    } else if (cardId === 'interested') {
+      setActiveTab('interested-leads');
+      showToast("Filtering my leads: Interested Leads", 'info');
+    } else if (cardId === 'payment') {
+      setActiveTab('confirmed-payment');
+      showToast("Filtering my leads: Payment Leads", 'info');
+    }
+  };
 
   // Sales Incentive & Cashback calculations
   const employeeRevenue = advisoryLeads
@@ -197,6 +248,26 @@ export const EmployeeDashboard: React.FC = () => {
 
         {/* Quick Enterprise Workflow Actions Strip */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+          <button
+            onClick={() => setActiveTab('view-all-leads')}
+            style={{
+              background: 'linear-gradient(135deg, #059669, #047857)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              padding: '8px 14px',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(5,150,105,0.3)'
+            }}
+          >
+            <TrendingUp size={14} /> My Assigned Leads ({myLeads.length})
+          </button>
+
           <button
             onClick={() => setIsBankSMSOpen(true)}
             style={{
@@ -265,6 +336,8 @@ export const EmployeeDashboard: React.FC = () => {
         <RefKPIGrid 
           customRow1={employeeRow1}
           customRow2={employeeRow2}
+          onCardClick={handleCardClick}
+          activeId={activeTab}
         />
 
         {/* Sales Incentive & Cashback Progress Card */}
@@ -511,14 +584,14 @@ export const EmployeeDashboard: React.FC = () => {
                 <tr key={lead.id}>
                   <td style={{ padding: '0.65rem 0.6rem', overflow: 'hidden' }}>
                     <div style={{ fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.clientName}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.phone} • {lead.city || 'Mumbai'}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.phone}{lead.city ? ` • ${lead.city}` : ''}</div>
                   </td>
                   <td style={{ padding: '0.65rem 0.6rem', overflow: 'hidden' }}>
-                    <div style={{ fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.serviceType}</div>
+                    <div style={{ fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.serviceType || '-'}</div>
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Source: {lead.source || 'Direct Website'}</div>
                   </td>
                   <td className="mono-cell" style={{ padding: '0.65rem 0.6rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                    ₹{lead.expectedRevenue.toLocaleString()}
+                    {lead.expectedRevenue > 0 ? `₹${lead.expectedRevenue.toLocaleString()}` : '-'}
                   </td>
                   <td className="mono-cell" style={{ padding: '0.65rem 0.6rem', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                     {lead.lastContactDate}

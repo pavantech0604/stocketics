@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../state/store';
-import { MarketQuote, ActiveClientRecordDetailed } from '../../types';
+import { MarketQuote, ActiveClientRecordDetailed, RACallRecord } from '../../types';
 import {
   Send,
   X,
@@ -19,21 +19,45 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
-interface AdvisoryCallDispatchModalProps {
-  quote: MarketQuote;
+export interface AdvisoryCallDispatchModalProps {
+  quote: MarketQuote | RACallRecord | any;
   onClose: () => void;
+  targetClient?: ActiveClientRecordDetailed | null;
 }
 
-export const AdvisoryCallDispatchModal: React.FC<AdvisoryCallDispatchModalProps> = ({ quote, onClose }) => {
+export const AdvisoryCallDispatchModal: React.FC<AdvisoryCallDispatchModalProps> = ({ quote, onClose, targetClient }) => {
   const { detailedClients, dispatchAdvisoryCall, currentUser } = useApp();
 
-  // Determine segment to match
-  const callSegment = useMemo(() => {
-    if (quote.serviceSegment) return quote.serviceSegment.toUpperCase();
-    if (quote.type === 'option') return 'INDEX OPTION';
-    if (quote.type === 'commodity') return 'COMMODITY';
-    return 'EQUITY PREMIER';
-  }, [quote]);
+  // Normalized call attributes
+  const normalizedCall = useMemo(() => {
+    const title = ('title' in quote && quote.title) ? quote.title : (quote.label || 'ADVISORY CALL');
+    const segment = ('segment' in quote && quote.segment) ? quote.segment : (quote.serviceSegment || (quote.type === 'option' ? 'INDEX OPTION' : 'EQUITY PREMIER'));
+    const callType: 'BUY' | 'SELL' = (quote.callType || (('type' in quote && (quote.type === 'BUY' || quote.type === 'SELL')) ? quote.type : 'BUY'));
+    const entryPrice = typeof quote.entryPrice === 'number' ? quote.entryPrice : (typeof quote.value === 'number' ? quote.value : 0);
+    const target1 = typeof quote.target1 === 'number' ? quote.target1 : +(entryPrice * 1.25).toFixed(2);
+    const target2 = typeof quote.target2 === 'number' ? quote.target2 : +(entryPrice * 1.45).toFixed(2);
+    const stopLoss = typeof quote.stopLoss === 'number' ? quote.stopLoss : +(entryPrice * 0.82).toFixed(2);
+    const ltp = typeof quote.value === 'number' ? quote.value : entryPrice;
+    const analyst = quote.analystName || quote.analyst || quote.givenBy || currentUser.name || 'Aditya Roy (SEBI RA)';
+    const analystRegNo = quote.analystRegNo || 'INH000008921';
+    const exchange = quote.exchange || (segment.toLowerCase().includes('option') ? 'NSE NFO' : 'NSE CASH');
+
+    return {
+      title,
+      segment: segment.toUpperCase(),
+      callType,
+      entryPrice,
+      target1,
+      target2,
+      stopLoss,
+      ltp,
+      analyst,
+      analystRegNo,
+      exchange
+    };
+  }, [quote, currentUser]);
+
+  const callSegment = normalizedCall.segment;
 
   // Filter clients who have acquired / subscribed to this service
   const matchedClients = useMemo(() => {
@@ -41,21 +65,36 @@ export const AdvisoryCallDispatchModal: React.FC<AdvisoryCallDispatchModalProps>
     // Find active clients matching service segment
     const exact = detailedClients.filter(c => {
       const sName = (c.serviceName || '').toUpperCase();
-      const isSegmentMatch = sName.includes(callSegment) || callSegment.includes(sName);
+      const isSegmentMatch = sName.includes(callSegment) || callSegment.includes(sName) || 
+        (callSegment.includes('OPTION') && sName.includes('OPTION')) ||
+        (callSegment.includes('COMMODITY') && sName.includes('COMMODITY'));
       const isNotExpired = !c.endDate || c.endDate >= todayStr;
       return isSegmentMatch && isNotExpired;
     });
 
-    if (exact.length > 0) return exact;
+    let clients = exact;
+    if (clients.length === 0) {
+      // Fallback: Show all active clients with option or active status
+      clients = detailedClients.filter(c => c.tabCategory === 'clients' || c.response === 'CLOSED OWN' || c.trialStatus?.includes('Active'));
+    }
 
-    // Fallback: Show all active clients with option or active status
-    return detailedClients.filter(c => c.tabCategory === 'clients' || c.response === 'CLOSED OWN');
-  }, [detailedClients, callSegment]);
+    if (targetClient && !clients.some(c => c.id === targetClient.id)) {
+      return [targetClient, ...clients];
+    }
+    return clients;
+  }, [detailedClients, callSegment, targetClient]);
 
   // Selected clients state
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>(() => {
+    if (targetClient) return [targetClient.id];
     return matchedClients.map(c => c.id);
   });
+
+  useEffect(() => {
+    if (targetClient) {
+      setSelectedClientIds([targetClient.id]);
+    }
+  }, [targetClient]);
 
   // Channel toggles
   const [channels, setChannels] = useState<{ sms: boolean; email: boolean; whatsapp: boolean }>({
@@ -88,10 +127,10 @@ export const AdvisoryCallDispatchModal: React.FC<AdvisoryCallDispatchModalProps>
     }
   };
 
-  // SMS Text calculation
+  // SMS Text calculation adhering to standard compliance formatting
   const smsBody = useMemo(() => {
-    return `[STOCKETICS] ${quote.callType || 'BUY'} ${quote.label} @ ₹${(quote.entryPrice || quote.value).toFixed(2)}. TGT1: ₹${(quote.target1 || quote.value * 1.25).toFixed(2)}, TGT2: ₹${(quote.target2 || quote.value * 1.45).toFixed(2)}, SL: ₹${(quote.stopLoss || quote.value * 0.82).toFixed(2)}. RA: ${quote.analyst || 'Aditya Roy'} (INH000008921). Standard disclosures apply.`;
-  }, [quote]);
+    return `[STOCKETICS LIVE RA CALL] ${normalizedCall.callType} ${normalizedCall.title} @ ₹${normalizedCall.entryPrice.toFixed(2)} | TGT1: ₹${normalizedCall.target1.toFixed(2)} | TGT2: ₹${normalizedCall.target2.toFixed(2)} | SL: ₹${normalizedCall.stopLoss.toFixed(2)} | SEBI Reg: ${normalizedCall.analystRegNo}`;
+  }, [normalizedCall]);
 
   // Handle Dispatch
   const handleDispatch = () => {
@@ -111,12 +150,12 @@ export const AdvisoryCallDispatchModal: React.FC<AdvisoryCallDispatchModalProps>
 
     setTimeout(() => {
       setSendProgress(60);
-      setProgressStep(`Broadcasting ${quote.label} to ${targets.length} service subscribers...`);
+      setProgressStep(`Broadcasting ${normalizedCall.title} to ${targets.length} active service subscribers...`);
     }, 600);
 
     setTimeout(() => {
       setSendProgress(100);
-      setProgressStep('Delivered successfully! Updating client communication timelines...');
+      setProgressStep('Delivered successfully! Updating client communication timelines & counters...');
 
       setTimeout(() => {
         dispatchAdvisoryCall({
@@ -167,30 +206,30 @@ export const AdvisoryCallDispatchModal: React.FC<AdvisoryCallDispatchModalProps>
           {/* Call Highlight Strip */}
           <div className="dispatch-call-strip">
             <div className="call-strip-left">
-              <span className="call-strip-symbol">{quote.label}</span>
-              <span className="call-strip-sub">{quote.exchange || 'NSE NFO'} • Current Week Expiry • RA: {quote.analyst || 'Aditya Roy'}</span>
+              <span className="call-strip-symbol">{normalizedCall.title}</span>
+              <span className="call-strip-sub">{normalizedCall.exchange} • Current Week Expiry • RA: {normalizedCall.analyst}</span>
             </div>
 
             <div className="call-strip-matrix">
               <div className="call-matrix-col">
                 <span>Action</span>
-                <strong style={{ color: '#0284c7' }}>{quote.callType || 'BUY'} @ ₹{(quote.entryPrice || quote.value).toFixed(2)}</strong>
+                <strong style={{ color: '#0284c7' }}>{normalizedCall.callType} @ ₹{normalizedCall.entryPrice.toFixed(2)}</strong>
               </div>
               <div className="call-matrix-col">
                 <span>Target 1</span>
-                <strong style={{ color: '#10b981' }}>₹{(quote.target1 || quote.value * 1.25).toFixed(2)}</strong>
+                <strong style={{ color: '#10b981' }}>₹{normalizedCall.target1.toFixed(2)}</strong>
               </div>
               <div className="call-matrix-col">
                 <span>Target 2</span>
-                <strong style={{ color: '#10b981' }}>₹{(quote.target2 || quote.value * 1.45).toFixed(2)}</strong>
+                <strong style={{ color: '#10b981' }}>₹{normalizedCall.target2.toFixed(2)}</strong>
               </div>
               <div className="call-matrix-col">
                 <span>Stop Loss</span>
-                <strong style={{ color: '#ef4444' }}>₹{(quote.stopLoss || quote.value * 0.82).toFixed(2)}</strong>
+                <strong style={{ color: '#ef4444' }}>₹{normalizedCall.stopLoss.toFixed(2)}</strong>
               </div>
               <div className="call-matrix-col ltp-col">
                 <span>Live LTP</span>
-                <strong>₹{quote.value.toFixed(2)}</strong>
+                <strong>₹{normalizedCall.ltp.toFixed(2)}</strong>
               </div>
             </div>
           </div>
@@ -355,26 +394,26 @@ export const AdvisoryCallDispatchModal: React.FC<AdvisoryCallDispatchModalProps>
                       <div className="email-mock-body">
                         <div className="email-hero-tag">INTRADAY RESEARCH RECOMMENDATION</div>
                         <h4 className="email-call-title">
-                          {quote.callType || 'BUY'} {quote.label}
+                          {normalizedCall.callType} {normalizedCall.title}
                         </h4>
 
                         <table className="email-params-table">
                           <tbody>
                             <tr>
                               <td>Recommended Entry:</td>
-                              <td><strong>₹{(quote.entryPrice || quote.value).toFixed(2)}</strong></td>
+                              <td><strong>₹{normalizedCall.entryPrice.toFixed(2)}</strong></td>
                             </tr>
                             <tr>
                               <td>Target 1:</td>
-                              <td style={{ color: '#10b981' }}><strong>₹{(quote.target1 || quote.value * 1.25).toFixed(2)}</strong></td>
+                              <td style={{ color: '#10b981' }}><strong>₹{normalizedCall.target1.toFixed(2)}</strong></td>
                             </tr>
                             <tr>
                               <td>Target 2:</td>
-                              <td style={{ color: '#10b981' }}><strong>₹{(quote.target2 || quote.value * 1.45).toFixed(2)}</strong></td>
+                              <td style={{ color: '#10b981' }}><strong>₹{normalizedCall.target2.toFixed(2)}</strong></td>
                             </tr>
                             <tr>
                               <td>Stop Loss:</td>
-                              <td style={{ color: '#ef4444' }}><strong>₹{(quote.stopLoss || quote.value * 0.82).toFixed(2)}</strong></td>
+                              <td style={{ color: '#ef4444' }}><strong>₹{normalizedCall.stopLoss.toFixed(2)}</strong></td>
                             </tr>
                             <tr>
                               <td>Segment / Expiry:</td>
@@ -384,7 +423,7 @@ export const AdvisoryCallDispatchModal: React.FC<AdvisoryCallDispatchModalProps>
                         </table>
 
                         <div className="email-disclaimer-box">
-                          <strong>Regulatory Disclaimer:</strong> Investment in securities market are subject to market risks. Read all related documents carefully before investing. Recommendation issued by Research Analyst: {quote.analyst || 'Aditya Roy'}.
+                          <strong>Regulatory Disclaimer:</strong> Investment in securities market are subject to market risks. Read all related documents carefully before investing. Recommendation issued by SEBI Research Analyst: {normalizedCall.analyst} ({normalizedCall.analystRegNo}).
                         </div>
                       </div>
                     </div>

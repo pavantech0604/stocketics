@@ -51,7 +51,15 @@ const INITIAL_REGISTER_CLIENTS: RegisterClientRecord[] = [
 ];
 
 export const ClientManagementView: React.FC = () => {
-  const { activeTab, setActiveTab, showToast, currentUser, triggerClientSearchAlert } = useApp();
+  const { 
+    activeTab, 
+    setActiveTab, 
+    showToast, 
+    currentUser, 
+    triggerClientSearchAlert,
+    detailedClients,
+    saveClientWithService
+  } = useApp();
 
   const getSubTab = (): ClientSubTab => {
     if (activeTab === 'register-clients' || activeTab === 'add-client') return 'register';
@@ -65,7 +73,6 @@ export const ClientManagementView: React.FC = () => {
   };
 
   const [currentTab, setCurrentTab] = useState<ClientSubTab>(getSubTab());
-  const [detailedClients, setDetailedClients] = useState<ActiveClientRecordDetailed[]>(INITIAL_DETAILED_CLIENTS);
   const [editingDetailedClient, setEditingDetailedClient] = useState<ActiveClientRecordDetailed | null>(null);
 
   // Register Clients state
@@ -101,7 +108,7 @@ export const ClientManagementView: React.FC = () => {
 
   // Update client record in master state
   const handleUpdateClient = (updated: ActiveClientRecordDetailed) => {
-    setDetailedClients(prev => prev.map(c => c.id === updated.id ? updated : c));
+    saveClientWithService(updated);
     if (editingDetailedClient?.id === updated.id) {
       setEditingDetailedClient(updated);
     }

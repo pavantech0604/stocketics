@@ -3,7 +3,6 @@ import { useApp } from '../../state/store';
 import { 
   Home, 
   Search, 
-  Download, 
   RefreshCw, 
   CheckCircle2, 
   AlertCircle, 
@@ -273,16 +272,7 @@ export const SMSDeliveryReportView: React.FC = () => {
           </button>
         )}
 
-        {/* Export Action */}
-        <button 
-          type="button"
-          className="btn btn-outline btn-sm"
-          onClick={() => showToast('SMS audit delivery report exported in CSV format.', 'success')}
-          style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-        >
-          <Download size={14} />
-          <span>Export CSV</span>
-        </button>
+
       </form>
 
       {/* Exact Reference Table (Matching Image 2 Columns) */}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../state/store';
-import { CreditCard, CheckCircle, Download, FileSpreadsheet, AlertCircle } from 'lucide-react';
+import { CreditCard, CheckCircle, FileSpreadsheet, AlertCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export const PayrollProcessor: React.FC = () => {

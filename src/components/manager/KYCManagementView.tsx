@@ -17,7 +17,6 @@ import {
   X,
   Check,
   Filter,
-  Download,
   ShieldAlert
 } from 'lucide-react';
 
@@ -170,13 +169,6 @@ export const KYCManagementView: React.FC = () => {
             style={mainViewMode === 'documents_queue' ? { background: '#f59e0b', borderColor: '#f59e0b', color: '#fff' } : {}}
           >
             Uploads Review Queue ({kycDocuments.filter(d => d.status === 'Pending').length} Pending)
-          </button>
-          <button 
-            className="btn btn-secondary btn-sm"
-            onClick={() => showToast('Exporting KYC Audit Log in CSV format...', 'info')}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-          >
-            <Download size={14} /> Export Audit Log
           </button>
         </div>
       </div>

@@ -13,7 +13,6 @@ import {
   TrendingDown, 
   Sparkles, 
   Share2, 
-  Download, 
   FileText, 
   Hash, 
   User, 
@@ -1071,25 +1070,7 @@ export const HRCommsAndArchivesView: React.FC<Props> = ({ initialTab = 'messenge
               </select>
             </div>
 
-            <button 
-              onClick={() => showToast('SEBI Tip Compliance Audit Report downloaded (PDF/CSV format).', 'success')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                background: '#f8fafc',
-                border: '1px solid #cbd5e1',
-                padding: '0.45rem 0.85rem',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                color: '#334155',
-                cursor: 'pointer'
-              }}
-            >
-              <Download size={14} />
-              <span>Export Compliance Audit</span>
-            </button>
+
           </div>
 
           {/* Tip Archive Table */}
@@ -1252,21 +1233,7 @@ export const HRCommsAndArchivesView: React.FC<Props> = ({ initialTab = 'messenge
                 Curated long-term alpha research baskets shared with clients during celebratory market sessions (Diwali Muhurat Trading & New Year Special Wealth Reports).
               </p>
             </div>
-            <button 
-              onClick={() => showToast('Full Diwali Muhurat Research Dossier downloaded.', 'success')}
-              style={{
-                background: '#0073b7',
-                color: '#ffffff',
-                fontWeight: 700,
-                border: 'none',
-                padding: '0.5rem 1rem',
-                borderRadius: '4px',
-                fontSize: '0.8rem',
-                cursor: 'pointer'
-              }}
-            >
-              Download Muhurat Report
-            </button>
+
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>

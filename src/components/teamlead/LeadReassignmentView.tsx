@@ -161,7 +161,7 @@ export const LeadReassignmentView: React.FC = () => {
                 </td>
                 <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600 }}>{lead.clientName}</td>
                 <td style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)' }}>{lead.phone}</td>
-                <td style={{ padding: '0.5rem 0.75rem', fontSize: '0.78rem' }}>{lead.serviceType}</td>
+                <td style={{ padding: '0.5rem 0.75rem', fontSize: '0.78rem' }}>{lead.serviceType || '-'}</td>
                 <td style={{ padding: '0.5rem 0.75rem' }}>
                   <span style={{
                     fontSize: '0.72rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: '4px',
@@ -169,8 +169,10 @@ export const LeadReassignmentView: React.FC = () => {
                     color: lead.status === 'Converted' ? '#059669' : lead.status === 'Lost' ? '#dc2626' : lead.status === 'Trial Active' ? '#7c3aed' : '#2563eb',
                   }}>{lead.status}</span>
                 </td>
-                <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600, fontSize: '0.82rem' }}>{lead.assignedToName}</td>
-                <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>₹{lead.expectedRevenue.toLocaleString()}</td>
+                <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600, fontSize: '0.82rem' }}>{lead.assignedToName || 'Unassigned'}</td>
+                <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                  {lead.expectedRevenue > 0 ? `₹${lead.expectedRevenue.toLocaleString()}` : '-'}
+                </td>
               </tr>
             ))}
           </tbody>

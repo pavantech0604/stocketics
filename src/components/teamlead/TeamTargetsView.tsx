@@ -13,7 +13,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Edit2,
-  Download,
   Calendar,
   DollarSign,
   PhoneCall,
@@ -114,25 +113,6 @@ export const TeamTargetsView: React.FC = () => {
     setEditingTargetId(null);
   };
 
-  const exportReport = () => {
-    const csvContent = "data:text/csv;charset=utf-8," +
-      "Employee,Metric,Period,Target,Actual,Achievement %,Status\n" +
-      filteredTargets.map(t => {
-        const pct = Math.round((t.actualValue / (t.targetValue || 1)) * 100);
-        const status = pct >= 100 ? 'Exceeded' : pct >= 80 ? 'On Track' : 'Behind';
-        return `"${t.employeeName}","${t.metric}","${t.period}",${t.targetValue},${t.actualValue},"${pct}%","${status}"`;
-      }).join("\n");
-    
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `team_targets_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('Target report exported successfully.', 'success');
-  };
-
   const getMetricIcon = (metric: TargetMetric) => {
     switch (metric) {
       case 'Leads Converted': return <TrendingUp size={16} className="text-emerald-500" />;
@@ -166,13 +146,7 @@ export const TeamTargetsView: React.FC = () => {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button
-            onClick={exportReport}
-            className="crm-btn crm-btn-secondary"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 15px', borderRadius: '8px', cursor: 'pointer' }}
-          >
-            <Download size={15} /> Export Report
-          </button>
+
           <button
             onClick={() => setIsModalOpen(true)}
             className="crm-btn crm-btn-primary"

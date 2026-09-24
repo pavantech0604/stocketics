@@ -174,7 +174,7 @@ export const CallLogsModal: React.FC<ModalProps & { isUnknown?: boolean }> = ({ 
 
 // 3. IT Problem Modal (Triggered from "IT Problem" sub-option)
 export const ITProblemModal: React.FC<ModalProps> = ({ isOpen, onClose }) => {
-  const { showToast } = useApp();
+  const { showToast, currentUser, role } = useApp();
   const [issueType, setIssueType] = useState('Trading Terminal Connectivity');
   const [description, setDescription] = useState('');
 
@@ -182,7 +182,23 @@ export const ITProblemModal: React.FC<ModalProps> = ({ isOpen, onClose }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    showToast('IT Problem Ticket #IT-8842 logged with Infrastructure Desk', 'success');
+    try {
+      const stored = localStorage.getItem('stocketics_it_tickets');
+      const currentList = stored ? JSON.parse(stored) : [];
+      const newTicket = {
+        id: `it-${Date.now().toString().slice(-4)}`,
+        problemFor: issueType,
+        description: description.trim(),
+        createDate: new Date().toLocaleDateString('en-GB'),
+        createBy: currentUser?.name || (role === 'employee' ? 'Rohan Deshmukh' : role === 'team_leader' ? 'Vikram Malhotra' : role === 'manager' ? 'Arjun Singhania' : 'Priya Sharma'),
+        modifiedBy: 'Unassigned',
+        status: 'Open',
+        priority: 'High'
+      };
+      localStorage.setItem('stocketics_it_tickets', JSON.stringify([newTicket, ...currentList]));
+      window.dispatchEvent(new Event('it_tickets_updated'));
+    } catch {}
+    showToast(`IT Problem Ticket logged by ${currentUser?.name || 'User'} with Infrastructure Desk`, 'success');
     setDescription('');
     onClose();
   };

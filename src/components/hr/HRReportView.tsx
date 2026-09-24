@@ -7,7 +7,6 @@ import {
   Edit3, 
   PenTool,
   X, 
-  Download, 
   Printer, 
   Calendar, 
   Filter, 
@@ -228,24 +227,6 @@ export const HRReportView: React.FC = () => {
     }
   };
 
-  const handleDownloadCSV = (report: ReportCardConfig) => {
-    const csvContent = [
-      report.columns.join(','),
-      ...report.sampleData.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${report.id}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    showToast(`${report.title} ${report.subtitle} exported successfully!`, 'success');
-  };
-
   const handlePrint = () => {
     window.print();
   };
@@ -366,7 +347,7 @@ export const HRReportView: React.FC = () => {
                     onChange={(e) => setDateFilter(e.target.value)}
                     style={{ height: '34px', fontSize: '0.85rem' }}
                   >
-                    <option value="Today">Today (08-Sep-2026)</option>
+                    <option value="Today">Today (22-Sep-2026)</option>
                     <option value="Yesterday">Yesterday</option>
                     <option value="This Month">This Month (September 2026)</option>
                     <option value="Last Month">Last Month (August 2026)</option>
@@ -383,15 +364,6 @@ export const HRReportView: React.FC = () => {
                 >
                   <Printer size={15} />
                   <span>Print</span>
-                </button>
-
-                <button 
-                  className="btn btn-primary btn-sm"
-                  onClick={() => handleDownloadCSV(activeReport)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', height: '34px' }}
-                >
-                  <Download size={15} />
-                  <span>Download CSV</span>
                 </button>
               </div>
             </div>

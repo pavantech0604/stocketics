@@ -37,6 +37,7 @@ import { RACallsDashboardView } from '../common/RACallsDashboardView';
 import { EmployeeKYCView } from '../employee/EmployeeKYCView';
 import { TicketManagementView } from '../manager/TicketManagementView';
 import { ManagerMailView } from '../manager/ManagerMailView';
+import { AllotLeadsView } from '../common/AllotLeadsView';
 
 export const TeamLeaderDashboard: React.FC = () => {
   const {
@@ -69,11 +70,14 @@ export const TeamLeaderDashboard: React.FC = () => {
   if (activeTab === 'call-logs') return <CallLogsView />;
   if (activeTab === 'ra-calls') return <RACallsDashboardView />;
   if (activeTab === 'kyc-review' || activeTab === 'kyc-documents') return <EmployeeKYCView />;
+  if (activeTab === 'allot-leads' || activeTab === 'allot-team-leads') return <AllotLeadsView forcedMode="tl_to_employee" />;
 
   if (
     activeTab === 'leads' || activeTab === 'new-leads' || activeTab === 'view-all-leads' ||
     activeTab === 'confirmed-payment' || activeTab === 'today-followup' ||
-    activeTab === 'active-prospect' || activeTab === 'past-prospect' || activeTab === 'unknown-calls'
+    activeTab === 'active-prospect' || activeTab === 'past-prospect' || activeTab === 'unknown-calls' ||
+    activeTab === 'modified-today' || activeTab === 'disposed-today' ||
+    activeTab === 'interested-leads' || activeTab === 'payment-leads'
   ) return <AdvisoryPipeline />;
 
   if (
@@ -91,7 +95,7 @@ export const TeamLeaderDashboard: React.FC = () => {
   if (activeTab === 'sms-delivery-report') return <SMSDeliveryReportView />;
   if (activeTab === 'it-problem') return <ITProblemView />;
   if (activeTab === 'leave' || activeTab === 'new-entry' || activeTab === 'leave-list') return <LeavePortal />;
-  if (activeTab === 'ticket' || activeTab === 'tickets') return <TicketManagementView />;
+  if (activeTab === 'ticket' || activeTab === 'tickets' || activeTab === 'tickets-category') return <TicketManagementView />;
   if (activeTab === 'mail') return <ManagerMailView />;
 
   // ─── Dashboard Data ────────────────────────────────────────────────
@@ -165,20 +169,82 @@ export const TeamLeaderDashboard: React.FC = () => {
         </button>
       </div>
 
-      <h1 className="page-title-ref" style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-        <Award size={24} style={{ color: '#f59e0b' }} />
-        Team Command Center
-      </h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', margin: '0 0 0.5rem 0' }}>
+        <h1 className="page-title-ref" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <Award size={24} style={{ color: '#f59e0b' }} />
+          Team Command Center
+        </h1>
+
+        {/* Quick Enterprise Team Lead Action Strip */}
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button 
+            className="btn btn-primary btn-sm" 
+            onClick={() => setActiveTab('allot-leads')}
+            style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+          >
+            <Users size={14} />
+            <span>Allot Team Leads</span>
+          </button>
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={() => setActiveTab('lead-reassignment')}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+          >
+            <TrendingUp size={14} />
+            <span>Reassign Leads</span>
+          </button>
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={() => setActiveTab('daily-standup')}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+          >
+            <Calendar size={14} />
+            <span>Daily Standup</span>
+          </button>
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={() => setActiveTab('coaching')}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+          >
+            <Star size={14} />
+            <span>Coaching Hub</span>
+          </button>
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={() => setActiveTab('team-targets')}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+          >
+            <Target size={14} />
+            <span>Team Targets</span>
+          </button>
+        </div>
+      </div>
 
       {/* KPI Grid */}
       <RefKPIGrid
         customRow1={kpiRow1}
         customRow2={[]}
+        activeId={activeTab}
         onCardClick={(id: string) => {
-          if (id === 'active-leads') setActiveTab('leads');
-          else if (id === 'calls-today') setActiveTab('call-logs');
-          else if (id === 'team-members') setActiveTab('team-leaderboard');
-          else if (id === 'followups') setActiveTab('today-followup');
+          if (id === 'active-leads') {
+            setActiveTab('leads');
+            showToast('Opening Team Leads Pipeline', 'info');
+          } else if (id === 'calls-today') {
+            setActiveTab('call-logs');
+            showToast('Opening Team Call Logs Desk', 'info');
+          } else if (id === 'team-members') {
+            setActiveTab('team-leaderboard');
+            showToast('Opening Team Leaderboard & Members', 'info');
+          } else if (id === 'followups') {
+            setActiveTab('today-followup');
+            showToast("Filtering Team Follow-ups for Today", 'info');
+          } else if (id === 'converted') {
+            setActiveTab('confirmed-payment');
+            showToast('Filtering Converted Team Leads', 'info');
+          } else if (id === 'revenue') {
+            setActiveTab('team-targets');
+            showToast('Opening Team Revenue Targets & Quotas', 'info');
+          }
         }}
       />
 

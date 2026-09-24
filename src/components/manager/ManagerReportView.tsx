@@ -6,7 +6,6 @@ import {
   Flag, 
   Edit3, 
   X, 
-  Download, 
   Printer, 
   Calendar, 
   Filter, 
@@ -180,22 +179,6 @@ export const ManagerReportView: React.FC = () => {
     }
   };
 
-  const handleExportCSV = (report: ReportCardConfig) => {
-    const csvRows = [
-      report.columns.join(','),
-      ...report.sampleData.map(row => row.map(val => `"${val}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvRows], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${report.id}_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-    showToast(`Exported ${report.title} ${report.subtitle} to CSV successfully!`, 'success');
-  };
-
   const handlePrint = () => {
     window.print();
   };
@@ -286,14 +269,6 @@ export const ManagerReportView: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <button 
                   className="btn btn-secondary btn-sm"
-                  onClick={() => handleExportCSV(activeReportModal)}
-                  title="Download as CSV"
-                >
-                  <Download size={14} />
-                  <span>CSV</span>
-                </button>
-                <button 
-                  className="btn btn-secondary btn-sm"
                   onClick={handlePrint}
                   title="Print Report"
                 >
@@ -343,7 +318,7 @@ export const ManagerReportView: React.FC = () => {
                     className="form-select"
                     style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}
                   >
-                    <option value="Today">Today (08-Sep-2026)</option>
+                    <option value="Today">Today (22-Sep-2026)</option>
                     <option value="Yesterday">Yesterday</option>
                     <option value="Last 7 Days">Last 7 Days</option>
                     <option value="This Month">This Month (September 2026)</option>

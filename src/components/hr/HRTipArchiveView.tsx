@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useApp } from '../../state/store';
 import { 
   Home, 
-  Download, 
   Plus, 
   XCircle, 
   Calendar, 
@@ -144,40 +143,6 @@ export const HRTipArchiveView: React.FC<Props> = ({ defaultMode }) => {
     stopLoss: '135',
     closedPrice: '212'
   });
-
-  const handleExport = () => {
-    const csvRows = [
-      ['#', 'Sent By', 'Service', 'Script Type', 'Script Name', 'Share/Lot', 'Type', 'Entry Price', 'Target 1', 'Target 2', 'Stop Loss', 'Closed Price', 'Open Time', 'Close Time', 'Point'],
-      ...closedRecords.map(r => [
-        r.id,
-        r.sentBy,
-        r.service,
-        r.scriptType,
-        r.scriptName,
-        r.shareLot,
-        r.type,
-        r.entryPrice,
-        r.target1,
-        r.target2,
-        r.stopLoss,
-        r.closedPrice,
-        r.openTime,
-        r.closeTime,
-        r.point
-      ])
-    ];
-    const csvContent = csvRows.map(e => e.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Tip_Archive_${mode}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    showToast('Tip archive records exported to CSV!', 'success');
-  };
 
   const handleCreateClosedCall = (e: React.FormEvent) => {
     e.preventDefault();
@@ -346,22 +311,6 @@ export const HRTipArchiveView: React.FC<Props> = ({ defaultMode }) => {
             <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
               Tip Archive
             </h2>
-
-            <button 
-              onClick={handleExport}
-              className="btn btn-primary"
-              style={{ 
-                background: '#00a8ff', 
-                borderColor: '#00a8ff', 
-                color: '#ffffff', 
-                fontWeight: 600, 
-                padding: '0.4rem 1.25rem', 
-                borderRadius: '4px',
-                fontSize: '0.88rem'
-              }}
-            >
-              Export
-            </button>
           </div>
 
           {/* Filter Bar */}
@@ -479,21 +428,6 @@ export const HRTipArchiveView: React.FC<Props> = ({ defaultMode }) => {
                 Add
               </button>
 
-              <button 
-                onClick={handleExport}
-                className="btn btn-primary"
-                style={{ 
-                  background: '#00a8ff', 
-                  borderColor: '#00a8ff', 
-                  color: '#ffffff', 
-                  fontWeight: 600, 
-                  padding: '0.4rem 1.25rem', 
-                  borderRadius: '4px',
-                  fontSize: '0.88rem'
-                }}
-              >
-                Export
-              </button>
             </div>
           </div>
 

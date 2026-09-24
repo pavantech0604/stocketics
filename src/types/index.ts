@@ -81,7 +81,7 @@ export interface LeaveRequest {
 }
 
 export type LeadStatus = 'New Lead' | 'In Contact' | 'Trial Active' | 'Converted' | 'Lost';
-export type AdvisoryService = 'Equity Premier' | 'Options Strategy' | 'Commodity Momentum' | 'Hedge & PMS';
+export type AdvisoryService = 'Equity Premier' | 'Options Strategy' | 'Commodity Momentum' | 'Hedge & PMS' | '';
 
 export interface AdvisoryLead {
   id: string;
@@ -97,7 +97,47 @@ export interface AdvisoryLead {
   expectedRevenue: number;
   city?: string;
   source?: string;
+  // Multi-tier allotment & response tracking fields
+  teamId?: string;
+  teamLeaderId?: string;
+  teamLeaderName?: string;
+  isTeamPool?: boolean;
+  assignedById?: string;
+  assignedByName?: string;
+  assignedAt?: string;
+  response?: string;
+  callbackDate?: string;
+  callbackTime?: string;
+  description?: string;
+  modifiedToday?: boolean;
+  disposedToday?: boolean;
+  disposedAt?: string;
+  isDND?: boolean;
 }
+
+export interface LeadSourcePool {
+  sourceName: string;
+  availableCount: number;
+  totalUploaded: number;
+  language?: string;
+}
+
+export interface LeadAssignmentHistory {
+  id: string;
+  leadId?: string;
+  leadName?: string;
+  source: string;
+  fromId?: string;
+  fromName?: string;
+  toId: string;
+  toName: string;
+  assignedById: string;
+  assignedByName: string;
+  assignedAt: string;
+  assignmentType: 'manager_to_team' | 'team_to_employee' | 'reassignment' | 'bulk_upload';
+  leadCount: number;
+}
+
 
 export interface TaskItem {
   id: string;
@@ -333,10 +373,13 @@ export interface ActiveClientRecordDetailed {
   invoices: ClientInvoiceRecord[];
   kycData: ClientKYCData;
   isDND?: boolean;
-  trialStatus?: 'Trial Day 1' | 'Trial Day 2' | 'Trial Expired' | 'Retrial Active' | 'Retrial Expired' | 'Converted' | 'Not Converted';
+  trialStatus?: 'Trial Day 1' | 'Trial Day 2' | 'Trial Expired' | 'Retrial Active' | 'Retrial Expired' | 'Converted' | 'Not Converted' | 'Active Trial' | 'Active' | string;
   trialStartDate?: string;
   trialEndDate?: string;
   retrialDate?: string;
+  callsDeliveredCount?: number;
+  lastCallSentAt?: string;
+  serviceCategory?: string;
 }
 
 // ─── Team Leader Role Types ──────────────────────────────────────────
@@ -767,5 +810,27 @@ export interface CompanyBankDetails {
   upiId: string;
   qrCodeUrl?: string;
 }
+
+// ─── Standard Advisory Services ───────────────────────────────────────
+export interface StandardAdvisoryService {
+  id: string;
+  name: string;
+  category: 'Index Options' | 'Stock Options' | 'Futures' | 'Cash / Equity' | 'Commodity';
+  segment: 'Index Option' | 'Stock Option' | 'Equity Cash' | 'Commodity';
+  description: string;
+}
+
+export const STANDARD_ADVISORY_SERVICES: StandardAdvisoryService[] = [
+  { id: 'INDEX OPTION', name: 'INDEX OPTION (Nifty & Bank Nifty Options)', category: 'Index Options', segment: 'Index Option', description: 'Nifty & Bank Nifty weekly and monthly options' },
+  { id: 'NIFTY OPTION', name: 'NIFTY OPTION (Nifty Index Options Specific)', category: 'Index Options', segment: 'Index Option', description: 'Nifty Index options specific intraday momentum' },
+  { id: 'BANKNIFTY OPTION', name: 'BANKNIFTY OPTION (Bank Nifty Options Specific)', category: 'Index Options', segment: 'Index Option', description: 'Bank Nifty high volatility intraday breakout options' },
+  { id: 'STOCK OPTION', name: 'STOCK OPTION (High Momentum Stock Options)', category: 'Stock Options', segment: 'Stock Option', description: 'High momentum F&O stock options calls' },
+  { id: 'STOCK FUTURE', name: 'STOCK FUTURE (Intraday & Swing Futures)', category: 'Futures', segment: 'Stock Option', description: 'Intraday & swing derivative stock futures' },
+  { id: 'INTRADAY CASH', name: 'INTRADAY CASH (Cash / Equity Intraday)', category: 'Cash / Equity', segment: 'Equity Cash', description: 'NSE cash equity momentum intraday trades' },
+  { id: 'COMMODITY', name: 'COMMODITY (Crude Oil, Gold & Natural Gas)', category: 'Commodity', segment: 'Commodity', description: 'MCX bullion, energy & base metals' },
+  { id: 'CRUDE OIL FUTURES', name: 'CRUDE OIL FUTURES (Crude Oil MCX)', category: 'Commodity', segment: 'Commodity', description: 'Crude Oil MCX specialized high conviction futures' },
+  { id: 'EQUITY PREMIER', name: 'EQUITY PREMIER (Cash Long-Term & Delivery)', category: 'Cash / Equity', segment: 'Equity Cash', description: 'High alpha fundamental delivery & positional equity' },
+];
+
 
 

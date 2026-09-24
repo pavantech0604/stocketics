@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../state/store';
-import { Home, Award, Star, TrendingUp, PhoneCall, Target, ArrowUpRight, ArrowDownRight, Minus, Download } from 'lucide-react';
+import { Home, Award, Star, TrendingUp, PhoneCall, Target, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export const TeamLeaderboardView: React.FC = () => {

@@ -11,19 +11,20 @@ import {
   AlertCircle,
   CreditCard,
   UploadCloud,
-  LayoutGrid,
-  List,
   MapPin,
   MessageSquare,
   X,
   PhoneOutgoing,
-  Download,
   RotateCcw,
   Sparkles,
   ChevronRight,
+  ChevronDown,
   User,
   Zap,
-  ArrowRight
+  ArrowRight,
+  Check,
+  Eye,
+  TrendingUp
 } from 'lucide-react';
 import { AddNewLeadModal, CallLogsModal } from '../common/CRMActionModals';
 import { BulkLeadUploadModal } from './BulkLeadUploadModal';
@@ -32,15 +33,53 @@ import { TipsModal } from '../common/TipsModal';
 import confetti from 'canvas-confetti';
 
 export const AdvisoryPipeline: React.FC = () => {
-  const { role, activeTab, setActiveTab, advisoryLeads, updateLeadStatus, showToast, employees, currentUser, triggerClientSearchAlert } = useApp();
+  const { 
+    role, 
+    activeTab, 
+    setActiveTab, 
+    advisoryLeads, 
+    updateLeadStatus, 
+    updateLeadResponse,
+    disposeLead,
+    showToast, 
+    employees, 
+    currentUser, 
+    triggerClientSearchAlert,
+    getTeamMemberIds,
+    leadSourcePools
+  } = useApp();
   
-  // View mode: 'table' (clean compact table matching CRM) or 'cards' (responsive cards, zero horizontal scroll)
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
-  
+  // Scoped leads based strictly on user role
+  const scopedLeads = React.useMemo(() => {
+    if (role === 'employee') {
+      // Employee strictly sees ONLY their assigned leads
+      return advisoryLeads.filter(l => l.assignedToId === currentUser.id && !l.isTeamPool);
+    }
+    if (role === 'team_leader') {
+      const myTeamMemberIds = getTeamMemberIds(currentUser.id);
+      return advisoryLeads.filter(l => 
+        l.teamLeaderId === currentUser.id || 
+        myTeamMemberIds.includes(l.assignedToId) ||
+        l.assignedToId === currentUser.id
+      );
+    }
+    // Manager & HR see all
+    return advisoryLeads;
+  }, [advisoryLeads, role, currentUser.id]);
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedService, setSelectedService] = useState('All');
   const [selectedAdvisor, setSelectedAdvisor] = useState('All');
+  const [selectedResponse, setSelectedResponse] = useState('All');
+  const [selectedSource, setSelectedSource] = useState('All');
+
+  // Response Update Modal State
+  const [responseModalLead, setResponseModalLead] = useState<AdvisoryLead | null>(null);
+  const [modalResponse, setModalResponse] = useState<string>('Interested');
+  const [modalNote, setModalNote] = useState<string>('');
+  const [modalCallbackDate, setModalCallbackDate] = useState<string>('');
+  const [modalCallbackTime, setModalCallbackTime] = useState<string>('03:30 PM');
 
   // Cross-employee search tracking
   useEffect(() => {
@@ -87,6 +126,10 @@ export const AdvisoryPipeline: React.FC = () => {
     if (activeTab === 'active-prospect') return 'active-prospect';
     if (activeTab === 'past-prospect') return 'past-prospect';
     if (activeTab === 'confirmed-payment') return 'confirmed-payment';
+    if (activeTab === 'interested-leads') return 'interested-leads';
+    if (activeTab === 'modified-today') return 'modified-today';
+    if (activeTab === 'disposed-today') return 'disposed-today';
+    if (activeTab === 'team-pool-leads') return 'team-pool-leads';
     return 'view-all-leads';
   };
 
@@ -104,13 +147,22 @@ export const AdvisoryPipeline: React.FC = () => {
     setActiveTab(tabId);
   };
 
-  // Filter leads based on Tab, Search, Service, and Advisor
-  const filteredLeads = advisoryLeads.filter(l => {
+  // Filter leads based on Scoped Role, Tab, Search, Service, Response, and Advisor
+  const filteredLeads = scopedLeads.filter(l => {
     // Service filter
     if (selectedService !== 'All' && l.serviceType !== selectedService) return false;
 
-    // Advisor filter (for managers)
+    // Advisor filter (for managers / team leaders)
     if (selectedAdvisor !== 'All' && l.assignedToId !== selectedAdvisor) return false;
+
+    // Response filter
+    if (selectedResponse !== 'All') {
+      const resp = (l.response || 'Fresh').toLowerCase();
+      if (selectedResponse.toLowerCase() !== resp) return false;
+    }
+
+    // Lead Source filter
+    if (selectedSource !== 'All' && l.source !== selectedSource) return false;
 
     // Search query
     if (searchQuery.trim()) {
@@ -119,16 +171,40 @@ export const AdvisoryPipeline: React.FC = () => {
         l.clientName.toLowerCase().includes(q) ||
         l.phone.includes(q) ||
         l.email.toLowerCase().includes(q) ||
-        l.assignedToName.toLowerCase().includes(q) ||
+        (l.assignedToName && l.assignedToName.toLowerCase().includes(q)) ||
+        (l.source && l.source.toLowerCase().includes(q)) ||
         (l.city && l.city.toLowerCase().includes(q));
       if (!match) return false;
     }
 
     // Subtab filter
-    if (currentLeadTab === 'new-leads') return l.status === 'New Lead';
-    if (currentLeadTab === 'today-followup') return l.status === 'In Contact' || l.lastContactDate === '07-Sep-2026';
-    if (currentLeadTab === 'active-prospect') return l.status === 'Trial Active';
-    if (currentLeadTab === 'past-prospect') return l.status === 'Lost' || l.status === 'Converted';
+    if (currentLeadTab === 'new-leads') {
+      return l.status === 'New Lead' || l.response === 'Fresh';
+    }
+    if (currentLeadTab === 'today-followup') {
+      return l.status === 'In Contact' || l.response === 'Call Back' || l.callbackDate?.includes('2026-09') || l.lastContactDate === '22-Sep-2026';
+    }
+    if (currentLeadTab === 'active-prospect') {
+      return l.status === 'Trial Active' || l.response === 'Interested';
+    }
+    if (currentLeadTab === 'past-prospect') {
+      return l.status === 'Lost';
+    }
+    if (currentLeadTab === 'interested-leads') {
+      return l.response === 'Interested';
+    }
+    if (currentLeadTab === 'confirmed-payment') {
+      return l.status === 'Converted' || l.response === 'Payment';
+    }
+    if (currentLeadTab === 'modified-today') {
+      return l.modifiedToday === true || l.lastContactDate?.includes('22-Sep');
+    }
+    if (currentLeadTab === 'disposed-today') {
+      return l.disposedToday === true || (l.status === 'Lost' && l.disposedAt);
+    }
+    if (currentLeadTab === 'team-pool-leads') {
+      return l.isTeamPool === true;
+    }
 
     return true; // view-all-leads
   });
@@ -190,6 +266,23 @@ export const AdvisoryPipeline: React.FC = () => {
     }
   };
 
+  const getStageStyle = (status: LeadStatus) => {
+    switch (status) {
+      case 'New Lead':
+        return { bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd', dot: '#0284c7' };
+      case 'In Contact':
+        return { bg: '#fef3c7', color: '#b45309', border: '#fde68a', dot: '#f59e0b' };
+      case 'Trial Active':
+        return { bg: '#f5f3ff', color: '#6d28d9', border: '#ddd6fe', dot: '#8b5cf6' };
+      case 'Converted':
+        return { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', dot: '#16a34a' };
+      case 'Lost':
+        return { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', dot: '#dc2626' };
+      default:
+        return { bg: '#f8fafc', color: '#475569', border: '#cbd5e1', dot: '#94a3b8' };
+    }
+  };
+
   const handleStageClick = (lead: AdvisoryLead, nextStage: LeadStatus) => {
     updateLeadStatus(lead.id, nextStage);
     if (nextStage === 'Converted') {
@@ -200,27 +293,58 @@ export const AdvisoryPipeline: React.FC = () => {
     }
   };
 
-  const handleExportCSV = () => {
-    const headers = "Lead ID,Client Name,Phone,Email,City,Service Type,Expected Value,Investment Bracket,Status,Assigned Advisor,Last Contact\n";
-    const rows = filteredLeads.map(l => 
-      `"${l.id}","${l.clientName}","${l.phone}","${l.email}","${l.city || ''}","${l.serviceType}",${l.expectedRevenue},"${l.investmentBracket}","${l.status}","${l.assignedToName}","${l.lastContactDate}"`
-    ).join('\n');
+  const getResponseBadge = (response?: string) => {
+    switch (response) {
+      case 'Interested':
+        return { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0', dot: '#16a34a', label: 'Interested' };
+      case 'Call Back':
+        return { bg: '#fef3c7', color: '#b45309', border: '#fde68a', dot: '#f59e0b', label: 'Call Back' };
+      case 'Fresh':
+      case 'New':
+        return { bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd', dot: '#0284c7', label: 'Fresh' };
+      case 'Busy':
+        return { bg: '#ffedd5', color: '#c2410c', border: '#fed7aa', dot: '#f97316', label: 'Busy' };
+      case 'Payment':
+        return { bg: '#f0fdf4', color: '#16a34a', border: '#86efac', dot: '#22c55e', label: 'Payment' };
+      case 'Not Interested':
+        return { bg: '#f1f5f9', color: '#475569', border: '#cbd5e1', dot: '#94a3b8', label: 'Not Interested' };
+      case 'Language Barrier':
+        return { bg: '#f3e8ff', color: '#7e22ce', border: '#e9d5ff', dot: '#a855f7', label: 'Language Barrier' };
+      case 'Wrong Number':
+        return { bg: '#ffe4e6', color: '#be123c', border: '#fecdd3', dot: '#f43f5e', label: 'Wrong Number' };
+      case 'DND':
+        return { bg: '#fee2e2', color: '#991b1b', border: '#fecaca', dot: '#ef4444', label: 'DND' };
+      default:
+        return { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0', dot: '#94a3b8', label: response || 'Fresh' };
+    }
+  };
 
-    const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Stocketics_Leads_${currentLeadTab}_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('Exported leads list to CSV.', 'success');
+  const handleOpenResponseModal = (lead: AdvisoryLead) => {
+    setResponseModalLead(lead);
+    setModalResponse(lead.response || 'Interested');
+    setModalNote(lead.description || '');
+    setModalCallbackDate(lead.callbackDate || '2026-09-24');
+    setModalCallbackTime(lead.callbackTime || '03:30 PM');
+  };
+
+  const handleSaveResponse = () => {
+    if (!responseModalLead) return;
+    updateLeadResponse(
+      responseModalLead.id,
+      modalResponse,
+      modalNote,
+      modalResponse === 'Call Back' ? modalCallbackDate : undefined,
+      modalResponse === 'Call Back' ? modalCallbackTime : undefined
+    );
+    setResponseModalLead(null);
   };
 
   const handleResetFilters = () => {
     setSearchQuery('');
     setSelectedService('All');
     setSelectedAdvisor('All');
+    setSelectedResponse('All');
+    setSelectedSource('All');
     showToast('Filters reset.', 'info');
   };
 
@@ -289,7 +413,7 @@ export const AdvisoryPipeline: React.FC = () => {
 
         {/* Action Header Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {role === 'manager' ? (
+          {(role === 'manager' || role === 'hr') ? (
             <button 
               onClick={() => setIsBulkUploadOpen(true)}
               style={{
@@ -366,58 +490,51 @@ export const AdvisoryPipeline: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Title & Interactive View Switcher */}
+      {/* 2. Title & Executive Pipeline Metrics Strip */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#161e47', margin: 0, letterSpacing: '-0.3px' }}>
-            {getTabTitle()}
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#161e47', margin: 0, letterSpacing: '-0.3px' }}>
+              {getTabTitle()}
+            </h2>
+            <span style={{ fontSize: '11px', fontWeight: 700, background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', padding: '2px 8px', borderRadius: '12px' }}>
+              {filteredLeads.length} {filteredLeads.length === 1 ? 'Prospect' : 'Prospects'}
+            </span>
+          </div>
           <p style={{ margin: '3px 0 0 0', color: '#64748b', fontSize: '12.5px' }}>
             {getTabSubtitle()}
           </p>
         </div>
 
-        {/* View Mode Switcher: Table vs Cards (Zero horizontal scroll on both) */}
+        {/* Executive Real-Time Pipeline Metric Widget */}
         {currentLeadTab !== 'confirmed-payment' && (
-          <div style={{ display: 'flex', alignItems: 'center', background: '#e2e8f0', borderRadius: '5px', padding: '2px' }}>
-            <button
-              onClick={() => setViewMode('table')}
-              style={{
-                background: viewMode === 'table' ? '#ffffff' : 'transparent',
-                color: viewMode === 'table' ? '#161e47' : '#475569',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '5px 12px',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                boxShadow: viewMode === 'table' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none'
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <div 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '10px', 
+                background: '#ffffff', 
+                border: '1px solid #cbd5e1', 
+                borderRadius: '6px', 
+                padding: '6px 12px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
               }}
             >
-              <List size={14} /> Table View
-            </button>
-            <button
-              onClick={() => setViewMode('cards')}
-              style={{
-                background: viewMode === 'cards' ? '#ffffff' : 'transparent',
-                color: viewMode === 'cards' ? '#161e47' : '#475569',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '5px 12px',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                boxShadow: viewMode === 'cards' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none'
-              }}
-            >
-              <LayoutGrid size={14} /> Cards View
-            </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#16a34a', boxShadow: '0 0 6px rgba(22, 163, 74, 0.4)' }} />
+                <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600 }}>Active Leads:</span>
+                <strong style={{ fontSize: '12.5px', color: '#0f172a' }}>{filteredLeads.length}</strong>
+              </div>
+              <span style={{ color: '#cbd5e1' }}>•</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <TrendingUp size={13} color="#15803d" />
+                <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600 }}>Pipeline Fee:</span>
+                <strong style={{ fontSize: '12.5px', color: '#15803d' }}>
+                  ₹{filteredLeads.reduce((acc, l) => acc + (l.expectedRevenue || 0), 0).toLocaleString('en-IN')}
+                </strong>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -437,12 +554,16 @@ export const AdvisoryPipeline: React.FC = () => {
         }}
       >
         {[
-          { id: 'view-all-leads', label: 'All Leads', count: advisoryLeads.length },
-          { id: 'new-leads', label: 'New Leads', count: advisoryLeads.filter(l => l.status === 'New Lead').length },
-          { id: 'today-followup', label: "Today's Follow-up", count: advisoryLeads.filter(l => l.status === 'In Contact' || l.lastContactDate === '07-Sep-2026').length },
-          { id: 'active-prospect', label: 'Active Prospect', count: advisoryLeads.filter(l => l.status === 'Trial Active').length },
-          { id: 'past-prospect', label: 'Past / Lost', count: advisoryLeads.filter(l => l.status === 'Lost' || l.status === 'Converted').length },
-          { id: 'confirmed-payment', label: 'Confirmed Payment', count: 4, icon: <CreditCard size={13} /> }
+          { id: 'view-all-leads', label: 'All Leads', count: scopedLeads.length },
+          { id: 'new-leads', label: 'New Leads', count: scopedLeads.filter(l => l.status === 'New Lead' || l.response === 'Fresh').length },
+          { id: 'today-followup', label: "Today's Follow-up", count: scopedLeads.filter(l => l.status === 'In Contact' || l.response === 'Call Back' || l.callbackDate?.includes('2026-09') || l.lastContactDate === '22-Sep-2026').length },
+          { id: 'active-prospect', label: 'Active Prospect', count: scopedLeads.filter(l => l.status === 'Trial Active' || l.response === 'Interested').length },
+          { id: 'interested-leads', label: 'Interested Leads', count: scopedLeads.filter(l => l.response === 'Interested').length },
+          { id: 'past-prospect', label: 'Past / Lost', count: scopedLeads.filter(l => l.status === 'Lost').length },
+          { id: 'confirmed-payment', label: 'Confirmed Payment', count: scopedLeads.filter(l => l.status === 'Converted' || l.response === 'Payment').length, icon: <CreditCard size={13} /> },
+          { id: 'modified-today', label: 'Modified Today', count: scopedLeads.filter(l => l.modifiedToday === true || l.lastContactDate?.includes('22-Sep')).length },
+          { id: 'disposed-today', label: 'Disposed Today', count: scopedLeads.filter(l => l.disposedToday === true || (l.status === 'Lost' && l.disposedAt)).length },
+          ...(role !== 'employee' ? [{ id: 'team-pool-leads', label: 'Team Pool', count: scopedLeads.filter(l => l.isTeamPool).length }] : [])
         ].map(tab => {
           const isActive = currentLeadTab === tab.id;
           return (
@@ -503,7 +624,7 @@ export const AdvisoryPipeline: React.FC = () => {
             }}
           >
             {/* Search Input */}
-            <div style={{ flex: '1 1 240px', minWidth: '200px' }}>
+            <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
               <div 
                 style={{
                   display: 'flex',
@@ -519,7 +640,7 @@ export const AdvisoryPipeline: React.FC = () => {
                 <Search size={14} color="#64748b" />
                 <input 
                   type="text"
-                  placeholder="Search client, mobile, city, advisor..."
+                  placeholder="Search client, mobile, source, city..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   style={{
@@ -539,8 +660,73 @@ export const AdvisoryPipeline: React.FC = () => {
               </div>
             </div>
 
-            {/* Product Segment Dropdown */}
+            {/* Filter by Response Dropdown */}
+            <div style={{ minWidth: '150px', flex: '0 1 auto' }}>
+              <select
+                value={selectedResponse}
+                onChange={e => setSelectedResponse(e.target.value)}
+                style={{
+                  width: '100%',
+                  height: '36px',
+                  padding: '0 0.65rem',
+                  border: '1px solid #94a3b8',
+                  borderRadius: '4px',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  color: selectedResponse !== 'All' ? '#0284c7' : '#334155',
+                  background: selectedResponse !== 'All' ? '#f0f9ff' : '#ffffff',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="All">All Responses</option>
+                <option value="Fresh">Fresh / Uncontacted</option>
+                <option value="Interested">Interested</option>
+                <option value="Call Back">Call Back</option>
+                <option value="Busy">Busy / Waiting</option>
+                <option value="Not Interested">Not Interested</option>
+                <option value="Language Barrier">Language Barrier</option>
+                <option value="Wrong Number">Wrong Number</option>
+                <option value="DND">DND (Do Not Call)</option>
+                <option value="Payment">Payment Pending</option>
+              </select>
+            </div>
+
+            {/* Filter by Lead Source Dropdown (Matching Screenshot Sources) */}
             <div style={{ minWidth: '160px', flex: '0 1 auto' }}>
+              <select
+                value={selectedSource}
+                onChange={e => setSelectedSource(e.target.value)}
+                style={{
+                  width: '100%',
+                  height: '36px',
+                  padding: '0 0.65rem',
+                  border: '1px solid #94a3b8',
+                  borderRadius: '4px',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  color: selectedSource !== 'All' ? '#0369a1' : '#334155',
+                  background: selectedSource !== 'All' ? '#f0f9ff' : '#ffffff',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="All">All Lead Sources</option>
+                <option value="D WEB KANNADA">D WEB KANNADA</option>
+                <option value="D WEB TELUGU">D WEB TELUGU</option>
+                <option value="D WEB TAMIL">D WEB TAMIL</option>
+                <option value="D WEB HINDI">D WEB HINDI</option>
+                <option value="D WEB KERALA">D WEB KERALA</option>
+                <option value="PND - OS KANNADA">PND - OS KANNADA</option>
+                <option value="SPL KANNADA">SPL KANNADA</option>
+                <option value="KTK-OS TAMIL">KTK-OS TAMIL</option>
+                <option value="PD - OS ANDHRA">PD - OS ANDHRA</option>
+                <option value="PD - OS KANNADA">PD - OS KANNADA</option>
+              </select>
+            </div>
+
+            {/* Product Segment Dropdown */}
+            <div style={{ minWidth: '150px', flex: '0 1 auto' }}>
               <select
                 value={selectedService}
                 onChange={e => setSelectedService(e.target.value)}
@@ -558,7 +744,7 @@ export const AdvisoryPipeline: React.FC = () => {
                   cursor: 'pointer'
                 }}
               >
-                <option value="All">All Advisory Services</option>
+                <option value="All">All Services</option>
                 <option value="Equity Premier">Equity Premier</option>
                 <option value="Options Strategy">Options Strategy</option>
                 <option value="Commodity Momentum">Commodity Momentum</option>
@@ -566,8 +752,8 @@ export const AdvisoryPipeline: React.FC = () => {
               </select>
             </div>
 
-            {/* Advisor Dropdown (Manager View) */}
-            {role === 'manager' && (
+            {/* Advisor Dropdown (Manager & Team Leader View) */}
+            {role !== 'employee' && (
               <div style={{ minWidth: '150px', flex: '0 1 auto' }}>
                 <select
                   value={selectedAdvisor}
@@ -586,7 +772,7 @@ export const AdvisoryPipeline: React.FC = () => {
                     cursor: 'pointer'
                   }}
                 >
-                  <option value="All">All Assigned Advisors</option>
+                  <option value="All">All Advisors</option>
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id}>{emp.name}</option>
                   ))}
@@ -616,26 +802,6 @@ export const AdvisoryPipeline: React.FC = () => {
               >
                 <RotateCcw size={13} /> Reset
               </button>
-
-              <button
-                onClick={handleExportCSV}
-                style={{
-                  height: '36px',
-                  padding: '0 0.85rem',
-                  background: '#f59e0b',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '12.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}
-              >
-                <Download size={13} /> Export CSV
-              </button>
             </div>
           </div>
 
@@ -664,16 +830,16 @@ export const AdvisoryPipeline: React.FC = () => {
                 Clear All Filters
               </button>
             </div>
-          ) : viewMode === 'table' ? (
+          ) : (
             /* ------------------------------------------------------------- */
-            /* TABLE VIEW: Responsive Fluid Grid, 100% Width, Zero Overflow  */
+            /* PREMIUM LEADS DESK TABLE (ZERO HORIZONTAL OVERFLOW, MODERN UI) */
             /* ------------------------------------------------------------- */
             <div 
               style={{
                 background: '#ffffff',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 border: '1px solid #e2e8f0',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                boxShadow: '0 2px 8px -2px rgba(15, 23, 42, 0.05)',
                 overflow: 'hidden',
                 width: '100%',
                 maxWidth: '100%'
@@ -686,48 +852,75 @@ export const AdvisoryPipeline: React.FC = () => {
                     minWidth: 0,
                     borderCollapse: 'collapse', 
                     textAlign: 'left',
-                    fontSize: '12px'
+                    fontSize: '12.5px'
                   }}
                 >
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0' }}>
-                    <th style={{ width: '28%', padding: '10px 12px', fontWeight: 700, color: '#475569' }}>Prospect Profile</th>
-                    <th style={{ width: '20%', padding: '10px 12px', fontWeight: 700, color: '#475569' }}>Service & Value</th>
-                    <th style={{ width: '18%', padding: '10px 12px', fontWeight: 700, color: '#475569' }}>Advisor & Touch</th>
-                    <th style={{ width: '18%', padding: '10px 12px', fontWeight: 700, color: '#475569' }}>Stage Progression</th>
-                    <th style={{ width: '16%', padding: '10px 12px', fontWeight: 700, color: '#475569', textAlign: 'right' }}>Quick Actions</th>
+                    <th style={{ width: '24%', padding: '11px 14px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <User size={13} color="#0284c7" /> Prospect Profile
+                      </span>
+                    </th>
+                    <th style={{ width: '16%', padding: '11px 14px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <MapPin size={13} color="#0369a1" /> Lead Source
+                      </span>
+                    </th>
+                    <th style={{ width: '18%', padding: '11px 14px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <CheckCircle2 size={13} color="#15803d" /> Response & Touch
+                      </span>
+                    </th>
+                    <th style={{ width: '16%', padding: '11px 14px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <Zap size={13} color="#d97706" /> Service & Fee
+                      </span>
+                    </th>
+                    <th style={{ width: '14%', padding: '11px 14px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <TrendingUp size={13} color="#059669" /> Stage & Advisor
+                      </span>
+                    </th>
+                    <th style={{ width: '12%', padding: '11px 14px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', justifyContent: 'flex-end' }}>
+                        <PhoneOutgoing size={13} color="#16a34a" /> Actions
+                      </span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredLeads.map((lead, idx) => {
                     const sBadge = getServiceBadge(lead.serviceType);
+                    const stageStyle = getStageStyle(lead.status);
                     return (
                       <tr 
                         key={lead.id} 
                         style={{ 
                           borderBottom: '1px solid #f1f5f9',
-                          background: idx % 2 === 0 ? '#ffffff' : '#fafafa',
-                          transition: 'background 0.12s ease'
+                          background: idx % 2 === 0 ? '#ffffff' : '#fafbfe',
+                          transition: 'all 0.15s ease'
                         }}
                         onMouseOver={e => e.currentTarget.style.background = '#f0f7ff'}
-                        onMouseOut={e => e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#fafafa'}
+                        onMouseOut={e => e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#fafbfe'}
                       >
                         {/* Prospect Profile */}
-                        <td style={{ padding: '10px 12px', verticalAlign: 'middle' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                        <td style={{ padding: '11px 14px', verticalAlign: 'middle' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                             <div 
                               style={{ 
-                                width: '32px', 
-                                height: '32px', 
-                                borderRadius: '50%', 
-                                background: '#161e47', 
+                                width: '34px', 
+                                height: '34px', 
+                                borderRadius: '8px', 
+                                background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)', 
                                 color: '#ffffff', 
                                 display: 'flex', 
                                 alignItems: 'center', 
                                 justifyContent: 'center', 
-                                fontWeight: 700, 
-                                fontSize: '12px',
-                                flexShrink: 0
+                                fontWeight: 800, 
+                                fontSize: '13px',
+                                flexShrink: 0,
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
                               }}
                             >
                               {lead.clientName.charAt(0)}
@@ -737,104 +930,265 @@ export const AdvisoryPipeline: React.FC = () => {
                                 onClick={() => setInspectLead(lead)}
                                 style={{ 
                                   fontWeight: 700, 
-                                  color: '#0073b7', 
-                                  fontSize: '12.5px',
+                                  color: '#0f172a', 
+                                  fontSize: '13px',
                                   cursor: 'pointer',
                                   textOverflow: 'ellipsis',
                                   overflow: 'hidden',
-                                  whiteSpace: 'nowrap'
+                                  whiteSpace: 'nowrap',
+                                  transition: 'color 0.12s ease'
                                 }}
-                                title="Click to view details"
+                                onMouseOver={e => (e.currentTarget.style.color = '#0073b7')}
+                                onMouseOut={e => (e.currentTarget.style.color = '#0f172a')}
+                                title="Click to inspect lead dossier"
                               >
                                 {lead.clientName}
                               </div>
-                              <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '3px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                                <span>{lead.phone}</span>
-                                <span style={{ color: '#cbd5e1' }}>•</span>
-                                <span>{lead.city || 'India'}</span>
+                              <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                <span style={{ fontWeight: 500 }}>{lead.phone}</span>
+                                {lead.city ? (
+                                  <>
+                                    <span style={{ color: '#cbd5e1' }}>•</span>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                      <MapPin size={10} color="#94a3b8" />
+                                      {lead.city}
+                                    </span>
+                                  </>
+                                ) : null}
+                                {lead.investmentBracket && (
+                                  <>
+                                    <span style={{ color: '#cbd5e1' }}>•</span>
+                                    <span style={{ fontSize: '10px', background: '#f1f5f9', color: '#475569', padding: '1px 5px', borderRadius: '3px', border: '1px solid #e2e8f0', fontWeight: 600 }}>
+                                      {lead.investmentBracket}
+                                    </span>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>
                         </td>
 
-                        {/* Service & Value */}
-                        <td style={{ padding: '10px 12px', verticalAlign: 'middle' }}>
-                          <div>
+                        {/* Lead Source */}
+                        <td style={{ padding: '11px 14px', verticalAlign: 'middle' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                             <span 
-                              style={{
-                                display: 'inline-block',
-                                background: sBadge.bg,
-                                color: sBadge.color,
-                                border: `1px solid ${sBadge.border}`,
-                                borderRadius: '4px',
-                                padding: '2px 6px',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                whiteSpace: 'nowrap'
+                              style={{ 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '4px',
+                                fontSize: '11px', 
+                                fontWeight: 700, 
+                                padding: '2px 8px', 
+                                borderRadius: '4px', 
+                                background: '#f0f9ff', 
+                                color: '#0369a1', 
+                                border: '1px solid #bae6fd',
+                                width: 'fit-content'
                               }}
                             >
-                              {lead.serviceType}
+                              <MapPin size={10} color="#0284c7" />
+                              {lead.source || 'Direct Web'}
                             </span>
-                            <div style={{ fontSize: '12px', fontWeight: 800, color: '#166534', marginTop: '3px' }}>
-                              ₹{lead.expectedRevenue.toLocaleString('en-IN')}
+                            {lead.teamLeaderName && (
+                              <span style={{ fontSize: '10.5px', color: '#64748b' }}>
+                                TL: <strong style={{ color: '#334155' }}>{lead.teamLeaderName}</strong>
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Response & Touch */}
+                        <td style={{ padding: '11px 14px', verticalAlign: 'middle' }}>
+                          {(() => {
+                            const rBadge = getResponseBadge(lead.response);
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span 
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      background: rBadge.bg,
+                                      color: rBadge.color,
+                                      border: `1px solid ${rBadge.border}`,
+                                      borderRadius: '12px',
+                                      padding: '2px 8px',
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: rBadge.dot }} />
+                                    {rBadge.label}
+                                  </span>
+                                </div>
+                                {lead.response === 'Call Back' && lead.callbackTime && (
+                                  <span style={{ fontSize: '10.5px', color: '#b45309', fontWeight: 600 }}>
+                                    ⏰ {lead.callbackDate || 'Today'} @ {lead.callbackTime}
+                                  </span>
+                                )}
+                                {lead.description && (
+                                  <span style={{ fontSize: '10.5px', color: '#64748b', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={lead.description}>
+                                    📝 {lead.description}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </td>
+
+                        {/* Service & Value */}
+                        <td style={{ padding: '11px 14px', verticalAlign: 'middle' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <div>
+                              {lead.serviceType ? (
+                                <span 
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    background: sBadge.bg,
+                                    color: sBadge.color,
+                                    border: `1px solid ${sBadge.border}`,
+                                    borderRadius: '4px',
+                                    padding: '2px 7px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  <Sparkles size={10} />
+                                  {lead.serviceType}
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '11px', color: '#94a3b8' }}>-</span>
+                              )}
                             </div>
+                            {lead.expectedRevenue > 0 ? (
+                              <div style={{ fontSize: '13px', fontWeight: 800, color: '#166534', letterSpacing: '-0.2px' }}>
+                                ₹{lead.expectedRevenue.toLocaleString('en-IN')}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: '11px', color: '#94a3b8' }}>-</div>
+                            )}
                           </div>
                         </td>
 
-                        {/* Advisor & Touch */}
-                        <td style={{ padding: '10px 12px', verticalAlign: 'middle' }}>
-                          <div style={{ fontWeight: 600, color: '#334155', fontSize: '12px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                            {lead.assignedToName}
+                        {/* Advisor & Stage */}
+                        <td style={{ padding: '11px 14px', verticalAlign: 'middle' }}>
+                          <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '12px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', marginBottom: '4px' }}>
+                            {lead.assignedToName || 'Unassigned'}
                           </div>
-                          <div style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '2px' }}>
-                            {lead.lastContactDate}
-                          </div>
-                        </td>
-
-                        {/* Interactive Stage Stepper */}
-                        <td style={{ padding: '10px 12px', verticalAlign: 'middle' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          {/* Interactive Stage Dropdown Pill */}
+                          <div style={{ display: 'inline-flex', alignItems: 'center', position: 'relative' }}>
+                            <span 
+                              style={{ 
+                                position: 'absolute', 
+                                left: '8px', 
+                                width: '6px', 
+                                height: '6px', 
+                                borderRadius: '50%', 
+                                background: stageStyle.dot,
+                                boxShadow: `0 0 5px ${stageStyle.dot}80`,
+                                pointerEvents: 'none',
+                                zIndex: 1
+                              }} 
+                            />
                             <select
                               value={lead.status}
                               onChange={e => handleStageClick(lead, e.target.value as LeadStatus)}
                               style={{
-                                padding: '3px 6px',
+                                appearance: 'none',
+                                WebkitAppearance: 'none',
+                                padding: '3px 20px 3px 18px',
                                 fontSize: '11px',
                                 fontWeight: 700,
-                                borderRadius: '4px',
-                                border: '1px solid #cbd5e1',
-                                background: '#ffffff',
-                                color: '#1e293b',
+                                borderRadius: '14px',
+                                border: `1px solid ${stageStyle.border}`,
+                                background: stageStyle.bg,
+                                color: stageStyle.color,
                                 cursor: 'pointer',
-                                outline: 'none'
+                                outline: 'none',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                                transition: 'all 0.15s ease'
                               }}
+                              title="Click to change lead stage"
                             >
                               {stages.map(st => (
-                                <option key={st} value={st}>{st}</option>
+                                <option key={st} value={st} style={{ background: '#ffffff', color: '#1e293b' }}>
+                                  {st}
+                                </option>
                               ))}
-                              <option value="Lost">Lost / Closed</option>
+                              <option value="Lost" style={{ background: '#ffffff', color: '#b91c1c' }}>Lost / Closed</option>
                             </select>
+                            <ChevronDown 
+                              size={10} 
+                              color={stageStyle.color} 
+                              style={{ position: 'absolute', right: '6px', pointerEvents: 'none' }} 
+                            />
                             {lead.status === 'Converted' && (
-                              <span title="Converted" style={{ color: '#16a34a' }}>✓</span>
+                              <span title="Paid Advisory Client" style={{ color: '#16a34a', marginLeft: '4px', display: 'inline-flex' }}>
+                                <Check size={13} strokeWidth={3} />
+                              </span>
                             )}
                           </div>
                         </td>
 
                         {/* Quick Actions */}
-                        <td style={{ padding: '10px 12px', verticalAlign: 'middle', textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <td style={{ padding: '11px 14px', verticalAlign: 'middle', textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', justifyContent: 'flex-end' }}>
                             <button
-                              onClick={() => showToast(`Calling ${lead.clientName} (${lead.phone})...`, 'info')}
-                              title="Call Client"
+                              onClick={() => handleOpenResponseModal(lead)}
+                              title="Update Lead Response / Disposition"
                               style={{
                                 background: '#f0fdf4',
                                 color: '#16a34a',
                                 border: '1px solid #bbf7d0',
                                 borderRadius: '4px',
-                                padding: '4px 6px',
+                                padding: '4px 8px',
+                                fontSize: '11px',
+                                fontWeight: 700,
                                 cursor: 'pointer',
                                 display: 'flex',
-                                alignItems: 'center'
+                                alignItems: 'center',
+                                gap: '3px',
+                                transition: 'all 0.12s ease'
+                              }}
+                              onMouseOver={e => {
+                                e.currentTarget.style.background = '#dcfce7';
+                                e.currentTarget.style.borderColor = '#86efac';
+                              }}
+                              onMouseOut={e => {
+                                e.currentTarget.style.background = '#f0fdf4';
+                                e.currentTarget.style.borderColor = '#bbf7d0';
+                              }}
+                            >
+                              <CheckCircle2 size={12} />
+                              <span>Response</span>
+                            </button>
+
+                            <button
+                              onClick={() => showToast(`Calling ${lead.clientName} (${lead.phone})...`, 'info')}
+                              title={`Direct Dial: ${lead.phone}`}
+                              style={{
+                                background: '#f8fafc',
+                                color: '#0284c7',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '4px',
+                                padding: '5px 7px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                transition: 'all 0.12s ease'
+                              }}
+                              onMouseOver={e => {
+                                e.currentTarget.style.background = '#e0f2fe';
+                                e.currentTarget.style.borderColor = '#7dd3fc';
+                              }}
+                              onMouseOut={e => {
+                                e.currentTarget.style.background = '#f8fafc';
+                                e.currentTarget.style.borderColor = '#cbd5e1';
                               }}
                             >
                               <PhoneCall size={12} />
@@ -845,16 +1199,25 @@ export const AdvisoryPipeline: React.FC = () => {
                                 const msg = encodeURIComponent(`Hello ${lead.clientName}, this is regarding your advisory inquiry with Stocketics.`);
                                 window.open(`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}?text=${msg}`, '_blank');
                               }}
-                              title="Chat on WhatsApp"
+                              title="Instant WhatsApp Connect"
                               style={{
                                 background: '#ecfdf5',
                                 color: '#059669',
                                 border: '1px solid #a7f3d0',
                                 borderRadius: '4px',
-                                padding: '4px 6px',
+                                padding: '5px 7px',
                                 cursor: 'pointer',
                                 display: 'flex',
-                                alignItems: 'center'
+                                alignItems: 'center',
+                                transition: 'all 0.12s ease'
+                              }}
+                              onMouseOver={e => {
+                                e.currentTarget.style.background = '#d1fae5';
+                                e.currentTarget.style.borderColor = '#6ee7b7';
+                              }}
+                              onMouseOut={e => {
+                                e.currentTarget.style.background = '#ecfdf5';
+                                e.currentTarget.style.borderColor = '#a7f3d0';
                               }}
                             >
                               <MessageSquare size={12} />
@@ -862,18 +1225,33 @@ export const AdvisoryPipeline: React.FC = () => {
 
                             <button
                               onClick={() => setInspectLead(lead)}
+                              title="View Full Lead Dossier"
                               style={{
-                                background: '#f1f5f9',
+                                background: '#f8fafc',
                                 border: '1px solid #cbd5e1',
                                 borderRadius: '4px',
                                 padding: '4px 7px',
                                 fontSize: '11px',
-                                fontWeight: 600,
+                                fontWeight: 700,
                                 color: '#475569',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                transition: 'all 0.12s ease'
+                              }}
+                              onMouseOver={e => {
+                                e.currentTarget.style.background = '#0073b7';
+                                e.currentTarget.style.borderColor = '#0073b7';
+                                e.currentTarget.style.color = '#ffffff';
+                              }}
+                              onMouseOut={e => {
+                                e.currentTarget.style.background = '#f8fafc';
+                                e.currentTarget.style.borderColor = '#cbd5e1';
+                                e.currentTarget.style.color = '#475569';
                               }}
                             >
-                              Details
+                              <Eye size={12} />
                             </button>
                           </div>
                         </td>
@@ -890,224 +1268,26 @@ export const AdvisoryPipeline: React.FC = () => {
                   display: 'flex', 
                   justifyContent: 'space-between', 
                   alignItems: 'center', 
-                  padding: '8px 12px', 
+                  padding: '10px 16px', 
                   background: '#f8fafc', 
-                  borderTop: '1px solid #e2e8f0', 
+                  borderTop: '1.5px solid #e2e8f0', 
                   fontSize: '12px', 
-                  color: '#64748b' 
+                  color: '#64748b',
+                  flexWrap: 'wrap',
+                  gap: '8px'
                 }}
               >
-                <span>Showing <strong>{filteredLeads.length}</strong> active leads</span>
-                <span>Subtab: <strong>{currentLeadTab}</strong></span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <span>Showing <strong>{filteredLeads.length}</strong> active {filteredLeads.length === 1 ? 'lead' : 'leads'}</span>
+                  <span style={{ color: '#cbd5e1' }}>•</span>
+                  <span>Total Expected Revenue: <strong style={{ color: '#166534' }}>₹{filteredLeads.reduce((acc, l) => acc + (l.expectedRevenue || 0), 0).toLocaleString('en-IN')}</strong></span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '11px', background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>
+                    Subtab: {currentLeadTab}
+                  </span>
+                </div>
               </div>
-            </div>
-          ) : (
-            /* ------------------------------------------------------------- */
-            /* CARDS VIEW: Responsive Clean Cards (Zero Horizontal Overflow)  */
-            /* ------------------------------------------------------------- */
-            <div 
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))',
-                gap: '12px',
-                width: '100%'
-              }}
-            >
-              {filteredLeads.map(lead => {
-                const sBadge = getServiceBadge(lead.serviceType);
-                return (
-                  <div
-                    key={lead.id}
-                    style={{
-                      background: '#ffffff',
-                      borderRadius: '6px',
-                      border: '1px solid #e2e8f0',
-                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-                      padding: '14px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      transition: 'border-color 0.15s ease, box-shadow 0.15s ease'
-                    }}
-                    onMouseOver={e => {
-                      e.currentTarget.style.borderColor = '#0073b7';
-                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 115, 183, 0.1)';
-                    }}
-                    onMouseOut={e => {
-                      e.currentTarget.style.borderColor = '#e2e8f0';
-                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.04)';
-                    }}
-                  >
-                    <div>
-                      {/* Card Top: Client & Service */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div 
-                            style={{
-                              width: '34px',
-                              height: '34px',
-                              borderRadius: '4px',
-                              background: '#161e47',
-                              color: '#ffffff',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontWeight: 700,
-                              fontSize: '13px'
-                            }}
-                          >
-                            {lead.clientName.charAt(0)}
-                          </div>
-                          <div>
-                            <div 
-                              onClick={() => setInspectLead(lead)}
-                              style={{ fontSize: '13.5px', fontWeight: 800, color: '#0073b7', cursor: 'pointer' }}
-                            >
-                              {lead.clientName}
-                            </div>
-                            <div style={{ fontSize: '11px', color: '#64748b' }}>
-                              {lead.phone} • {lead.city || 'India'}
-                            </div>
-                          </div>
-                        </div>
-
-                        <span 
-                          style={{
-                            background: sBadge.bg,
-                            color: sBadge.color,
-                            border: `1px solid ${sBadge.border}`,
-                            borderRadius: '4px',
-                            padding: '2px 6px',
-                            fontSize: '10.5px',
-                            fontWeight: 700
-                          }}
-                        >
-                          {lead.serviceType}
-                        </span>
-                      </div>
-
-                      {/* Card Middle: Key Figures */}
-                      <div 
-                        style={{ 
-                          display: 'flex', 
-                          justifyContent: 'space-between', 
-                          background: '#f8fafc', 
-                          padding: '6px 8px', 
-                          borderRadius: '4px', 
-                          border: '1px solid #f1f5f9',
-                          marginBottom: '10px' 
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Expected Fee</div>
-                          <div style={{ fontSize: '13px', fontWeight: 800, color: '#166534' }}>
-                            ₹{lead.expectedRevenue.toLocaleString('en-IN')}
-                          </div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Advisor</div>
-                          <div style={{ fontSize: '11.5px', fontWeight: 600, color: '#334155' }}>
-                            {lead.assignedToName}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Stage Dropdown Selector */}
-                      <div style={{ marginBottom: '10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                          <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: 600 }}>Current Stage</span>
-                          {getStatusBadge(lead.status)}
-                        </div>
-                        <select
-                          value={lead.status}
-                          onChange={e => handleStageClick(lead, e.target.value as LeadStatus)}
-                          style={{
-                            width: '100%',
-                            padding: '4px 6px',
-                            fontSize: '11.5px',
-                            fontWeight: 600,
-                            borderRadius: '4px',
-                            border: '1px solid #cbd5e1',
-                            background: '#ffffff',
-                            color: '#1e293b',
-                            outline: 'none',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {stages.map(st => (
-                            <option key={st} value={st}>{st}</option>
-                          ))}
-                          <option value="Lost">Lost / Closed</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Card Actions Bottom */}
-                    <div style={{ display: 'flex', gap: '6px', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
-                      <button
-                        onClick={() => showToast(`Calling ${lead.clientName}...`, 'info')}
-                        style={{
-                          flex: 1,
-                          background: '#f0fdf4',
-                          color: '#16a34a',
-                          border: '1px solid #bbf7d0',
-                          borderRadius: '4px',
-                          padding: '5px',
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        <PhoneCall size={12} /> Call
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          const msg = encodeURIComponent(`Hello ${lead.clientName}, this is regarding your advisory inquiry with Stocketics.`);
-                          window.open(`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}?text=${msg}`, '_blank');
-                        }}
-                        style={{
-                          flex: 1,
-                          background: '#ecfdf5',
-                          color: '#059669',
-                          border: '1px solid #a7f3d0',
-                          borderRadius: '4px',
-                          padding: '5px',
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        <MessageSquare size={12} /> WhatsApp
-                      </button>
-
-                      <button
-                        onClick={() => setInspectLead(lead)}
-                        style={{
-                          background: '#f1f5f9',
-                          color: '#475569',
-                          border: '1px solid #cbd5e1',
-                          borderRadius: '4px',
-                          padding: '5px 8px',
-                          fontSize: '11.5px',
-                          fontWeight: 600,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Details
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           )}
         </>
@@ -1193,19 +1373,19 @@ export const AdvisoryPipeline: React.FC = () => {
               >
                 <div>
                   <span style={{ color: '#64748b', display: 'block', fontSize: '10.5px' }}>City / Location</span>
-                  <strong>{inspectLead.city || 'India'}</strong>
+                  <strong>{inspectLead.city || '-'}</strong>
                 </div>
                 <div>
                   <span style={{ color: '#64748b', display: 'block', fontSize: '10.5px' }}>Product Segment</span>
-                  <strong>{inspectLead.serviceType}</strong>
+                  <strong>{inspectLead.serviceType || '-'}</strong>
                 </div>
                 <div>
                   <span style={{ color: '#64748b', display: 'block', fontSize: '10.5px' }}>Expected Fee</span>
-                  <strong style={{ color: '#166534' }}>₹{inspectLead.expectedRevenue.toLocaleString('en-IN')}</strong>
+                  <strong style={{ color: '#166534' }}>{inspectLead.expectedRevenue > 0 ? `₹${inspectLead.expectedRevenue.toLocaleString('en-IN')}` : '-'}</strong>
                 </div>
                 <div>
                   <span style={{ color: '#64748b', display: 'block', fontSize: '10.5px' }}>Investment Bracket</span>
-                  <strong>{inspectLead.investmentBracket}</strong>
+                  <strong>{inspectLead.investmentBracket || '-'}</strong>
                 </div>
                 <div>
                   <span style={{ color: '#64748b', display: 'block', fontSize: '10.5px' }}>Assigned Advisor</span>
@@ -1299,6 +1479,213 @@ export const AdvisoryPipeline: React.FC = () => {
                 >
                   <PhoneOutgoing size={14} /> Tele-Call Logs
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Interactive Response & Disposition Modal */}
+      {responseModalLead && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.7)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 1050,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+          onClick={() => setResponseModalLead(null)}
+        >
+          <div 
+            style={{
+              background: '#ffffff',
+              borderRadius: '8px',
+              maxWidth: '500px',
+              width: '100%',
+              border: '1px solid #cbd5e1',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+              overflow: 'hidden'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div 
+              style={{ 
+                background: '#0073b7', 
+                color: '#ffffff', 
+                padding: '12px 16px', 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center' 
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle2 size={16} color="#ffffff" />
+                <span style={{ fontWeight: 700, fontSize: '14px' }}>
+                  Update Lead Response • {responseModalLead.clientName}
+                </span>
+              </div>
+              <button 
+                onClick={() => setResponseModalLead(null)}
+                style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', padding: '2px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '10.5px' }}>Mobile / Source</span>
+                  <strong>{responseModalLead.phone}</strong> • <span style={{ color: '#0284c7' }}>{responseModalLead.source || 'Direct Web'}</span>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '10.5px' }}>Assigned Employee</span>
+                  <strong>{responseModalLead.assignedToName}</strong>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  Select Client Response:
+                </label>
+                <select
+                  value={modalResponse}
+                  onChange={e => setModalResponse(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    border: '1.5px solid #0284c7',
+                    borderRadius: '5px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#0f172a',
+                    background: '#ffffff',
+                    outline: 'none'
+                  }}
+                >
+                  <option value="Interested">Interested (Active Prospect)</option>
+                  <option value="Call Back">Call Back (Scheduled Follow-up)</option>
+                  <option value="Fresh">Fresh / New</option>
+                  <option value="Busy">Busy / Ringing</option>
+                  <option value="Payment">Payment / Token Received</option>
+                  <option value="Not Interested">Not Interested</option>
+                  <option value="Language Barrier">Language Barrier</option>
+                  <option value="Wrong Number">Wrong Number</option>
+                  <option value="DND">Do Not Disturb (DND)</option>
+                </select>
+              </div>
+
+              {/* Call Back Schedule */}
+              {modalResponse === 'Call Back' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: '#fef3c7', padding: '10px', borderRadius: '6px', border: '1px solid #fde68a' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#92400e', marginBottom: '4px' }}>
+                      Callback Date:
+                    </label>
+                    <input 
+                      type="date"
+                      value={modalCallbackDate}
+                      onChange={e => setModalCallbackDate(e.target.value)}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#92400e', marginBottom: '4px' }}>
+                      Callback Time:
+                    </label>
+                    <input 
+                      type="text"
+                      placeholder="e.g. 03:30 PM"
+                      value={modalCallbackTime}
+                      onChange={e => setModalCallbackTime(e.target.value)}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  Discussion Notes / Description:
+                </label>
+                <textarea
+                  rows={3}
+                  value={modalNote}
+                  onChange={e => setModalNote(e.target.value)}
+                  placeholder="Enter remarks, client budget, stock holdings discussed..."
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    borderRadius: '5px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12.5px',
+                    fontFamily: 'inherit',
+                    outline: 'none',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
+                <button
+                  onClick={() => {
+                    disposeLead(responseModalLead.id, modalNote ? `${modalResponse} - ${modalNote}` : modalResponse);
+                    setResponseModalLead(null);
+                  }}
+                  style={{
+                    background: '#fef2f2',
+                    color: '#b91c1c',
+                    border: '1px solid #fecaca',
+                    borderRadius: '4px',
+                    padding: '7px 12px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Dispose Lead
+                </button>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => setResponseModalLead(null)}
+                    style={{
+                      background: '#f1f5f9',
+                      color: '#475569',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '4px',
+                      padding: '7px 14px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveResponse}
+                    style={{
+                      background: '#0073b7',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '7px 16px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Save Response
+                  </button>
+                </div>
               </div>
             </div>
           </div>

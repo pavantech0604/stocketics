@@ -11,7 +11,9 @@ import {
   CheckCircle2, 
   HelpCircle,
   Sparkles,
-  Plus
+  Plus,
+  Flame,
+  X
 } from 'lucide-react';
 import { TipsModal } from '../common/TipsModal';
 import { C2CDialerModal } from './ClientActionModals';
@@ -36,12 +38,12 @@ export const ClientSearchResultsView: React.FC<ClientSearchResultsViewProps> = (
     clientSearchQuery,
     setClientSearchQuery
   } = useApp();
-  const [activeTab, setActiveFilterTab] = useState<'leads' | 'clients' | 'unallotted' | 'disposed' | 'deleted'>('clients');
+  const [activeTab, setActiveFilterTab] = useState<'all' | 'leads' | 'clients' | 'unallotted' | 'disposed' | 'deleted'>('all');
   const [searchQuery, setSearchQuery] = useState(clientSearchQuery || '');
   const [isTipsOpen, setIsTipsOpen] = useState(false);
   const [c2cTargetClient, setC2cTargetClient] = useState<ActiveClientRecordDetailed | null>(null);
 
-  // Synchronize with global clientSearchQuery from sidebar search
+  // Synchronize with global clientSearchQuery from sidebar or header search
   React.useEffect(() => {
     if (clientSearchQuery && clientSearchQuery.trim()) {
       const q = clientSearchQuery.trim();
@@ -50,16 +52,18 @@ export const ClientSearchResultsView: React.FC<ClientSearchResultsViewProps> = (
       const cleanQ = q.replace(/\D/g, '');
       const lowerQ = q.toLowerCase();
       const matched = clients.find(c => {
-        const cMobile = c.mobile.replace(/\D/g, '');
+        const cMobile = (c.mobile || '').replace(/\D/g, '');
         const cAlt = c.alternateMobile ? c.alternateMobile.replace(/\D/g, '') : '';
         const matchPhone = cleanQ.length >= 3 && (cMobile.includes(cleanQ) || cAlt.includes(cleanQ));
-        const matchName = c.clientName.toLowerCase().includes(lowerQ);
-        const matchCode = c.clientCode.toLowerCase().includes(lowerQ);
+        const matchName = (c.clientName || '').toLowerCase().includes(lowerQ);
+        const matchCode = (c.clientCode || '').toLowerCase().includes(lowerQ);
         return matchPhone || matchName || matchCode;
       });
 
       if (matched && matched.tabCategory) {
         setActiveFilterTab(matched.tabCategory);
+      } else {
+        setActiveFilterTab('all');
       }
     }
   }, [clientSearchQuery, clients]);
@@ -137,6 +141,7 @@ export const ClientSearchResultsView: React.FC<ClientSearchResultsViewProps> = (
   };
 
   // Tab counts
+  const countAll = clients.length;
   const countLeads = clients.filter(c => c.tabCategory === 'leads').length;
   const countClients = clients.filter(c => c.tabCategory === 'clients').length;
   const countUnallotted = clients.filter(c => c.tabCategory === 'unallotted').length;
@@ -145,23 +150,42 @@ export const ClientSearchResultsView: React.FC<ClientSearchResultsViewProps> = (
 
   // Filter clients by tab and search
   const filteredClients = clients.filter(c => {
-    if (c.tabCategory !== activeTab) return false;
+    if (activeTab !== 'all' && c.tabCategory !== activeTab) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const cleanQ = searchQuery.replace(/\D/g, '');
-      const cMobile = c.mobile.replace(/\D/g, '');
+      const cMobile = (c.mobile || '').replace(/\D/g, '');
       const cAlt = c.alternateMobile ? c.alternateMobile.replace(/\D/g, '') : '';
       const match = 
-        c.clientName.toLowerCase().includes(q) ||
+        (c.clientName || '').toLowerCase().includes(q) ||
         (cleanQ.length >= 3 && (cMobile.includes(cleanQ) || cAlt.includes(cleanQ))) ||
-        c.mobile.includes(q) ||
-        c.clientCode.toLowerCase().includes(q) ||
-        c.ownerName.toLowerCase().includes(q) ||
+        (c.mobile && c.mobile.includes(q)) ||
+        (c.clientCode && c.clientCode.toLowerCase().includes(q)) ||
+        (c.ownerName && c.ownerName.toLowerCase().includes(q)) ||
+        (c.serviceName && c.serviceName.toLowerCase().includes(q)) ||
         (c.description && c.description.toLowerCase().includes(q));
       if (!match) return false;
     }
     return true;
   });
+
+  // Check if matches exist in other categories when current tab yields 0
+  const matchesInOtherTabs = React.useMemo(() => {
+    if (!searchQuery.trim() || activeTab === 'all') return 0;
+    const q = searchQuery.toLowerCase().trim();
+    const cleanQ = searchQuery.replace(/\D/g, '');
+    return clients.filter(c => {
+      if (c.tabCategory === activeTab) return false;
+      const cMobile = (c.mobile || '').replace(/\D/g, '');
+      const cAlt = c.alternateMobile ? c.alternateMobile.replace(/\D/g, '') : '';
+      return (
+        (c.clientName || '').toLowerCase().includes(q) ||
+        (cleanQ.length >= 3 && (cMobile.includes(cleanQ) || cAlt.includes(cleanQ))) ||
+        (c.mobile && c.mobile.includes(q)) ||
+        (c.clientCode && c.clientCode.toLowerCase().includes(q))
+      );
+    }).length;
+  }, [clients, searchQuery, activeTab]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -227,6 +251,27 @@ export const ClientSearchResultsView: React.FC<ClientSearchResultsViewProps> = (
           overflowX: 'auto'
         }}
       >
+        {/* All Records Tab */}
+        <button
+          type="button"
+          onClick={() => setActiveFilterTab('all')}
+          className={`search-results-tab ${activeTab === 'all' ? 'active' : ''}`}
+          style={{
+            background: activeTab === 'all' ? '#ffffff' : 'transparent',
+            color: activeTab === 'all' ? '#0f172a' : '#cbd5e1',
+            border: 'none',
+            borderTopLeftRadius: '4px',
+            borderTopRightRadius: '4px',
+            padding: '0.65rem 1.2rem',
+            fontSize: '0.85rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          All Records ( {countAll} )
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveFilterTab('leads')}
@@ -356,7 +401,7 @@ export const ClientSearchResultsView: React.FC<ClientSearchResultsViewProps> = (
             <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
             <input 
               type="text" 
-              placeholder="Search by name, mobile, or code..."
+              placeholder="Search by name, mobile, service, code..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -364,7 +409,7 @@ export const ClientSearchResultsView: React.FC<ClientSearchResultsViewProps> = (
               }}
               style={{
                 width: '100%',
-                padding: '0.4rem 0.6rem 0.4rem 2rem',
+                padding: '0.4rem 2rem 0.4rem 2rem',
                 fontSize: '0.82rem',
                 border: '1px solid #cbd5e1',
                 borderRadius: '4px',
@@ -373,6 +418,30 @@ export const ClientSearchResultsView: React.FC<ClientSearchResultsViewProps> = (
                 color: '#1e293b'
               }}
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setClientSearchQuery('');
+                }}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#94a3b8',
+                  padding: 2,
+                  display: 'flex'
+                }}
+                title="Clear search"
+              >
+                <X size={13} />
+              </button>
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -423,99 +492,207 @@ export const ClientSearchResultsView: React.FC<ClientSearchResultsViewProps> = (
             <tbody>
               {filteredClients.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem 1rem', color: '#94a3b8' }}>
-                    No records found in this category
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem 1rem' }}>
+                    {matchesInOtherTabs > 0 ? (
+                      <div>
+                        <div style={{ fontSize: '0.95rem', color: '#d97706', fontWeight: 700, marginBottom: 8 }}>
+                          ⚡ Found {matchesInOtherTabs} matching record{matchesInOtherTabs > 1 ? 's' : ''} in other categories!
+                        </div>
+                        <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '0 0 12px 0' }}>
+                          Current filter is limiting results. Click below to view all matches across the CRM:
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setActiveFilterTab('all')}
+                          style={{
+                            background: '#0284c7',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: 6,
+                            padding: '7px 16px',
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 6px rgba(2, 132, 199, 0.3)'
+                          }}
+                        >
+                          View All {matchesInOtherTabs} Matching Records &gt;&gt;
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 600, marginBottom: 8 }}>
+                          No records found {searchQuery ? `matching "${searchQuery}"` : 'in this category'}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('register-clients')}
+                          style={{
+                            background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: 6,
+                            padding: '6px 14px',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          + Register New Client
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ) : (
-                filteredClients.map((c, idx) => (
-                  <tr 
-                    key={c.id}
-                    style={{ 
-                      borderBottom: '1px solid #f1f5f9',
-                      transition: 'background 0.15s ease'
-                    }}
-                  >
-                    <td style={{ padding: '0.85rem 1rem', color: '#64748b' }}>{idx + 1}</td>
-                    <td style={{ padding: '0.85rem 1rem', fontWeight: 600, color: '#334155' }}>
-                      {c.ownerName}
-                    </td>
-                    <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>{c.clientCode}</td>
-                    <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: '#1e293b' }}>{c.clientName}</td>
-                    <td style={{ padding: '0.85rem 1rem', color: '#0284c7', fontFamily: 'monospace', fontWeight: 600 }}>{c.mobile}</td>
-                    <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: '#334155', fontSize: '0.82rem' }}>{c.response}</td>
-                    
-                    {/* Description styled in signature bright blue rounded badge matching Image 1 */}
-                    <td style={{ padding: '0.85rem 1rem' }}>
-                      <div 
-                        className="desc-bubble-ref"
-                        title={`Logged notes (${c.notesHistory.length} updates). Click Edit to view full audit history.`}
-                        style={{
-                          background: '#38bdf8',
-                          color: '#ffffff',
-                          padding: '0.5rem 0.85rem',
-                          borderRadius: '4px',
-                          fontSize: '0.84rem',
-                          fontWeight: 600,
-                          lineHeight: 1.35,
-                          maxWidth: '320px',
-                          boxShadow: '0 1px 3px rgba(56, 189, 248, 0.25)',
-                          wordBreak: 'break-word'
-                        }}
-                      >
-                        {c.description || (c.notesHistory[0]?.text) || 'No call description recorded'}
-                      </div>
-                    </td>
+                filteredClients.map((c, idx) => {
+                  const isHighlighted = clientSearchQuery && (
+                    c.mobile === clientSearchQuery || 
+                    c.clientName.toLowerCase() === clientSearchQuery.toLowerCase()
+                  );
 
-                    {/* Action matching Image 1: C2C button (Cyan) + Edit pencil icon button (Cyan) */}
-                    <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleC2cClick(c)}
-                          title="Click to Call"
+                  return (
+                    <tr 
+                      key={c.id}
+                      style={{ 
+                        borderBottom: '1px solid #f1f5f9',
+                        transition: 'background 0.15s ease',
+                        background: isHighlighted ? 'rgba(56, 189, 248, 0.08)' : undefined
+                      }}
+                    >
+                      <td style={{ padding: '0.85rem 1rem', color: '#64748b' }}>{idx + 1}</td>
+                      <td style={{ padding: '0.85rem 1rem', fontWeight: 600, color: '#334155' }}>
+                        {c.ownerName}
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>{c.clientCode}</td>
+                      <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: '#1e293b' }}>
+                        <div>{c.clientName}</div>
+                        {c.serviceName && (
+                          <span style={{
+                            display: 'inline-block',
+                            marginTop: 2,
+                            padding: '1px 6px',
+                            borderRadius: 4,
+                            background: 'rgba(2, 132, 199, 0.1)',
+                            color: '#0284c7',
+                            fontSize: '0.68rem',
+                            fontWeight: 700
+                          }}>
+                            {c.serviceName}
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', color: '#0284c7', fontFamily: 'monospace', fontWeight: 600 }}>{c.mobile}</td>
+                      <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: '#334155', fontSize: '0.82rem' }}>
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: 6,
+                          background: c.response === 'CLOSED OWN' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                          color: c.response === 'CLOSED OWN' ? '#10b981' : '#d97706',
+                          fontSize: '0.72rem'
+                        }}>
+                          {c.response}
+                        </span>
+                      </td>
+                      
+                      {/* Description styled in signature bright blue rounded badge */}
+                      <td style={{ padding: '0.85rem 1rem' }}>
+                        <div 
+                          className="desc-bubble-ref"
+                          title={`Logged notes (${(c.notesHistory || []).length} updates). Click Edit to view full audit history.`}
                           style={{
                             background: '#38bdf8',
                             color: '#ffffff',
-                            border: 'none',
-                            padding: '0.35rem 0.85rem',
+                            padding: '0.5rem 0.85rem',
                             borderRadius: '4px',
-                            fontWeight: 700,
-                            fontSize: '0.8rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            boxShadow: '0 1px 2px rgba(56, 189, 248, 0.25)'
+                            fontSize: '0.84rem',
+                            fontWeight: 600,
+                            lineHeight: 1.35,
+                            maxWidth: '320px',
+                            boxShadow: '0 1px 3px rgba(56, 189, 248, 0.25)',
+                            wordBreak: 'break-word'
                           }}
                         >
-                          C2C
-                        </button>
+                          {c.description || (c.notesHistory && c.notesHistory[0]?.text) || 'No call description recorded'}
+                        </div>
+                      </td>
 
-                        <button
-                          type="button"
-                          onClick={() => handleEditClick(c)}
-                          title="Edit Client Details & KYC"
-                          style={{
-                            background: '#38bdf8',
-                            color: '#ffffff',
-                            border: 'none',
-                            width: '30px',
-                            height: '28px',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            boxShadow: '0 1px 2px rgba(56, 189, 248, 0.25)'
-                          }}
-                        >
-                          <Edit size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      {/* Action column: C2C, Advisory, and Edit */}
+                      <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleC2cClick(c)}
+                            title="Click to Call"
+                            style={{
+                              background: '#38bdf8',
+                              color: '#ffffff',
+                              border: 'none',
+                              padding: '0.35rem 0.65rem',
+                              borderRadius: '4px',
+                              fontWeight: 700,
+                              fontSize: '0.75rem',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              boxShadow: '0 1px 2px rgba(56, 189, 248, 0.25)'
+                            }}
+                          >
+                            C2C
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setClientSearchQuery(c.mobile || c.clientName);
+                              setActiveTab('ra-calls');
+                              showToast(`Configuring RA Advisory for ${c.clientName}...`, 'info');
+                            }}
+                            title="Configure Advisory Service & Dispatch Live Calls"
+                            style={{
+                              background: 'linear-gradient(135deg, #ea580c, #c2410c)',
+                              color: '#ffffff',
+                              border: 'none',
+                              padding: '0.35rem 0.6rem',
+                              borderRadius: '4px',
+                              fontWeight: 700,
+                              fontSize: '0.72rem',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              boxShadow: '0 1px 2px rgba(234, 88, 12, 0.25)'
+                            }}
+                          >
+                            <Flame size={12} /> Advisory
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleEditClick(c)}
+                            title="Edit Client Details & KYC"
+                            style={{
+                              background: '#38bdf8',
+                              color: '#ffffff',
+                              border: 'none',
+                              width: '28px',
+                              height: '26px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              boxShadow: '0 1px 2px rgba(56, 189, 248, 0.25)'
+                            }}
+                          >
+                            <Edit size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

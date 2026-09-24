@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../state/store';
-import { ChevronLeft, ChevronRight, Search, X, AlertCircle, ArrowRight, PhoneCall } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, X, AlertCircle, ArrowRight, PhoneCall, Flame } from 'lucide-react';
 import { findClientByPhone, searchDetailedClients, normalizePhone, INITIAL_DETAILED_CLIENTS } from '../../data/clientDatabase';
 import { 
   AddNewLeadModal, 
@@ -204,7 +204,8 @@ export const Sidebar: React.FC = () => {
     showToast,
     setCommandPaletteOpen,
     clientSearchQuery,
-    setClientSearchQuery 
+    setClientSearchQuery,
+    detailedClients
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -249,8 +250,16 @@ export const Sidebar: React.FC = () => {
     };
   }, [isProfileMenuOpen]);
 
-  // EXACT Sub-Options under Leads for HR (8 Sub-Options)
+  // Sub-Options under Configuration matching PHP CRM
+  const configurationSubItems: SubItem[] = [
+    { id: 'allot-leads', label: 'Allot Leads' },
+    { id: 'compliance-vault', label: 'Compliance & Settings' },
+  ];
+
+  // EXACT Sub-Options under Leads for HR (Matching CRM)
   const leadsSubItems: SubItem[] = [
+    { id: 'allot-leads', label: 'Allot Leads' },
+    { id: 'bulk-upload-leads', label: 'Upload Leads File' },
     { id: 'add-new-lead', label: 'Add New Lead' },
     { id: 'new-leads', label: 'New Leads' },
     { id: 'view-all-leads', label: 'View All Leads' },
@@ -261,8 +270,9 @@ export const Sidebar: React.FC = () => {
     { id: 'unknown-calls', label: 'Unknown Calls' },
   ];
 
-  // EXACT Sub-Options under Leads for Manager (Bulk upload & segregate leads instead of single lead entry)
+  // EXACT Sub-Options under Leads for Manager (Bulk upload, Allot Leads, and Segregate)
   const managerLeadsSubItems: SubItem[] = [
+    { id: 'allot-leads', label: 'Allot Leads' },
     { id: 'bulk-upload-leads', label: 'Upload Leads File' },
     { id: 'new-leads', label: 'New Leads' },
     { id: 'view-all-leads', label: 'View All Leads' },
@@ -271,6 +281,18 @@ export const Sidebar: React.FC = () => {
     { id: 'active-prospect', label: 'Active Prospect' },
     { id: 'past-prospect', label: 'Past Prospect' },
     { id: 'call-logs', label: 'Call Logs' },
+    { id: 'unknown-calls', label: 'Unknown Calls' },
+  ];
+
+  // EXACT Sub-Options under Leads for Team Leader (Allot to Employees + Scoped Leads)
+  const teamLeaderLeadsSubItems: SubItem[] = [
+    { id: 'allot-leads', label: 'Allot Team Leads' },
+    { id: 'new-leads', label: 'New Leads' },
+    { id: 'view-all-leads', label: 'View All Leads' },
+    { id: 'confirmed-payment', label: 'Confirmed Payment' },
+    { id: 'today-followup', label: "Today's Follow-up" },
+    { id: 'active-prospect', label: 'Active Prospect' },
+    { id: 'past-prospect', label: 'Past Prospect' },
     { id: 'unknown-calls', label: 'Unknown Calls' },
   ];
 
@@ -400,7 +422,7 @@ export const Sidebar: React.FC = () => {
     { id: 'teams', label: 'Teams', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: teamsSubItems },
     { id: 'leads', label: 'Leads', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: leadsSubItems },
     { id: 'it-problem', label: 'IT Problem', icon: <CircleChevronRightIcon />, hasSubmenu: false },
-    { id: 'configuration', label: 'Configuration', icon: <ConfigurationIcon />, hasSubmenu: false },
+    { id: 'configuration', label: 'Configuration', icon: <ConfigurationIcon />, hasSubmenu: true, subItems: configurationSubItems },
     { id: 'report', label: 'Report', icon: <ReportIcon />, hasSubmenu: false },
     { id: 'mail', label: 'Mail', icon: <MailIcon />, hasSubmenu: false },
     { id: 'sms', label: 'SMS', icon: <SMSIcon />, hasSubmenu: false },
@@ -433,7 +455,7 @@ export const Sidebar: React.FC = () => {
     { id: 'client', label: 'Client', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: clientSubItems },
     { id: 'it-problem', label: 'IT Problem', icon: <CircleChevronRightIcon />, hasSubmenu: false },
     { id: 'ticket', label: 'Ticket', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: ticketSubItems },
-    { id: 'configuration', label: 'Configuration', icon: <ConfigurationIcon />, hasSubmenu: false },
+    { id: 'configuration', label: 'Configuration', icon: <ConfigurationIcon />, hasSubmenu: true, subItems: configurationSubItems },
     { id: 'report', label: 'Report', icon: <ReportIcon />, hasSubmenu: false },
     { id: 'mail', label: 'Mail', icon: <MailIcon />, hasSubmenu: false },
     { id: 'sms', label: 'SMS', icon: <SMSIcon />, hasSubmenu: false },
@@ -472,7 +494,7 @@ export const Sidebar: React.FC = () => {
     { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
     { id: 'market', label: 'Market', icon: <MarketMenuIcon />, hasSubmenu: false },
     { id: 'ra-calls', label: 'Live Advisory Calls', icon: <RadioIcon />, hasSubmenu: false },
-    { id: 'leads', label: 'Leads', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: employeeLeadsSubItems },
+    { id: 'leads', label: 'Leads', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: teamLeaderLeadsSubItems },
     { id: 'client', label: 'Client', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: clientSubItems },
     { id: 'lead-reassignment', label: 'Lead Reassignment', icon: <TargetIcon />, hasSubmenu: false },
     { id: 'team-leaderboard', label: 'Team Leaderboard', icon: <ReportIcon />, hasSubmenu: false },
@@ -557,14 +579,15 @@ export const Sidebar: React.FC = () => {
     const targetQuery = queryVal.trim();
     if (!targetQuery) return;
 
-    setClientSearchQuery(targetQuery);
+    const searchParam = matchedClient ? (matchedClient.mobile || matchedClient.clientName) : targetQuery;
+    setClientSearchQuery(searchParam);
     setActiveTab('active-clients');
     
     // Automatically expand the Client menu in sidebar to reflect the active tab
     setExpandedMenus({ client: true });
 
     if (matchedClient) {
-      showToast(`Redirecting to Search Results for ${matchedClient.clientName}...`, 'info');
+      showToast(`Loading search results for ${matchedClient.clientName}...`, 'info');
     } else {
       showToast(`Searching clients for: ${targetQuery}...`, 'info');
     }
@@ -607,7 +630,10 @@ export const Sidebar: React.FC = () => {
         return false;
       });
 
-  const matchedClients = searchQuery.trim() ? searchDetailedClients(searchQuery) : [];
+  const matchedClients = React.useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    return searchDetailedClients(searchQuery, detailedClients || []);
+  }, [searchQuery, detailedClients]);
   const topMatchedClient = matchedClients[0];
 
   return (
@@ -653,37 +679,105 @@ export const Sidebar: React.FC = () => {
             )}
           </div>
 
-          {/* Quick Client Match Banner (Advisors & Managers only; HR does not deal with clients) */}
-          {role !== 'hr' && topMatchedClient && (
-            <div 
-              className="sidebar-search-client-card" 
-              onClick={() => handleRedirectToSearchResults(searchQuery, topMatchedClient)}
-              title="Click to redirect to Search Results"
-            >
-              <div className="sidebar-client-header">
-                <span className="sidebar-client-tag">
-                  {topMatchedClient.response === 'CLOSED OWN' ? 'ACTIVE CLIENT' : topMatchedClient.response}
+          {/* Interactive Multi-Client Match Dropdown in Sidebar */}
+          {role !== 'hr' && searchQuery.trim().length > 0 && matchedClients.length > 0 && (
+            <div className="sidebar-search-results-list" style={{
+              marginTop: 6,
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 8,
+              padding: '6px',
+              maxHeight: '320px',
+              overflowY: 'auto',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '2px 4px',
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                color: 'var(--text-muted)'
+              }}>
+                <span>MATCHED CLIENTS ({matchedClients.length})</span>
+                <span 
+                  onClick={() => handleRedirectToSearchResults(searchQuery)}
+                  style={{ color: '#0284c7', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2 }}
+                >
+                  View All &gt;&gt;
                 </span>
-                <span className="sidebar-client-code">{topMatchedClient.clientCode}</span>
               </div>
-              <div className="sidebar-client-name">{topMatchedClient.clientName}</div>
-              <div className="sidebar-client-phone">📞 {topMatchedClient.mobile}</div>
-              <div className="sidebar-client-sub">{topMatchedClient.serviceName} • {topMatchedClient.ownerName}</div>
-              <button 
-                type="button" 
-                className="btn-sidebar-view-results"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRedirectToSearchResults(searchQuery, topMatchedClient);
-                }}
-              >
-                View in Search Results <ArrowRight size={12} />
-              </button>
+
+              {matchedClients.slice(0, 4).map(client => (
+                <div
+                  key={client.id}
+                  className="sidebar-search-client-card"
+                  onClick={() => handleRedirectToSearchResults(client.mobile || client.clientName, client)}
+                  style={{ margin: 0, padding: '8px 10px', cursor: 'pointer' }}
+                >
+                  <div className="sidebar-client-header">
+                    <span className="sidebar-client-tag">
+                      {client.response === 'CLOSED OWN' ? 'ACTIVE CLIENT' : client.response}
+                    </span>
+                    <span className="sidebar-client-code">{client.clientCode}</span>
+                  </div>
+                  <div className="sidebar-client-name" style={{ fontWeight: 700, fontSize: '0.82rem' }}>
+                    {client.clientName}
+                  </div>
+                  <div className="sidebar-client-phone" style={{ fontSize: '0.74rem', color: '#0284c7' }}>
+                    📞 {client.mobile}
+                  </div>
+                  <div className="sidebar-client-sub" style={{ fontSize: '0.68rem' }}>
+                    {client.serviceName || 'INDEX OPTION'} • {client.ownerName || 'Advisor'}
+                  </div>
+                  <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                    <button
+                      type="button"
+                      className="btn-sidebar-view-results"
+                      style={{ flex: 1, padding: '3px 6px', fontSize: '0.68rem' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRedirectToSearchResults(client.mobile || client.clientName, client);
+                      }}
+                    >
+                      View Profile <ArrowRight size={10} />
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        background: 'rgba(249, 115, 22, 0.15)',
+                        color: '#ea580c',
+                        border: '1px solid rgba(249, 115, 22, 0.3)',
+                        borderRadius: 4,
+                        padding: '3px 6px',
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setClientSearchQuery(client.mobile || client.clientName);
+                        setActiveTab('ra-calls');
+                        showToast(`Configuring RA Advisory for ${client.clientName}...`, 'info');
+                      }}
+                    >
+                      <Flame size={10} /> Advisory
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
           {/* If 3+ digits typed and no client found (Advisors & Managers only) */}
-          {role !== 'hr' && isNumericSearch && searchQuery.trim().length >= 3 && !topMatchedClient && (
+          {role !== 'hr' && isNumericSearch && searchQuery.trim().length >= 3 && matchedClients.length === 0 && (
             <div className="sidebar-search-no-match">
               <AlertCircle size={13} style={{ flexShrink: 0 }} />
               <span>No client found for "{searchQuery}"</span>

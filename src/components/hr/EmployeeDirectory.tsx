@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../state/store';
 import { Employee, Department, EmployeeStatus } from '../../types';
-import { Search, Plus, Download, X, UserCheck, Shield } from 'lucide-react';
+import { Search, Plus, X, UserCheck, Shield } from 'lucide-react';
 
 export const EmployeeDirectory: React.FC = () => {
   const { employees, addEmployee } = useApp();
@@ -67,27 +67,7 @@ export const EmployeeDirectory: React.FC = () => {
     }
   };
 
-  const exportCSV = () => {
-    const headers = ['ID', 'Name', 'Email', 'Department', 'Title', 'Status', 'Join Date', 'Salary'];
-    const rows = filteredEmployees.map(e => [
-      e.id,
-      `"${e.name}"`,
-      e.email,
-      `"${e.department}"`,
-      `"${e.title}"`,
-      e.status,
-      e.joinDate,
-      e.salary
-    ]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `apex_employees_${new Date().toISOString().slice(0,10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -101,10 +81,7 @@ export const EmployeeDirectory: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button className="btn btn-outline" onClick={exportCSV}>
-            <Download size={16} />
-            <span>Export CSV</span>
-          </button>
+
           <button className="btn btn-primary" onClick={() => setIsDrawerOpen(true)}>
             <Plus size={16} />
             <span>Onboard New Employee</span>
