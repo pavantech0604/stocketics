@@ -1,3 +1,6 @@
+import { isClosedWon, isClosedOwn, isFollowupDue, resolveLeadClientName } from '../../crm/legacyWorkflow';
+import { useClock } from '../../crm/useClock';
+import './leadWorkflow.css';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../state/store';
 import { AdvisoryLead, LeadStatus } from '../../types';
@@ -24,15 +27,18 @@ import {
   ArrowRight,
   Check,
   Eye,
-  TrendingUp
+  TrendingUp,
+  ShieldCheck
 } from 'lucide-react';
 import { AddNewLeadModal, CallLogsModal } from '../common/CRMActionModals';
-import { BulkLeadUploadModal } from './BulkLeadUploadModal';
-import { AllConfirmedPaymentsView } from './AllConfirmedPaymentsView';
+const BulkLeadUploadModal = React.lazy(() => import('./BulkLeadUploadModal').then(m => ({ default: m.BulkLeadUploadModal })));
+const AllConfirmedPaymentsView = React.lazy(() => import('./AllConfirmedPaymentsView').then(m => ({ default: m.AllConfirmedPaymentsView })));
 import { TipsModal } from '../common/TipsModal';
-import confetti from 'canvas-confetti';
+const LeadKYCOnboardingModal = React.lazy(() => import('../common/LeadKYCOnboardingModal').then(m => ({ default: m.LeadKYCOnboardingModal })));
+
 
 export const AdvisoryPipeline: React.FC = () => {
+  const now = useClock();
   const { 
     role, 
     activeTab, 
@@ -46,7 +52,8 @@ export const AdvisoryPipeline: React.FC = () => {
     currentUser, 
     triggerClientSearchAlert,
     getTeamMemberIds,
-    leadSourcePools
+    leadSourcePools,
+    getKYCCaseForLead
   } = useApp();
   
   // Scoped leads based strictly on user role
@@ -73,6 +80,7 @@ export const AdvisoryPipeline: React.FC = () => {
   const [selectedAdvisor, setSelectedAdvisor] = useState('All');
   const [selectedResponse, setSelectedResponse] = useState('All');
   const [selectedSource, setSelectedSource] = useState('All');
+  const [showFilters, setShowFilters] = useState(false);
 
   // Response Update Modal State
   const [responseModalLead, setResponseModalLead] = useState<AdvisoryLead | null>(null);
@@ -118,13 +126,15 @@ export const AdvisoryPipeline: React.FC = () => {
   const [isCallLogsOpen, setIsCallLogsOpen] = useState(false);
   const [isTipsOpen, setIsTipsOpen] = useState(false);
   const [inspectLead, setInspectLead] = useState<AdvisoryLead | null>(null);
+  const [kycModalLead, setKycModalLead] = useState<AdvisoryLead | null>(null);
 
   // Subtab navigation matching CRM structure
   const getSubTabFromActive = (): string => {
+    if (activeTab === 'closed-won' || activeTab === 'closed-own') return 'closed-won';
     if (activeTab === 'new-leads') return 'new-leads';
     if (activeTab === 'today-followup') return 'today-followup';
     if (activeTab === 'active-prospect') return 'active-prospect';
-    if (activeTab === 'past-prospect') return 'past-prospect';
+    if (activeTab === 'past-prospect') return 'closed-won';
     if (activeTab === 'confirmed-payment') return 'confirmed-payment';
     if (activeTab === 'interested-leads') return 'interested-leads';
     if (activeTab === 'modified-today') return 'modified-today';
@@ -133,10 +143,13 @@ export const AdvisoryPipeline: React.FC = () => {
     return 'view-all-leads';
   };
 
-  const [currentLeadTab, setCurrentLeadTab] = useState<string>(getSubTabFromActive());
+  const [currentLeadTab, setCurrentLeadTab] = useState<string>(getSubTabFromActive);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
 
   useEffect(() => {
-    setCurrentLeadTab(getSubTabFromActive());
+    const nextSubTab = getSubTabFromActive();
+    setCurrentLeadTab(prev => (prev !== nextSubTab ? nextSubTab : prev));
     if (activeTab === 'bulk-upload-leads') {
       setIsBulkUploadOpen(true);
     }
@@ -147,8 +160,49 @@ export const AdvisoryPipeline: React.FC = () => {
     setActiveTab(tabId);
   };
 
+  // Reset pagination when active subtab or filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [currentLeadTab, searchQuery, selectedService, selectedAdvisor, selectedResponse, selectedSource]);
+
+  // Memoized tab counts for viewbar buttons (single pass)
+  const tabCounts = React.useMemo(() => {
+    let newLeads = 0;
+    let followups = 0;
+    let closedWon = 0;
+    const nowObj = new Date(now);
+
+    for (let i = 0; i < scopedLeads.length; i++) {
+      const l = scopedLeads[i];
+      if (isClosedWon(l)) {
+        closedWon++;
+      } else if (l.status === 'New Lead' || l.response === 'Fresh') {
+        newLeads++;
+      }
+      if (isFollowupDue(l, nowObj)) {
+        followups++;
+      }
+    }
+    return {
+      all: scopedLeads.length,
+      newLeads,
+      followups,
+      closedWon
+    };
+  }, [scopedLeads, now]);
+
   // Filter leads based on Scoped Role, Tab, Search, Service, Response, and Advisor
-  const filteredLeads = scopedLeads.filter(l => {
+  const filteredLeads = React.useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const isSearchActive = q.length > 0;
+    const isServiceFilter = selectedService !== 'All';
+    const isAdvisorFilter = selectedAdvisor !== 'All';
+    const isResponseFilter = selectedResponse !== 'All';
+    const selResponseLower = selectedResponse.toLowerCase();
+    const isSourceFilter = selectedSource !== 'All';
+    const nowObj = new Date(now);
+
+    return scopedLeads.filter(l => {
     // Service filter
     if (selectedService !== 'All' && l.serviceType !== selectedService) return false;
 
@@ -178,11 +232,13 @@ export const AdvisoryPipeline: React.FC = () => {
     }
 
     // Subtab filter
+    if (currentLeadTab === 'closed-won' || currentLeadTab === 'closed-own') return isClosedWon(l);
+    if (!['view-all-leads', 'confirmed-payment', 'modified-today'].includes(currentLeadTab) && isClosedOwn(l)) return false;
     if (currentLeadTab === 'new-leads') {
       return l.status === 'New Lead' || l.response === 'Fresh';
     }
     if (currentLeadTab === 'today-followup') {
-      return l.status === 'In Contact' || l.response === 'Call Back' || l.callbackDate?.includes('2026-09') || l.lastContactDate === '22-Sep-2026';
+      return isFollowupDue(l, new Date(now));
     }
     if (currentLeadTab === 'active-prospect') {
       return l.status === 'Trial Active' || l.response === 'Interested';
@@ -200,14 +256,27 @@ export const AdvisoryPipeline: React.FC = () => {
       return l.modifiedToday === true || l.lastContactDate?.includes('22-Sep');
     }
     if (currentLeadTab === 'disposed-today') {
-      return l.disposedToday === true || (l.status === 'Lost' && l.disposedAt);
+      return l.disposedToday === true || l.status === 'Lost';
     }
     if (currentLeadTab === 'team-pool-leads') {
       return l.isTeamPool === true;
     }
 
     return true; // view-all-leads
-  });
+    });
+  }, [scopedLeads, selectedService, selectedAdvisor, selectedResponse, selectedSource, searchQuery, currentLeadTab, now]);
+
+  const totalExpectedRevenue = React.useMemo(() => {
+    return filteredLeads.reduce((acc, l) => acc + (l.expectedRevenue || 0), 0);
+  }, [filteredLeads]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLeads.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  const paginatedLeads = React.useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * pageSize;
+    return filteredLeads.slice(startIndex, startIndex + pageSize);
+  }, [filteredLeads, safeCurrentPage, pageSize]);
 
   const stages: LeadStatus[] = ['New Lead', 'In Contact', 'Trial Active', 'Converted'];
 
@@ -224,6 +293,14 @@ export const AdvisoryPipeline: React.FC = () => {
       default:
         return { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' };
     }
+  };
+
+  const getServiceShortLabel = (service: string) => {
+    if (!service) return '-';
+    if (service === 'Commodity Momentum') return 'Commodity';
+    if (service === 'Options Strategy') return 'Options';
+    if (service === 'Equity Premier') return 'Equity Prem';
+    return service;
   };
 
   const getStatusBadge = (status: LeadStatus) => {
@@ -260,7 +337,7 @@ export const AdvisoryPipeline: React.FC = () => {
         return (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '12px', background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>
             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#dc2626' }} />
-            Lost / Closed
+            Not interested / disposed
           </span>
         );
     }
@@ -283,14 +360,10 @@ export const AdvisoryPipeline: React.FC = () => {
     }
   };
 
-  const handleStageClick = (lead: AdvisoryLead, nextStage: LeadStatus) => {
-    updateLeadStatus(lead.id, nextStage);
-    if (nextStage === 'Converted') {
-      try { confetti({ particleCount: 65, spread: 70, origin: { y: 0.6 } }); } catch (_) {}
-      showToast(`Lead ${lead.clientName} converted to Paid Advisory!`, 'success');
-    } else {
-      showToast(`Updated ${lead.clientName} stage to ${nextStage}`, 'info');
-    }
+  const handleStageClick = (lead: AdvisoryLead, nextStage: LeadStatus | 'Closed Won' | 'Closed Own') => {
+    if (nextStage === 'Converted' || nextStage === 'Closed Won' || nextStage === 'Closed Own') {
+      handleOpenResponseModal(lead); setModalResponse(nextStage === 'Closed Own' ? 'Closed Won' : nextStage);
+    } else updateLeadStatus(lead.id, nextStage);
   };
 
   const getResponseBadge = (response?: string) => {
@@ -322,20 +395,33 @@ export const AdvisoryPipeline: React.FC = () => {
   const handleOpenResponseModal = (lead: AdvisoryLead) => {
     setResponseModalLead(lead);
     setModalResponse(lead.response || 'Interested');
-    setModalNote(lead.description || '');
-    setModalCallbackDate(lead.callbackDate || '2026-09-24');
+    setModalNote('');
+    setModalCallbackDate(lead.callbackDate || new Date(Date.now() + 7 * 86400000).toLocaleDateString('en-CA'));
     setModalCallbackTime(lead.callbackTime || '03:30 PM');
   };
 
+  useEffect(() => {
+    const openPending = () => {
+      const id = sessionStorage.getItem('crm:pending-response-lead');
+      const lead = scopedLeads.find(item => item.id === id);
+      if (lead) { sessionStorage.removeItem('crm:pending-response-lead'); handleOpenResponseModal(lead); }
+    };
+    openPending();
+    window.addEventListener('crm:open-lead-response', openPending);
+    return () => window.removeEventListener('crm:open-lead-response', openPending);
+  }, [activeTab, scopedLeads]);
+
   const handleSaveResponse = () => {
     if (!responseModalLead) return;
-    updateLeadResponse(
+    const saved = updateLeadResponse(
       responseModalLead.id,
       modalResponse,
       modalNote,
-      modalResponse === 'Call Back' ? modalCallbackDate : undefined,
-      modalResponse === 'Call Back' ? modalCallbackTime : undefined
+      ['Call Back', 'Interested'].includes(modalResponse) ? modalCallbackDate : undefined,
+      ['Call Back', 'Interested'].includes(modalResponse) ? modalCallbackTime : undefined
     );
+    if (!saved) return;
+    if (isClosedWon({ status: responseModalLead.status, response: modalResponse })) { handleResetFilters(); handleTabChange('closed-won'); }
     setResponseModalLead(null);
   };
 
@@ -351,9 +437,11 @@ export const AdvisoryPipeline: React.FC = () => {
   const getTabTitle = () => {
     switch (currentLeadTab) {
       case 'new-leads': return 'New Leads Inquiries';
+      case 'closed-won':
+      case 'closed-own': return "Closed Won · Client Onboarding";
       case 'today-followup': return "Today's Follow-up Pipeline";
       case 'active-prospect': return 'Active Trial Prospects';
-      case 'past-prospect': return 'Past & Closed Leads';
+      case 'past-prospect': return 'Closed Won · Client Onboarding';
       case 'confirmed-payment': return 'All Confirmed Payment';
       default: return 'Advisory Leads & Pipeline Desk';
     }
@@ -362,9 +450,11 @@ export const AdvisoryPipeline: React.FC = () => {
   const getTabBreadcrumb = () => {
     switch (currentLeadTab) {
       case 'new-leads': return 'New Leads';
+      case 'closed-won':
+      case 'closed-own': return "Closed Won";
       case 'today-followup': return "Today's Follow-up";
       case 'active-prospect': return 'Active Prospects';
-      case 'past-prospect': return 'Past / Lost';
+      case 'past-prospect': return 'Closed Won';
       case 'confirmed-payment': return 'Confirmed Payment';
       default: return 'Advisory Leads Desk';
     }
@@ -380,7 +470,7 @@ export const AdvisoryPipeline: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
+    <div className="lead-pipeline" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
       
       {/* 1. Top Breadcrumb & Action Strip matching CRM */}
       <div 
@@ -526,91 +616,32 @@ export const AdvisoryPipeline: React.FC = () => {
                 <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600 }}>Active Leads:</span>
                 <strong style={{ fontSize: '12.5px', color: '#0f172a' }}>{filteredLeads.length}</strong>
               </div>
-              <span style={{ color: '#cbd5e1' }}>•</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <TrendingUp size={13} color="#15803d" />
-                <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600 }}>Pipeline Fee:</span>
-                <strong style={{ fontSize: '12.5px', color: '#15803d' }}>
-                  ₹{filteredLeads.reduce((acc, l) => acc + (l.expectedRevenue || 0), 0).toLocaleString('en-IN')}
-                </strong>
-              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* 3. Subtabs Bar (Responsive Flex-Wrap, NO Horizontal Scroll) */}
-      <div 
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '6px',
-          background: '#ffffff',
-          borderRadius: '6px',
-          padding: '8px 10px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
-        }}
-      >
-        {[
-          { id: 'view-all-leads', label: 'All Leads', count: scopedLeads.length },
-          { id: 'new-leads', label: 'New Leads', count: scopedLeads.filter(l => l.status === 'New Lead' || l.response === 'Fresh').length },
-          { id: 'today-followup', label: "Today's Follow-up", count: scopedLeads.filter(l => l.status === 'In Contact' || l.response === 'Call Back' || l.callbackDate?.includes('2026-09') || l.lastContactDate === '22-Sep-2026').length },
-          { id: 'active-prospect', label: 'Active Prospect', count: scopedLeads.filter(l => l.status === 'Trial Active' || l.response === 'Interested').length },
-          { id: 'interested-leads', label: 'Interested Leads', count: scopedLeads.filter(l => l.response === 'Interested').length },
-          { id: 'past-prospect', label: 'Past / Lost', count: scopedLeads.filter(l => l.status === 'Lost').length },
-          { id: 'confirmed-payment', label: 'Confirmed Payment', count: scopedLeads.filter(l => l.status === 'Converted' || l.response === 'Payment').length, icon: <CreditCard size={13} /> },
-          { id: 'modified-today', label: 'Modified Today', count: scopedLeads.filter(l => l.modifiedToday === true || l.lastContactDate?.includes('22-Sep')).length },
-          { id: 'disposed-today', label: 'Disposed Today', count: scopedLeads.filter(l => l.disposedToday === true || (l.status === 'Lost' && l.disposedAt)).length },
-          ...(role !== 'employee' ? [{ id: 'team-pool-leads', label: 'Team Pool', count: scopedLeads.filter(l => l.isTeamPool).length }] : [])
-        ].map(tab => {
-          const isActive = currentLeadTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              style={{
-                background: isActive ? '#0073b7' : '#f8fafc',
-                color: isActive ? '#ffffff' : '#334155',
-                border: `1px solid ${isActive ? '#0073b7' : '#cbd5e1'}`,
-                borderRadius: '4px',
-                padding: '6px 12px',
-                fontSize: '12px',
-                fontWeight: isActive ? 700 : 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                transition: 'all 0.12s ease'
-              }}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-              <span 
-                style={{
-                  background: isActive ? 'rgba(255, 255, 255, 0.25)' : '#e2e8f0',
-                  color: isActive ? '#ffffff' : '#475569',
-                  fontSize: '10.5px',
-                  fontWeight: 700,
-                  padding: '1px 6px',
-                  borderRadius: '10px'
-                }}
-              >
-                {tab.count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <nav className="lead-viewbar" aria-label="Lead views">
+        <div className="lead-primary-views">{[
+          { id: 'view-all-leads', label: 'All Leads', count: tabCounts.all },
+          { id: 'new-leads', label: 'New', count: tabCounts.newLeads },
+          { id: 'today-followup', label: 'Follow-ups', count: tabCounts.followups },
+          { id: 'closed-won', label: 'Closed Won', count: tabCounts.closedWon }
+        ].map(view => <button key={view.id} aria-pressed={currentLeadTab === view.id || (view.id === 'closed-won' && currentLeadTab === 'closed-own')} className={(currentLeadTab === view.id || (view.id === 'closed-won' && currentLeadTab === 'closed-own')) ? 'selected' : ''} onClick={() => handleTabChange(view.id)}>{view.label}<span>{view.count}</span></button>)}</div>
+        <select aria-label="More lead views" value={['view-all-leads', 'new-leads', 'today-followup', 'closed-won', 'closed-own'].includes(currentLeadTab) ? '' : currentLeadTab} onChange={e => { if(e.target.value) handleTabChange(e.target.value); }}>
+          <option value="">More views</option><option value="active-prospect">Active Prospect</option><option value="interested-leads">Interested Leads</option><option value="confirmed-payment">Confirmed Payment</option><option value="modified-today">Modified Today</option><option value="disposed-today">Disposed / Not interested</option>{role !== 'employee' && <option value="team-pool-leads">Team Pool</option>}
+        </select>
+      </nav>
 
       {/* CONFIRMED PAYMENT TAB SWITCH */}
       {currentLeadTab === 'confirmed-payment' ? (
-        <AllConfirmedPaymentsView embedded={true} />
+        <React.Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>Loading Confirmed Payments...</div>}>
+          <AllConfirmedPaymentsView embedded={true} />
+        </React.Suspense>
       ) : (
         <>
           {/* 4. CRM Search & Filter Toolbar (Clean, Unified, No Extra Filter Cards) */}
-          <div 
+          <div className={`lead-searchbar ${showFilters ? 'expanded' : ''}`}
             style={{
               background: '#ffffff',
               borderRadius: '6px',
@@ -661,6 +692,7 @@ export const AdvisoryPipeline: React.FC = () => {
             </div>
 
             {/* Filter by Response Dropdown */}
+            <button className="lead-filter-toggle" aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)}>Filters{[selectedResponse, selectedSource, selectedService, selectedAdvisor].filter(v => v !== 'All').length ? ` (${[selectedResponse, selectedSource, selectedService, selectedAdvisor].filter(v => v !== 'All').length})` : ''}</button>
             <div style={{ minWidth: '150px', flex: '0 1 auto' }}>
               <select
                 value={selectedResponse}
@@ -688,7 +720,7 @@ export const AdvisoryPipeline: React.FC = () => {
                 <option value="Language Barrier">Language Barrier</option>
                 <option value="Wrong Number">Wrong Number</option>
                 <option value="DND">DND (Do Not Call)</option>
-                <option value="Payment">Payment Pending</option>
+                <option value="Payment">Payment Pending</option><option value="Closed Won">Closed Won</option><option value="Converted">Converted</option>
               </select>
             </div>
 
@@ -845,8 +877,8 @@ export const AdvisoryPipeline: React.FC = () => {
                 maxWidth: '100%'
               }}
             >
-              <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
-                <table 
+              <div className="lead-table-wrap">
+                <table className="lead-fit-table"
                   style={{ 
                     width: '100%', 
                     minWidth: 0,
@@ -857,42 +889,43 @@ export const AdvisoryPipeline: React.FC = () => {
                 >
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0' }}>
-                    <th style={{ width: '24%', padding: '11px 14px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                        <User size={13} color="#0284c7" /> Prospect Profile
+                    <th style={{ width: '20%', padding: '8px 10px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <User size={12} color="#0284c7" /> Prospect Profile
                       </span>
                     </th>
-                    <th style={{ width: '16%', padding: '11px 14px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                        <MapPin size={13} color="#0369a1" /> Lead Source
+                    <th style={{ width: '12%', padding: '8px 10px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <MapPin size={12} color="#0369a1" /> Lead Source
                       </span>
                     </th>
-                    <th style={{ width: '18%', padding: '11px 14px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                        <CheckCircle2 size={13} color="#15803d" /> Response & Touch
+                    <th style={{ width: '18%', padding: '8px 10px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <CheckCircle2 size={12} color="#15803d" /> Response & Touch
                       </span>
                     </th>
-                    <th style={{ width: '16%', padding: '11px 14px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                        <Zap size={13} color="#d97706" /> Service & Fee
+                    <th style={{ width: '15%', padding: '8px 10px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <Zap size={12} color="#d97706" /> Service & Fee
                       </span>
                     </th>
-                    <th style={{ width: '14%', padding: '11px 14px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                        <TrendingUp size={13} color="#059669" /> Stage & Advisor
+                    <th style={{ width: '17%', padding: '8px 10px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <TrendingUp size={12} color="#059669" /> Stage & Advisor
                       </span>
                     </th>
-                    <th style={{ width: '12%', padding: '11px 14px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', justifyContent: 'flex-end' }}>
-                        <PhoneOutgoing size={13} color="#16a34a" /> Actions
+                    <th style={{ width: '18%', padding: '8px 10px', fontWeight: 700, color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+                        <PhoneOutgoing size={12} color="#16a34a" /> Actions
                       </span>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredLeads.map((lead, idx) => {
+                  {paginatedLeads.map((lead, idx) => {
                     const sBadge = getServiceBadge(lead.serviceType);
                     const stageStyle = getStageStyle(lead.status);
+                    const { name: displayClientName } = resolveLeadClientName(lead);
                     return (
                       <tr 
                         key={lead.id} 
@@ -901,96 +934,82 @@ export const AdvisoryPipeline: React.FC = () => {
                           background: idx % 2 === 0 ? '#ffffff' : '#fafbfe',
                           transition: 'all 0.15s ease'
                         }}
-                        onMouseOver={e => e.currentTarget.style.background = '#f0f7ff'}
-                        onMouseOut={e => e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#fafbfe'}
+
+
                       >
                         {/* Prospect Profile */}
-                        <td style={{ padding: '11px 14px', verticalAlign: 'middle' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                        <td data-label="Prospect" style={{ padding: '8px 10px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                             <div 
                               style={{ 
-                                width: '34px', 
-                                height: '34px', 
-                                borderRadius: '8px', 
-                                background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)', 
+                                width: '30px', 
+                                height: '30px', 
+                                borderRadius: '50%', 
+                                background: '#161e47', 
                                 color: '#ffffff', 
                                 display: 'flex', 
                                 alignItems: 'center', 
                                 justifyContent: 'center', 
-                                fontWeight: 800, 
-                                fontSize: '13px',
-                                flexShrink: 0,
-                                boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                fontWeight: 700, 
+                                fontSize: '11.5px',
+                                flexShrink: 0
                               }}
                             >
-                              {lead.clientName.charAt(0)}
+                              {displayClientName.charAt(0).toUpperCase()}
                             </div>
                             <div style={{ minWidth: 0, overflow: 'hidden' }}>
                               <div 
-                                onClick={() => setInspectLead(lead)}
+                                onClick={() => setInspectLead({ ...lead, clientName: displayClientName })}
                                 style={{ 
                                   fontWeight: 700, 
-                                  color: '#0f172a', 
-                                  fontSize: '13px',
+                                  color: '#0073b7', 
+                                  fontSize: '12px',
                                   cursor: 'pointer',
                                   textOverflow: 'ellipsis',
                                   overflow: 'hidden',
-                                  whiteSpace: 'nowrap',
-                                  transition: 'color 0.12s ease'
+                                  whiteSpace: 'nowrap'
                                 }}
-                                onMouseOver={e => (e.currentTarget.style.color = '#0073b7')}
-                                onMouseOut={e => (e.currentTarget.style.color = '#0f172a')}
+                                onMouseOver={e => (e.currentTarget.style.textDecoration = 'underline')}
+                                onMouseOut={e => (e.currentTarget.style.textDecoration = 'none')}
                                 title="Click to inspect lead dossier"
                               >
-                                {lead.clientName}
+                                {displayClientName}
                               </div>
-                              <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                                <span style={{ fontWeight: 500 }}>{lead.phone}</span>
-                                {lead.city ? (
-                                  <>
-                                    <span style={{ color: '#cbd5e1' }}>•</span>
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                                      <MapPin size={10} color="#94a3b8" />
-                                      {lead.city}
-                                    </span>
-                                  </>
-                                ) : null}
-                                {lead.investmentBracket && (
-                                  <>
-                                    <span style={{ color: '#cbd5e1' }}>•</span>
-                                    <span style={{ fontSize: '10px', background: '#f1f5f9', color: '#475569', padding: '1px 5px', borderRadius: '3px', border: '1px solid #e2e8f0', fontWeight: 600 }}>
-                                      {lead.investmentBracket}
-                                    </span>
-                                  </>
-                                )}
+                              <div className="lead-contact-meta" style={{ fontSize: '10.5px', color: '#64748b' }}>
+                                <span style={{ fontWeight: 600, color: '#334155' }}>{lead.phone}</span>
                               </div>
                             </div>
                           </div>
                         </td>
 
                         {/* Lead Source */}
-                        <td style={{ padding: '11px 14px', verticalAlign: 'middle' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <td data-label="Source" style={{ padding: '8px 10px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
                             <span 
+                              title={lead.source || 'Direct Web'}
                               style={{ 
                                 display: 'inline-flex', 
                                 alignItems: 'center', 
-                                gap: '4px',
-                                fontSize: '11px', 
+                                gap: '3px',
+                                fontSize: '10.5px', 
                                 fontWeight: 700, 
-                                padding: '2px 8px', 
+                                padding: '1.5px 6px', 
                                 borderRadius: '4px', 
                                 background: '#f0f9ff', 
                                 color: '#0369a1', 
                                 border: '1px solid #bae6fd',
-                                width: 'fit-content'
+                                width: 'fit-content',
+                                maxWidth: '100%',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
                               }}
                             >
-                              <MapPin size={10} color="#0284c7" />
+                              <MapPin size={9} color="#0284c7" />
                               {lead.source || 'Direct Web'}
                             </span>
                             {lead.teamLeaderName && (
-                              <span style={{ fontSize: '10.5px', color: '#64748b' }}>
+                              <span style={{ fontSize: '10px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 TL: <strong style={{ color: '#334155' }}>{lead.teamLeaderName}</strong>
                               </span>
                             )}
@@ -998,12 +1017,12 @@ export const AdvisoryPipeline: React.FC = () => {
                         </td>
 
                         {/* Response & Touch */}
-                        <td style={{ padding: '11px 14px', verticalAlign: 'middle' }}>
+                        <td data-label="Response" style={{ padding: '8px 10px', verticalAlign: 'middle', overflow: 'hidden' }}>
                           {(() => {
                             const rBadge = getResponseBadge(lead.response);
                             return (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <div className="lead-response-summary">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'nowrap', maxWidth: '100%' }}>
                                   <span 
                                     style={{
                                       display: 'inline-flex',
@@ -1012,25 +1031,25 @@ export const AdvisoryPipeline: React.FC = () => {
                                       background: rBadge.bg,
                                       color: rBadge.color,
                                       border: `1px solid ${rBadge.border}`,
-                                      borderRadius: '12px',
-                                      padding: '2px 8px',
-                                      fontSize: '11px',
+                                      borderRadius: '10px',
+                                      padding: '1.5px 7px',
+                                      fontSize: '10.5px',
                                       fontWeight: 700,
                                       whiteSpace: 'nowrap'
                                     }}
                                   >
-                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: rBadge.dot }} />
+                                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: rBadge.dot }} />
                                     {rBadge.label}
                                   </span>
+                                  {lead.response === 'Call Back' && lead.callbackTime && (
+                                    <span style={{ fontSize: '9.5px', color: '#b45309', fontWeight: 600, background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '4px', padding: '1px 4px', whiteSpace: 'nowrap' }}>
+                                      ⏰ {lead.callbackTime}
+                                    </span>
+                                  )}
                                 </div>
-                                {lead.response === 'Call Back' && lead.callbackTime && (
-                                  <span style={{ fontSize: '10.5px', color: '#b45309', fontWeight: 600 }}>
-                                    ⏰ {lead.callbackDate || 'Today'} @ {lead.callbackTime}
-                                  </span>
-                                )}
-                                {lead.description && (
-                                  <span style={{ fontSize: '10.5px', color: '#64748b', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={lead.description}>
-                                    📝 {lead.description}
+                                {(lead.dispositionHistory?.[0]?.note || lead.description) && (
+                                  <span style={{ fontSize: '10.5px', color: '#64748b', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={lead.dispositionHistory?.[0]?.note || lead.description}>
+                                    {lead.dispositionHistory?.[0]?.note || lead.description}
                                   </span>
                                 )}
                               </div>
@@ -1039,34 +1058,38 @@ export const AdvisoryPipeline: React.FC = () => {
                         </td>
 
                         {/* Service & Value */}
-                        <td style={{ padding: '11px 14px', verticalAlign: 'middle' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                            <div>
+                        <td data-label="Service & fee" style={{ padding: '8px 10px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                            <div style={{ minWidth: 0 }}>
                               {lead.serviceType ? (
                                 <span 
+                                  title={lead.serviceType}
                                   style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
-                                    gap: '4px',
+                                    gap: '3px',
                                     background: sBadge.bg,
                                     color: sBadge.color,
                                     border: `1px solid ${sBadge.border}`,
                                     borderRadius: '4px',
-                                    padding: '2px 7px',
-                                    fontSize: '11px',
+                                    padding: '1.5px 6px',
+                                    fontSize: '10.5px',
                                     fontWeight: 700,
-                                    whiteSpace: 'nowrap'
+                                    whiteSpace: 'nowrap',
+                                    maxWidth: '100%',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
                                   }}
                                 >
-                                  <Sparkles size={10} />
-                                  {lead.serviceType}
+                                  <Sparkles size={9} />
+                                  {getServiceShortLabel(lead.serviceType)}
                                 </span>
                               ) : (
                                 <span style={{ fontSize: '11px', color: '#94a3b8' }}>-</span>
                               )}
                             </div>
                             {lead.expectedRevenue > 0 ? (
-                              <div style={{ fontSize: '13px', fontWeight: 800, color: '#166534', letterSpacing: '-0.2px' }}>
+                              <div style={{ fontSize: '12px', fontWeight: 800, color: '#166534', letterSpacing: '-0.2px' }}>
                                 ₹{lead.expectedRevenue.toLocaleString('en-IN')}
                               </div>
                             ) : (
@@ -1076,42 +1099,46 @@ export const AdvisoryPipeline: React.FC = () => {
                         </td>
 
                         {/* Advisor & Stage */}
-                        <td style={{ padding: '11px 14px', verticalAlign: 'middle' }}>
-                          <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '12px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', marginBottom: '4px' }}>
+                        <td data-label="Stage & advisor" style={{ padding: '8px 10px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                          <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '11.5px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', marginBottom: '3px' }}>
                             {lead.assignedToName || 'Unassigned'}
                           </div>
                           {/* Interactive Stage Dropdown Pill */}
-                          <div style={{ display: 'inline-flex', alignItems: 'center', position: 'relative' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', position: 'relative', maxWidth: '100%' }}>
                             <span 
                               style={{ 
                                 position: 'absolute', 
-                                left: '8px', 
-                                width: '6px', 
-                                height: '6px', 
+                                left: '7px', 
+                                width: '5px', 
+                                height: '5px', 
                                 borderRadius: '50%', 
                                 background: stageStyle.dot,
-                                boxShadow: `0 0 5px ${stageStyle.dot}80`,
+                                boxShadow: `0 0 4px ${stageStyle.dot}80`,
                                 pointerEvents: 'none',
                                 zIndex: 1
                               }} 
                             />
                             <select
-                              value={lead.status}
-                              onChange={e => handleStageClick(lead, e.target.value as LeadStatus)}
+                              value={isClosedWon(lead) ? (lead.status === 'Converted' || lead.response === 'Converted' ? 'Converted' : 'Closed Won') : lead.status === 'Lost' ? '' : lead.status}
+                              onChange={e => handleStageClick(lead, e.target.value as LeadStatus | 'Closed Won')}
                               style={{
                                 appearance: 'none',
                                 WebkitAppearance: 'none',
-                                padding: '3px 20px 3px 18px',
-                                fontSize: '11px',
+                                padding: '2px 16px 2px 15px',
+                                fontSize: '10.5px',
                                 fontWeight: 700,
-                                borderRadius: '14px',
+                                borderRadius: '12px',
                                 border: `1px solid ${stageStyle.border}`,
                                 background: stageStyle.bg,
                                 color: stageStyle.color,
                                 cursor: 'pointer',
                                 outline: 'none',
                                 boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                                transition: 'all 0.15s ease'
+                                transition: 'all 0.15s ease',
+                                maxWidth: '100%',
+                                textOverflow: 'ellipsis',
+                                overflow: 'hidden',
+                                whiteSpace: 'nowrap'
                               }}
                               title="Click to change lead stage"
                             >
@@ -1120,83 +1147,89 @@ export const AdvisoryPipeline: React.FC = () => {
                                   {st}
                                 </option>
                               ))}
-                              <option value="Lost" style={{ background: '#ffffff', color: '#b91c1c' }}>Lost / Closed</option>
+                              {lead.status === 'Lost' && !isClosedOwn(lead) && <option value="" disabled>Disposed</option>}
+                              <option value="Closed Won">Closed Won</option>
                             </select>
                             <ChevronDown 
-                              size={10} 
+                              size={9} 
                               color={stageStyle.color} 
-                              style={{ position: 'absolute', right: '6px', pointerEvents: 'none' }} 
+                              style={{ position: 'absolute', right: '5px', pointerEvents: 'none' }} 
                             />
                             {lead.status === 'Converted' && (
-                              <span title="Paid Advisory Client" style={{ color: '#16a34a', marginLeft: '4px', display: 'inline-flex' }}>
-                                <Check size={13} strokeWidth={3} />
+                              <span title="Paid Advisory Client" style={{ color: '#16a34a', marginLeft: '3px', display: 'inline-flex' }}>
+                                <Check size={12} strokeWidth={3} />
                               </span>
                             )}
                           </div>
                         </td>
 
                         {/* Quick Actions */}
-                        <td style={{ padding: '11px 14px', verticalAlign: 'middle', textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', justifyContent: 'flex-end' }}>
+                        <td data-label="Actions" style={{ padding: '6px 8px', verticalAlign: 'middle', textAlign: 'center', overflow: 'visible' }}>
+                          <div className="lead-row-actions" style={{ justifyContent: 'center', margin: '0 auto', float: 'none' }}>
                             <button
-                              onClick={() => handleOpenResponseModal(lead)}
+                              onClick={() => handleOpenResponseModal({ ...lead, clientName: displayClientName })}
+                              className="lead-response-action"
                               title="Update Lead Response / Disposition"
                               style={{
                                 background: '#f0fdf4',
                                 color: '#16a34a',
                                 border: '1px solid #bbf7d0',
-                                borderRadius: '4px',
-                                padding: '4px 8px',
-                                fontSize: '11px',
-                                fontWeight: 700,
+                                borderRadius: '5px',
+                                width: '25px',
+                                height: '25px',
                                 cursor: 'pointer',
-                                display: 'flex',
+                                display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '3px',
-                                transition: 'all 0.12s ease'
+                                justifyContent: 'center',
+                                transition: 'all 0.15s ease'
                               }}
                               onMouseOver={e => {
                                 e.currentTarget.style.background = '#dcfce7';
                                 e.currentTarget.style.borderColor = '#86efac';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
                               }}
                               onMouseOut={e => {
                                 e.currentTarget.style.background = '#f0fdf4';
                                 e.currentTarget.style.borderColor = '#bbf7d0';
+                                e.currentTarget.style.transform = 'none';
                               }}
                             >
-                              <CheckCircle2 size={12} />
-                              <span>Response</span>
+                              <CheckCircle2 size={13} strokeWidth={2.4} /><span>Response</span>
                             </button>
 
                             <button
-                              onClick={() => showToast(`Calling ${lead.clientName} (${lead.phone})...`, 'info')}
+                              onClick={() => showToast(`Calling ${displayClientName} (${lead.phone})...`, 'info')}
                               title={`Direct Dial: ${lead.phone}`}
                               style={{
-                                background: '#f8fafc',
+                                background: '#f0f9ff',
                                 color: '#0284c7',
-                                border: '1px solid #cbd5e1',
-                                borderRadius: '4px',
-                                padding: '5px 7px',
+                                border: '1px solid #bae6fd',
+                                borderRadius: '5px',
+                                width: '25px',
+                                height: '25px',
                                 cursor: 'pointer',
-                                display: 'flex',
+                                display: 'inline-flex',
                                 alignItems: 'center',
-                                transition: 'all 0.12s ease'
+                                justifyContent: 'center',
+                                transition: 'all 0.15s ease'
                               }}
                               onMouseOver={e => {
                                 e.currentTarget.style.background = '#e0f2fe';
                                 e.currentTarget.style.borderColor = '#7dd3fc';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
                               }}
                               onMouseOut={e => {
-                                e.currentTarget.style.background = '#f8fafc';
-                                e.currentTarget.style.borderColor = '#cbd5e1';
+                                e.currentTarget.style.background = '#f0f9ff';
+                                e.currentTarget.style.borderColor = '#bae6fd';
+                                e.currentTarget.style.transform = 'none';
                               }}
                             >
-                              <PhoneCall size={12} />
+                              <PhoneCall size={13} strokeWidth={2.2} />
                             </button>
 
                             <button
                               onClick={() => {
-                                const msg = encodeURIComponent(`Hello ${lead.clientName}, this is regarding your advisory inquiry with Stocketics.`);
+                                const msg = encodeURIComponent(`Hello ${displayClientName}, this is regarding your advisory inquiry with Stocketics.`);
                                 window.open(`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}?text=${msg}`, '_blank');
                               }}
                               title="Instant WhatsApp Connect"
@@ -1204,23 +1237,27 @@ export const AdvisoryPipeline: React.FC = () => {
                                 background: '#ecfdf5',
                                 color: '#059669',
                                 border: '1px solid #a7f3d0',
-                                borderRadius: '4px',
-                                padding: '5px 7px',
+                                borderRadius: '5px',
+                                width: '25px',
+                                height: '25px',
                                 cursor: 'pointer',
-                                display: 'flex',
+                                display: 'inline-flex',
                                 alignItems: 'center',
-                                transition: 'all 0.12s ease'
+                                justifyContent: 'center',
+                                transition: 'all 0.15s ease'
                               }}
                               onMouseOver={e => {
                                 e.currentTarget.style.background = '#d1fae5';
                                 e.currentTarget.style.borderColor = '#6ee7b7';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
                               }}
                               onMouseOut={e => {
                                 e.currentTarget.style.background = '#ecfdf5';
                                 e.currentTarget.style.borderColor = '#a7f3d0';
+                                e.currentTarget.style.transform = 'none';
                               }}
                             >
-                              <MessageSquare size={12} />
+                              <MessageSquare size={13} strokeWidth={2.2} />
                             </button>
 
                             <button
@@ -1229,30 +1266,48 @@ export const AdvisoryPipeline: React.FC = () => {
                               style={{
                                 background: '#f8fafc',
                                 border: '1px solid #cbd5e1',
-                                borderRadius: '4px',
-                                padding: '4px 7px',
-                                fontSize: '11px',
-                                fontWeight: 700,
+                                borderRadius: '5px',
+                                width: '25px',
+                                height: '25px',
                                 color: '#475569',
                                 cursor: 'pointer',
-                                display: 'flex',
+                                display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '3px',
-                                transition: 'all 0.12s ease'
+                                justifyContent: 'center',
+                                transition: 'all 0.15s ease'
                               }}
                               onMouseOver={e => {
                                 e.currentTarget.style.background = '#0073b7';
                                 e.currentTarget.style.borderColor = '#0073b7';
                                 e.currentTarget.style.color = '#ffffff';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
                               }}
                               onMouseOut={e => {
                                 e.currentTarget.style.background = '#f8fafc';
                                 e.currentTarget.style.borderColor = '#cbd5e1';
                                 e.currentTarget.style.color = '#475569';
+                                e.currentTarget.style.transform = 'none';
                               }}
                             >
-                              <Eye size={12} />
+                              <Eye size={13} strokeWidth={2.2} />
                             </button>
+
+                            {(currentLeadTab === 'closed-won' || currentLeadTab === 'closed-own') && isClosedWon(lead) && (
+                              <button 
+                                className="lead-onboard-action" 
+                                onClick={() => setKycModalLead(lead)} 
+                                title="Open client onboarding"
+                                style={{
+                                  height: '26px',
+                                  padding: '0 6px',
+                                  fontSize: '10.5px',
+                                  fontWeight: 700,
+                                  borderRadius: '5px'
+                                }}
+                              >
+                                <ShieldCheck size={12} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1278,11 +1333,73 @@ export const AdvisoryPipeline: React.FC = () => {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  <span>Showing <strong>{filteredLeads.length}</strong> active {filteredLeads.length === 1 ? 'lead' : 'leads'}</span>
-                  <span style={{ color: '#cbd5e1' }}>•</span>
-                  <span>Total Expected Revenue: <strong style={{ color: '#166534' }}>₹{filteredLeads.reduce((acc, l) => acc + (l.expectedRevenue || 0), 0).toLocaleString('en-IN')}</strong></span>
+                  <span>Showing <strong>{filteredLeads.length === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1} - {Math.min(safeCurrentPage * pageSize, filteredLeads.length)}</strong> of <strong>{filteredLeads.length}</strong> {filteredLeads.length === 1 ? 'lead' : 'leads'}</span>
+                  
+                  <span>Total Expected Revenue: <strong style={{ color: '#166534' }}>₹{totalExpectedRevenue.toLocaleString('en-IN')}</strong></span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {totalPages > 1 && (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={safeCurrentPage <= 1}
+                        style={{
+                          padding: '3px 8px',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          borderRadius: '4px',
+                          border: '1px solid #cbd5e1',
+                          background: safeCurrentPage <= 1 ? '#f1f5f9' : '#ffffff',
+                          color: safeCurrentPage <= 1 ? '#94a3b8' : '#334155',
+                          cursor: safeCurrentPage <= 1 ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        Prev
+                      </button>
+                      <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#475569', padding: '0 4px' }}>
+                        Page {safeCurrentPage} of {totalPages}
+                      </span>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={safeCurrentPage >= totalPages}
+                        style={{
+                          padding: '3px 8px',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          borderRadius: '4px',
+                          border: '1px solid #cbd5e1',
+                          background: safeCurrentPage >= totalPages ? '#f1f5f9' : '#ffffff',
+                          color: safeCurrentPage >= totalPages ? '#94a3b8' : '#334155',
+                          cursor: safeCurrentPage >= totalPages ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+
+                  <select
+                    value={pageSize}
+                    onChange={e => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    style={{
+                      padding: '3px 6px',
+                      fontSize: '11px',
+                      borderRadius: '4px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#475569',
+                      cursor: 'pointer'
+                    }}
+                    title="Rows per page"
+                  >
+                    <option value={15}>15 / page</option>
+                    <option value={20}>20 / page</option>
+                    <option value={50}>50 / page</option>
+                    <option value={100}>100 / page</option>
+                  </select>
                   <span style={{ fontSize: '11px', background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>
                     Subtab: {currentLeadTab}
                   </span>
@@ -1431,6 +1548,53 @@ export const AdvisoryPipeline: React.FC = () => {
                 </div>
               </div>
 
+              {/* KYC Onboarding Compliance Status Banner */}
+              <div 
+                style={{ 
+                  background: '#f0f9ff', 
+                  border: '1px solid #bae6fd', 
+                  borderRadius: '6px', 
+                  padding: '10px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldCheck size={18} color="#0284c7" />
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#0369a1' }}>
+                      Advisory KYC Compliance
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>
+                      Status: <strong>{getKYCCaseForLead(inspectLead.id)?.status || 'Not Started'}</strong>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setKycModalLead(inspectLead);
+                    setInspectLead(null);
+                  }}
+                  style={{
+                    background: '#0073b7',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '6px 12px',
+                    fontSize: '11.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <ShieldCheck size={13} /> KYC Onboarding
+                </button>
+              </div>
+
               {/* Modal Action Buttons */}
               <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                 <button
@@ -1487,7 +1651,7 @@ export const AdvisoryPipeline: React.FC = () => {
 
       {/* 7. Interactive Response & Disposition Modal */}
       {responseModalLead && (
-        <div 
+        <div className="lead-workflow-dialog" 
           style={{
             position: 'fixed',
             inset: 0,
@@ -1499,17 +1663,19 @@ export const AdvisoryPipeline: React.FC = () => {
             justifyContent: 'center',
             padding: '16px'
           }}
-          onClick={() => setResponseModalLead(null)}
+          onClick={() => undefined}
         >
-          <div 
+          <div role="dialog" aria-modal="true" aria-label="Update lead response"
             style={{
               background: '#ffffff',
               borderRadius: '8px',
-              maxWidth: '500px',
+              maxWidth: '640px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
               width: '100%',
               border: '1px solid #cbd5e1',
               boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
-              overflow: 'hidden'
+              overflowX: 'hidden'
             }}
             onClick={e => e.stopPropagation()}
           >
@@ -1531,7 +1697,7 @@ export const AdvisoryPipeline: React.FC = () => {
                 </span>
               </div>
               <button 
-                onClick={() => setResponseModalLead(null)}
+                onClick={() => { if (!modalNote.trim() || window.confirm('Discard this unsaved response?')) setResponseModalLead(null); }}
                 style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', padding: '2px' }}
               >
                 <X size={18} />
@@ -1572,6 +1738,8 @@ export const AdvisoryPipeline: React.FC = () => {
                 >
                   <option value="Interested">Interested (Active Prospect)</option>
                   <option value="Call Back">Call Back (Scheduled Follow-up)</option>
+                  <option value="Closed Won">Closed Won</option>
+                  <option value="Converted">Converted</option>
                   <option value="Fresh">Fresh / New</option>
                   <option value="Busy">Busy / Ringing</option>
                   <option value="Payment">Payment / Token Received</option>
@@ -1583,7 +1751,7 @@ export const AdvisoryPipeline: React.FC = () => {
               </div>
 
               {/* Call Back Schedule */}
-              {modalResponse === 'Call Back' && (
+              {['Call Back', 'Interested'].includes(modalResponse) && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: '#fef3c7', padding: '10px', borderRadius: '6px', border: '1px solid #fde68a' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#92400e', marginBottom: '4px' }}>
@@ -1611,9 +1779,20 @@ export const AdvisoryPipeline: React.FC = () => {
                 </div>
               )}
 
+              <section className="lead-response-history" aria-label="Previous client responses">
+                <h4>Previous client responses <span>{responseModalLead.dispositionHistory?.length || 0}</span></h4>
+                <div className="lead-response-timeline">
+                  {(responseModalLead.dispositionHistory || []).map(entry => <article key={entry.id}>
+                    <header><strong>{entry.response}</strong><time>{Number.isNaN(Date.parse(entry.timestamp)) ? entry.timestamp : new Date(entry.timestamp).toLocaleString()}</time></header>
+                    <p>{entry.note || 'No description recorded.'}</p>
+                    <small>{entry.actorName}{entry.callbackDate ? ` · Callback: ${entry.callbackDate} ${entry.callbackTime || ''}` : ''}</small>
+                  </article>)}
+                  {!responseModalLead.dispositionHistory?.length && <p>{responseModalLead.description || 'No previous responses. Add the first conversation below.'}</p>}
+                </div>
+              </section>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                  Discussion Notes / Description:
+                  New client response / description:
                 </label>
                 <textarea
                   rows={3}
@@ -1656,7 +1835,7 @@ export const AdvisoryPipeline: React.FC = () => {
 
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
-                    onClick={() => setResponseModalLead(null)}
+                    onClick={() => { if (!modalNote.trim() || window.confirm('Discard this unsaved response?')) setResponseModalLead(null); }}
                     style={{
                       background: '#f1f5f9',
                       color: '#475569',
@@ -1693,10 +1872,23 @@ export const AdvisoryPipeline: React.FC = () => {
       )}
 
       {/* Action Modals */}
-      <AddNewLeadModal isOpen={isAddLeadOpen} onClose={() => setIsAddLeadOpen(false)} />
-      <BulkLeadUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} />
-      <CallLogsModal isOpen={isCallLogsOpen} onClose={() => setIsCallLogsOpen(false)} />
-      <TipsModal isOpen={isTipsOpen} onClose={() => setIsTipsOpen(false)} />
+      {isAddLeadOpen && <AddNewLeadModal isOpen={isAddLeadOpen} onClose={() => setIsAddLeadOpen(false)} />}
+      {isBulkUploadOpen && (
+        <React.Suspense fallback={null}>
+          <BulkLeadUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} />
+        </React.Suspense>
+      )}
+      {isCallLogsOpen && <CallLogsModal isOpen={isCallLogsOpen} onClose={() => setIsCallLogsOpen(false)} />}
+      {isTipsOpen && <TipsModal isOpen={isTipsOpen} onClose={() => setIsTipsOpen(false)} />}
+      {kycModalLead && (
+        <React.Suspense fallback={null}>
+          <LeadKYCOnboardingModal
+          lead={kycModalLead}
+          isOpen={!!kycModalLead}
+          onClose={() => setKycModalLead(null)}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 };

@@ -1,0 +1,280 @@
+    time: c.timestamp.split(' ').slice(1).join(' '),
+    sentiment: c.sentiment,
+  }));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Breadcrumb */}
+      <div className="subpage-header-strip">
+        <div className="subpage-breadcrumb">
+          <span className="home-link" onClick={() => setActiveTab('dashboard')} style={{ cursor: 'pointer' }}>
+            <Home size={16} />
+            <span style={{ color: '#f59e0b', fontWeight: 600 }}>/ Team Leader Dashboard</span>
+          </span>
+        </div>
+        <button className="btn btn-secondary btn-sm" onClick={() => setIsTipsOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <Target size={14} /> Tips
+        </button>
+      </div>
+
+      <h1 className="page-title-ref" style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+        <Award size={24} style={{ color: '#f59e0b' }} />
+        Team Command Center
+      </h1>
+
+      {/* KPI Grid */}
+      <RefKPIGrid
+        customRow1={kpiRow1}
+        customRow2={[]}
+        onCardClick={(id: string) => {
+          if (id === 'active-leads') setActiveTab('leads');
+          else if (id === 'calls-today') setActiveTab('call-logs');
+          else if (id === 'team-members') setActiveTab('team-leaderboard');
+          else if (id === 'followups') setActiveTab('today-followup');
+        }}
+      />
+
+      {/* Main Content: 2-column layout */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.25rem', alignItems: 'start' }}>
+        {/* Left Column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Team Leaderboard Preview */}
+          <div className="card" style={{ overflow: 'hidden' }}>
+            <div className="card-header" style={{ marginBottom: '0.75rem' }}>
+              <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Award size={18} style={{ color: '#f59e0b' }} />
+                <span>Team Leaderboard</span>
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('team-leaderboard')} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                Full View <ChevronRight size={13} />
+              </button>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border-subtle)' }}>
+                  <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left', fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.76rem', textTransform: 'uppercase' }}>Rank</th>
+                  <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left', fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.76rem', textTransform: 'uppercase' }}>Employee</th>
+                  <th style={{ padding: '0.5rem 0.75rem', textAlign: 'center', fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.76rem', textTransform: 'uppercase' }}>Leads</th>
+                  <th style={{ padding: '0.5rem 0.75rem', textAlign: 'center', fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.76rem', textTransform: 'uppercase' }}>Converted</th>
+                  <th style={{ padding: '0.5rem 0.75rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.76rem', textTransform: 'uppercase' }}>Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leaderboardData.map((emp, idx) => (
+                  <tr key={emp.id} style={{
+                    borderBottom: '1px solid var(--border-subtle)',
+                    background: idx === 0 ? 'rgba(245, 158, 11, 0.06)' : 'transparent',
+                    transition: 'background 0.2s',
+                  }}>
+                    <td style={{ padding: '0.6rem 0.75rem', fontWeight: 800, fontSize: '1rem' }}>
+                      {idx < 3 ? rankEmojis[idx] : <span style={{ color: 'var(--text-muted)' }}>#{idx + 1}</span>}
+                    </td>
+                    <td style={{ padding: '0.6rem 0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <img src={emp.avatar} alt={emp.name} style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', border: idx === 0 ? '2px solid #f59e0b' : '2px solid var(--border-subtle)' }} />
+                        <div>
+                          <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{emp.name}</div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{emp.title}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '0.6rem 0.75rem', textAlign: 'center', fontWeight: 600 }}>{emp.activeLeads}</td>
+                    <td style={{ padding: '0.6rem 0.75rem', textAlign: 'center' }}>
+                      <span style={{ fontWeight: 700, color: emp.converted > 0 ? '#10b981' : 'var(--text-muted)' }}>{emp.converted}</span>
+                    </td>
+                    <td style={{ padding: '0.6rem 0.75rem', textAlign: 'right' }}>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                        padding: '0.2rem 0.6rem', borderRadius: '20px', fontWeight: 800, fontSize: '0.82rem',
+                        background: idx === 0 ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' : idx === 1 ? 'linear-gradient(135deg, #94a3b8, #64748b)' : idx === 2 ? 'linear-gradient(135deg, #d97706, #b45309)' : 'var(--bg-surface-alt)',
+                        color: idx < 3 ? '#fff' : 'var(--text-primary)',
+                      }}>
+                        {idx === 0 && <Star size={12} />}
+                        {emp.score}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Live Activity Monitor */}
+          <div className="card">
+            <div className="card-header" style={{ marginBottom: '0.75rem' }}>
+              <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Activity size={18} style={{ color: '#06b6d4' }} />
+                <span>Live Activity Monitor</span>
+              </div>
+            </div>
+            {recentActivity.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {recentActivity.map((act, idx) => (
+                  <div key={act.id} style={{
+                    display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                    padding: '0.6rem 0.75rem', borderRadius: 'var(--radius-md)',
+                    background: idx === 0 ? 'rgba(6, 182, 212, 0.06)' : 'var(--bg-surface-alt)',
+                    borderLeft: `3px solid ${act.sentiment === 'Positive' ? '#10b981' : act.sentiment === 'Challenging' ? '#ef4444' : '#64748b'}`,
+                    transition: 'all 0.2s',
+                  }}>
+                    <div style={{
+                      width: 8, height: 8, borderRadius: '50%', marginTop: '0.35rem', flexShrink: 0,
+                      background: idx === 0 ? '#06b6d4' : '#94a3b8',
+                      boxShadow: idx === 0 ? '0 0 6px rgba(6, 182, 212, 0.6)' : 'none',
+                      animation: idx === 0 ? 'pulse 2s infinite' : 'none',
+                    }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.84rem', color: 'var(--text-primary)' }}>{act.text}</div>
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>{act.detail}</div>
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>{act.time}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                No recent activity. Team calls and actions will appear here in real-time.
+              </div>
+            )}
+          </div>
+
+          {/* Team Performance Summary & Efficiency Card */}
+          <div className="card" style={{ background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(147, 51, 234, 0.05))' }}>
+            <div className="card-header" style={{ marginBottom: '0.75rem' }}>
+              <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <TrendingUp size={18} style={{ color: '#3b82f6' }} />
+                <span>Overall Team Performance Summary</span>
+              </div>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Real-time team analytics</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '0.5rem' }}>
+              <div style={{ background: 'var(--bg-surface-alt)', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Conversion Rate</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#10b981', marginTop: '0.2rem' }}>
+                  {teamLeads.length > 0 ? ((convertedLeads.length / teamLeads.length) * 100).toFixed(1) : '0'}%
+                </div>
+              </div>
+              <div style={{ background: 'var(--bg-surface-alt)', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Avg Deal Size</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#8b5cf6', marginTop: '0.2rem' }}>
+                  ₹{convertedLeads.length > 0 ? Math.round(totalRevenue / convertedLeads.length).toLocaleString() : '0'}
+                </div>
+              </div>
+              <div style={{ background: 'var(--bg-surface-alt)', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Total Assigned</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#38bdf8', marginTop: '0.2rem' }}>
+                  {teamLeads.length} Leads
+                </div>
+              </div>
+              <div style={{ background: 'var(--bg-surface-alt)', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Total Calls Logged</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f59e0b', marginTop: '0.2rem' }}>
+                  {teamCalls.length}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Team Assigned Leads Drilldown & Filter Roster */}
+          <div className="card">
+            <div className="card-header" style={{ marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Users size={18} style={{ color: '#f59e0b' }} />
+                <span>Team Leads Drilldown ({teamLeads.length} Total Assigned)</span>
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('leads')}>
+                View In Pipeline →
+              </button>
+            </div>
+
+            {/* Filter controls row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.6rem', marginBottom: '0.75rem' }}>
+              {/* Employee Filter */}
+              <div>
+                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>Team Member</label>
+                <select
+                  value={filterEmpId}
+                  onChange={(e) => setFilterEmpId(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: 'var(--bg-surface-alt)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '0.35rem 0.5rem',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.76rem',
+                    outline: 'none'
+                  }}
+                >
+                  <option value="all">All Team Members ({teamEmployees.length})</option>
+                  {teamEmployees.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div>
+                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>Lead Status</label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: 'var(--bg-surface-alt)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '0.35rem 0.5rem',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.76rem',
+                    outline: 'none'
+                  }}
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="New">New</option>
+                  <option value="Contacted">Contacted</option>
+                  <option value="Interested">Interested</option>
+                  <option value="Converted">Converted</option>
+                  <option value="Lost">Lost</option>
+                </select>
+              </div>
+
+              {/* Source Filter */}
+              <div>
+                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>Lead Source</label>
+                <select
+                  value={filterSource}
+                  onChange={(e) => setFilterSource(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: 'var(--bg-surface-alt)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '0.35rem 0.5rem',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.76rem',
+                    outline: 'none'
+                  }}
+                >
+                  <option value="all">All Sources</option>
+                  <option value="Meta Ads">Meta Ads</option>
+                  <option value="Google Ads">Google Ads</option>
+                  <option value="Website Inbound">Website Inbound</option>
+                  <option value="Referral">Referral</option>
+                  <option value="Organic">Organic</option>
+                </select>
+              </div>
+
+              {/* Search */}
+              <div>
+                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>Search Client</label>
+                <input
+                  type="text"
+                  placeholder="Client name or phone..."
+                  value={drilldownSearch}
+                  onChange={(e) => setDrilldownSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    background: 'var(--bg-surface-alt)',

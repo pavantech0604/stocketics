@@ -60,7 +60,7 @@ export const ClientEditView: React.FC<ClientEditViewProps> = ({
   const [name, setName] = useState(client.clientName);
   const [mobile, setMobile] = useState(client.mobile);
   const [alternateMobile, setAlternateMobile] = useState(client.alternateMobile || '');
-  const [latestResponse, setLatestResponse] = useState(client.response || 'CLOSED OWN');
+  const [latestResponse, setLatestResponse] = useState(client.response === 'CLOSED OWN' ? 'CLOSED WON' : (client.response || 'CLOSED WON'));
   const [callBackDate, setCallBackDate] = useState(client.callbackDate || '');
   const [leadSource, setLeadSource] = useState(client.leadSource || 'INCOMING LEAD');
   const [description, setDescription] = useState(client.description || '');
@@ -87,7 +87,7 @@ export const ClientEditView: React.FC<ClientEditViewProps> = ({
     setName(client.clientName);
     setMobile(client.mobile);
     setAlternateMobile(client.alternateMobile || '');
-    setLatestResponse(client.response || 'CLOSED OWN');
+    setLatestResponse(client.response === 'CLOSED OWN' ? 'CLOSED WON' : (client.response || 'CLOSED WON'));
     setCallBackDate(client.callbackDate || '');
     setLeadSource(client.leadSource || 'INCOMING LEAD');
     setDescription(client.description || '');
@@ -178,13 +178,13 @@ export const ClientEditView: React.FC<ClientEditViewProps> = ({
       authorName: currentUser.name || 'Ravi R Raju',
       authorRole: 'Advisor',
       timestamp: '12-Sep-2026 ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      response: 'CLOSED OWN',
+      response: 'CLOSED WON',
       text: `Payment confirmed: ₹${newInvoice.paidAmt} received via ${newInvoice.paymentMode} (${newInvoice.bankName}). Generated ${newInvoice.invoiceNo}.`
     };
     onSave({
       ...client,
       invoices: updatedInvoices,
-      response: 'CLOSED OWN',
+      response: 'CLOSED WON',
       notesHistory: [newNote, ...client.notesHistory]
     });
     showToast(`Payment of ₹${newInvoice.paidAmt} confirmed and Invoice ${newInvoice.invoiceNo} generated!`, 'success');
@@ -862,7 +862,7 @@ export const ClientEditView: React.FC<ClientEditViewProps> = ({
               }}
               required
             >
-              <option value="CLOSED OWN">CLOSED OWN</option>
+              <option value="CLOSED WON">CLOSED WON</option>
               <option value="INTERESTED">INTERESTED</option>
               <option value="FOLLOW UP">FOLLOW UP</option>
               <option value="CALL BACK">CALL BACK</option>

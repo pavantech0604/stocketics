@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../state/store';
 import { 
-  DollarSign, 
   Plus, 
-  FileText, 
   Search, 
-  CheckCircle2, 
   Tag, 
   Receipt, 
-  TrendingUp, 
-  Calendar,
-  Building
+  Building,
+  Filter,
+  X,
+  CreditCard,
+  DollarSign,
+  CheckCircle2,
+  Clock,
+  RotateCcw
 } from 'lucide-react';
 
 interface ExpenseItem {
@@ -126,25 +128,26 @@ const INITIAL_HEADS: ExpenseHead[] = [
 export const HRExpensesView: React.FC = () => {
   const { activeTab, setActiveTab, showToast } = useApp();
 
-  // Subtabs: 'add-expense', 'expenses-list', 'add-head', 'heads-list'
-  const getSubTab = (): 'add-expense' | 'expenses-list' | 'add-head' | 'heads-list' => {
-    if (activeTab === 'expenses-add' || activeTab === 'add-expenses') return 'add-expense';
-    if (activeTab === 'expenses-add-head' || activeTab === 'add-expenses-head') return 'add-head';
-    if (activeTab === 'expenses-head-list') return 'heads-list';
-    return 'expenses-list';
-  };
-
-  const [currentTab, setCurrentTab] = useState(getSubTab());
+  const [currentTab, setCurrentTab] = useState<'vouchers' | 'heads'>('vouchers');
   const [expenses, setExpenses] = useState<ExpenseItem[]>(INITIAL_EXPENSES);
   const [heads, setHeads] = useState<ExpenseHead[]>(INITIAL_HEADS);
+  
+  // Modals for actions
+  const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
+  const [showAddHeadModal, setShowAddHeadModal] = useState(false);
+
+  // Filters
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedHead, setSelectedHead] = useState<string>('all');
+  const [selectedMode, setSelectedMode] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
   // Add Expense Form
   const [newExpense, setNewExpense] = useState({
     expenseHead: 'Pantry & Staff Refreshment',
     vendorName: '',
     amount: 1500,
-    date: '2026-09-07',
+    date: new Date().toISOString().split('T')[0],
     paymentMode: 'Corporate Card' as ExpenseItem['paymentMode'],
     paidBy: 'Priya Sharma (HR)',
     description: ''
@@ -158,13 +161,18 @@ export const HRExpensesView: React.FC = () => {
   });
 
   useEffect(() => {
-    setCurrentTab(getSubTab());
+    if (activeTab === 'expenses-add-head') {
+      setCurrentTab('heads');
+      setShowAddHeadModal(true);
+    } else if (activeTab === 'expenses-add' || activeTab === 'add-expenses') {
+      setCurrentTab('vouchers');
+      setShowAddExpenseModal(true);
+    } else if (activeTab === 'expenses-head-list') {
+      setCurrentTab('heads');
+    } else {
+      setCurrentTab('vouchers');
+    }
   }, [activeTab]);
-
-  const handleTabChange = (tab: any, tabId: string) => {
-    setCurrentTab(tab);
-    setActiveTab(tabId);
-  };
 
   const handleAddExpenseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,8 +193,23 @@ export const HRExpensesView: React.FC = () => {
     };
 
     setExpenses(prev => [added, ...prev]);
+    // Also update spentThisMonth for the head
+    setHeads(prev => prev.map(h => h.headName === newExpense.expenseHead ? {
+      ...h,
+      spentThisMonth: h.spentThisMonth + Number(newExpense.amount)
+    } : h));
+
     showToast(`Expense voucher ${voucher} recorded for ₹${Number(newExpense.amount).toLocaleString('en-IN')}`, 'success');
-    handleTabChange('expenses-list', 'expenses-list');
+    setShowAddExpenseModal(false);
+    setNewExpense({
+      expenseHead: 'Pantry & Staff Refreshment',
+      vendorName: '',
+      amount: 1500,
+      date: new Date().toISOString().split('T')[0],
+      paymentMode: 'Corporate Card',
+      paidBy: 'Priya Sharma (HR)',
+      description: ''
+    });
   };
 
   const handleAddHeadSubmit = (e: React.FormEvent) => {
@@ -203,420 +226,579 @@ export const HRExpensesView: React.FC = () => {
 
     setHeads(prev => [added, ...prev]);
     showToast(`Expense Head "${newHead.headName}" created with budget ₹${Number(newHead.monthlyBudget).toLocaleString('en-IN')}`, 'success');
-    handleTabChange('heads-list', 'expenses-head-list');
+    setShowAddHeadModal(false);
+    setNewHead({
+      headName: '',
+      monthlyBudget: 25000,
+      department: 'HR & People Ops'
+    });
   };
 
   const totalSpent = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalBudget = heads.reduce((sum, h) => sum + h.monthlyBudget, 0);
+  const approvedCount = expenses.filter(e => e.status === 'Approved').length;
+  const pendingCount = expenses.filter(e => e.status === 'Pending Verification').length;
+
+  const filteredExpenses = expenses.filter(exp => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = 
+      exp.vendorName.toLowerCase().includes(q) ||
+      exp.voucherNumber.toLowerCase().includes(q) ||
+      exp.expenseHead.toLowerCase().includes(q) ||
+      exp.paidBy.toLowerCase().includes(q);
+
+    const matchesHead = selectedHead === 'all' || exp.expenseHead === selectedHead;
+    const matchesMode = selectedMode === 'all' || exp.paymentMode === selectedMode;
+    const matchesStatus = selectedStatus === 'all' || exp.status === selectedStatus;
+
+    return matchesSearch && matchesHead && matchesMode && matchesStatus;
+  });
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedHead('all');
+    setSelectedMode('all');
+    setSelectedStatus('all');
+  };
+
+  const hasActiveFilters = searchQuery !== '' || selectedHead !== 'all' || selectedMode !== 'all' || selectedStatus !== 'all';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Breadcrumb */}
       <div className="subpage-header-strip">
         <div className="subpage-breadcrumb">
-          <span className="home-link" onClick={() => setActiveTab('dashboard')}>
-            <span>/ Home</span>
+          <span className="home-link" onClick={() => setActiveTab('dashboard')} style={{ cursor: 'pointer' }}>
+            <span>Home</span>
           </span>
           <span style={{ color: 'var(--text-muted)' }}>/</span>
-          <span style={{ color: 'var(--text-secondary)' }}>Expenses</span>
+          <span style={{ color: 'var(--text-secondary)' }}>Administration</span>
           <span style={{ color: 'var(--text-muted)' }}>/</span>
           <span style={{ fontWeight: 700, color: 'var(--stocketics-blue-500)' }}>
-            {currentTab === 'add-expense' && 'Add Expenses'}
-            {currentTab === 'expenses-list' && 'Expenses list'}
-            {currentTab === 'add-head' && 'Add Expenses Head'}
-            {currentTab === 'heads-list' && 'Expenses Head list'}
+            {currentTab === 'vouchers' ? 'Expenses' : 'Expense Heads'}
           </span>
         </div>
       </div>
 
-      {/* Header & Back Button (Image 12) */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-        <h1 className="page-title-ref" style={{ margin: 0 }}>Expenses</h1>
+      {/* Standard Page Header & Action Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h1 className="page-title-ref" style={{ margin: 0 }}>Expenses</h1>
+          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            Track vendor payments, departmental expense budgets, and verification status.
+          </p>
+        </div>
 
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-
+        {/* Separated Action Commands */}
+        <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <button 
-            className="btn btn-primary"
-            onClick={() => setActiveTab('dashboard')}
+            type="button"
+            className="btn btn-secondary action-btn-interactive"
+            onClick={() => setShowAddHeadModal(true)}
             style={{ 
-              background: '#00a8ff', 
-              borderColor: '#00a8ff', 
-              color: '#ffffff', 
-              fontWeight: 600, 
-              padding: '0.45rem 1.25rem', 
-              borderRadius: '4px',
-              fontSize: '0.88rem',
-              height: '36px'
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '0.45rem', 
+              fontSize: '0.86rem', 
+              fontWeight: 600,
+              height: '38px', 
+              borderRadius: '8px',
+              padding: '0 0.95rem',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer'
             }}
           >
-            &lt;&lt; Back
+            <Tag size={15} style={{ color: 'var(--stocketics-blue-500)' }} />
+            <span>Add Expense Head</span>
+          </button>
+
+          <button 
+            type="button"
+            className="btn btn-primary action-btn-interactive"
+            onClick={() => setShowAddExpenseModal(true)}
+            style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '0.45rem', 
+              fontSize: '0.86rem', 
+              fontWeight: 600,
+              height: '38px', 
+              borderRadius: '8px',
+              padding: '0 1rem',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer'
+            }}
+          >
+            <Plus size={16} />
+            <span>Record Expense</span>
           </button>
         </div>
       </div>
 
-      {/* Sub-Options Nav Tabs: Exact Names Add Expenses, Expenses list, Add Expenses Head, Expenses Head list */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '2px solid var(--border-subtle)', paddingBottom: '0.35rem', overflowX: 'auto' }}>
+      {/* Summary KPI Strip (Separating monetary total out of tab badge) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+        <div className="card" style={{ padding: '1rem 1.25rem', borderLeft: '4px solid var(--stocketics-blue-500)' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            Total Expenditure
+          </div>
+          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.25rem' }}>
+            ₹{totalSpent.toLocaleString('en-IN')}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+            Across {expenses.length} recorded vouchers
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '1rem 1.25rem', borderLeft: '4px solid #10b981' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            Total Budget Limit
+          </div>
+          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#10b981', marginTop: '0.25rem' }}>
+            ₹{totalBudget.toLocaleString('en-IN')}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+            {heads.length} Department Budget Heads
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '1rem 1.25rem', borderLeft: '4px solid #3b82f6' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            Approved Vouchers
+          </div>
+          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.25rem' }}>
+            {approvedCount}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '0.2rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <CheckCircle2 size={12} /> Reconciled & Approved
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '1rem 1.25rem', borderLeft: '4px solid #f59e0b' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            Pending Verification
+          </div>
+          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#f59e0b', marginTop: '0.25rem' }}>
+            {pendingCount}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Clock size={12} /> Awaiting audit signoff
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation View Tabs (Pure navigation, clean record counts) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '2px solid var(--border-subtle)', paddingBottom: '0.4rem' }}>
         <button 
-          className={`btn btn-sm ${currentTab === 'add-expense' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => handleTabChange('add-expense', 'expenses-add')}
+          className={`btn btn-sm ${currentTab === 'vouchers' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => { setCurrentTab('vouchers'); setActiveTab('expenses-list'); }}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '6px' }}
         >
-          <Plus size={14} /> Add Expenses
+          <Receipt size={14} /> 
+          <span>Expense Vouchers</span>
+          <span style={{ 
+            background: currentTab === 'vouchers' ? 'rgba(255,255,255,0.25)' : 'var(--bg-surface-alt)', 
+            padding: '1px 6px', 
+            borderRadius: 10, 
+            fontSize: '0.72rem' 
+          }}>
+            {expenses.length}
+          </span>
         </button>
+
         <button 
-          className={`btn btn-sm ${currentTab === 'expenses-list' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => handleTabChange('expenses-list', 'expenses-list')}
+          className={`btn btn-sm ${currentTab === 'heads' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => { setCurrentTab('heads'); setActiveTab('expenses-head-list'); }}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '6px' }}
         >
-          <Receipt size={14} /> Expenses list (₹{totalSpent.toLocaleString('en-IN')})
-        </button>
-        <button 
-          className={`btn btn-sm ${currentTab === 'add-head' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => handleTabChange('add-head', 'expenses-add-head')}
-        >
-          <Tag size={14} /> Add Expenses Head
-        </button>
-        <button 
-          className={`btn btn-sm ${currentTab === 'heads-list' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => handleTabChange('heads-list', 'expenses-head-list')}
-        >
-          <Building size={14} /> Expenses Head list ({heads.length})
+          <Building size={14} /> 
+          <span>Budget Heads</span>
+          <span style={{ 
+            background: currentTab === 'heads' ? 'rgba(255,255,255,0.25)' : 'var(--bg-surface-alt)', 
+            padding: '1px 6px', 
+            borderRadius: 10, 
+            fontSize: '0.72rem' 
+          }}>
+            {heads.length}
+          </span>
         </button>
       </div>
 
-      {/* TAB 1: ADD EXPENSES FORM (Exact Match to Image 12) */}
-      {currentTab === 'add-expense' && (
-        <div style={{ 
-          background: '#ffffff', 
-          border: '1px solid var(--border-subtle)', 
-          borderRadius: '6px', 
-          padding: '2rem',
-          boxShadow: 'var(--shadow-sm)',
-          marginTop: '0.5rem'
-        }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.75rem' }}>
-            Expense
-          </h2>
-
-          <form onSubmit={handleAddExpenseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.4rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem 3rem' }}>
-              {/* Left Column (Image 12) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                {/* Expense Head Title: */}
-                <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center' }}>
-                  <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
-                    Expense Head Title:
-                  </label>
-                  <select 
-                    value={newExpense.expenseHead}
-                    onChange={e => setNewExpense({ ...newExpense, expenseHead: e.target.value })}
-                    className="input-field"
-                    style={{ height: '38px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                  >
-                    <option value="">Select Head</option>
-                    {heads.map(h => (
-                      <option key={h.id} value={h.headName}>{h.headName}</option>
-                    ))}
-                    <option value="Cloud Server & PBX Telecom">Cloud Server & PBX Telecom</option>
-                    <option value="Market Real-time Feeds (NSE/MCX)">Market Real-time Feeds (NSE/MCX)</option>
-                    <option value="Pantry & Staff Refreshment">Pantry & Staff Refreshment</option>
-                    <option value="Office Stationery">Office Stationery</option>
-                  </select>
-                </div>
-
-                {/* From: */}
-                <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center' }}>
-                  <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
-                    From:
-                  </label>
-                  <input 
-                    type="text"
-                    placeholder="from"
-                    value={newExpense.vendorName}
-                    onChange={e => setNewExpense({ ...newExpense, vendorName: e.target.value })}
-                    className="input-field"
-                    style={{ height: '38px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-
-                {/* Price: */}
-                <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center' }}>
-                  <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
-                    Price:
-                  </label>
-                  <input 
-                    type="text"
-                    placeholder="Price"
-                    value={newExpense.amount || ''}
-                    onChange={e => setNewExpense({ ...newExpense, amount: Number(e.target.value) })}
-                    className="input-field"
-                    style={{ height: '38px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-
-                {/* Expense By: */}
-                <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center' }}>
-                  <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
-                    Expense By:
-                  </label>
-                  <select 
-                    value={newExpense.paidBy}
-                    onChange={e => setNewExpense({ ...newExpense, paidBy: e.target.value })}
-                    className="input-field"
-                    style={{ height: '38px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                  >
-                    <option value="Administrator">Administrator</option>
-                    <option value="Priya Sharma (HR)">Priya Sharma (HR)</option>
-                    <option value="Arjun Malhotra (VP)">Arjun Malhotra (VP)</option>
-                    <option value="Finance Desk">Finance Desk</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Right Column (Image 12) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                {/* Item Name: */}
-                <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', alignItems: 'center' }}>
-                  <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
-                    Item Name:
-                  </label>
-                  <input 
-                    type="text"
-                    placeholder="Item Name"
-                    className="input-field"
-                    style={{ height: '38px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-
-                {/* Date: */}
-                <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', alignItems: 'center' }}>
-                  <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
-                    Date:
-                  </label>
-                  <input 
-                    type="text"
-                    defaultValue="2026-09-08"
-                    placeholder="Date"
-                    className="input-field"
-                    style={{ height: '38px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-
-                {/* Description: */}
-                <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', alignItems: 'center' }}>
-                  <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
-                    Description:
-                  </label>
-                  <input 
-                    type="text"
-                    placeholder="Discription"
-                    value={newExpense.description}
-                    onChange={e => setNewExpense({ ...newExpense, description: e.target.value })}
-                    className="input-field"
-                    style={{ height: '38px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <div style={{ display: 'flex', justifyContent: 'flex-start', marginLeft: '150px', marginTop: '0.5rem' }}>
-              <button 
-                type="submit" 
-                className="btn btn-primary"
-                style={{ 
-                  background: '#00a8ff', 
-                  borderColor: '#00a8ff', 
-                  color: '#ffffff', 
-                  padding: '0.55rem 2.25rem', 
-                  fontWeight: 700,
-                  borderRadius: '4px',
-                  fontSize: '0.92rem'
-                }}
-              >
-                Submit
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* TAB 2: EXPENSES LIST */}
-      {currentTab === 'expenses-list' && (
+      {/* TAB 1: EXPENSE VOUCHERS LIST */}
+      {currentTab === 'vouchers' && (
         <>
+          {/* Shared Filter Bar */}
           <div className="card" style={{ padding: '0.85rem 1.25rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', maxWidth: '380px' }}>
-              <Search size={16} style={{ color: 'var(--text-muted)' }} />
-              <input 
-                type="text"
-                className="form-input"
-                placeholder="Search vendor, expense head, voucher..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                style={{ padding: '0.45rem 0.75rem', fontSize: '0.85rem' }}
-              />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', flex: 1, minWidth: '260px' }}>
+                <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                  <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input 
+                    type="text"
+                    className="form-input"
+                    placeholder="Search vendor, voucher, head, or personnel..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    style={{ paddingLeft: '32px', height: '36px', fontSize: '0.84rem' }}
+                  />
+                </div>
+
+                <select 
+                  className="form-select"
+                  value={selectedHead}
+                  onChange={e => setSelectedHead(e.target.value)}
+                  style={{ height: '36px', fontSize: '0.82rem', width: 'auto', minWidth: '160px' }}
+                >
+                  <option value="all">All Expense Heads</option>
+                  {heads.map(h => (
+                    <option key={h.id} value={h.headName}>{h.headName}</option>
+                  ))}
+                </select>
+
+                <select 
+                  className="form-select"
+                  value={selectedMode}
+                  onChange={e => setSelectedMode(e.target.value)}
+                  style={{ height: '36px', fontSize: '0.82rem', width: 'auto' }}
+                >
+                  <option value="all">All Channels</option>
+                  <option value="Company Account">Company Account</option>
+                  <option value="Corporate Card">Corporate Card</option>
+                  <option value="UPI">UPI</option>
+                  <option value="Cash / Petty Cash">Cash / Petty Cash</option>
+                </select>
+
+                <select 
+                  className="form-select"
+                  value={selectedStatus}
+                  onChange={e => setSelectedStatus(e.target.value)}
+                  style={{ height: '36px', fontSize: '0.82rem', width: 'auto' }}
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Pending Verification">Pending Verification</option>
+                </select>
+
+                {hasActiveFilters && (
+                  <button 
+                    className="btn btn-secondary btn-sm"
+                    onClick={clearFilters}
+                    style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)' }}
+                  >
+                    <RotateCcw size={13} />
+                    <span>Clear</span>
+                  </button>
+                )}
+              </div>
+
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Showing <strong>{filteredExpenses.length}</strong> of {expenses.length} vouchers
+              </div>
             </div>
           </div>
 
+          {/* Vouchers Table */}
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                  <th style={{ padding: '0.85rem 1.25rem' }}>Voucher & Vendor</th>
-                  <th style={{ padding: '0.85rem 1rem' }}>Expense Head</th>
-                  <th style={{ padding: '0.85rem 1rem' }}>Amount</th>
-                  <th style={{ padding: '0.85rem 1rem' }}>Payment Date</th>
-                  <th style={{ padding: '0.85rem 1rem' }}>Channel & Paid By</th>
-                  <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {expenses.map(exp => (
-                  <tr key={exp.id} style={{ borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
-                    <td style={{ padding: '0.85rem 1.25rem' }}>
-                      <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{exp.vendorName}</div>
-                      <div style={{ fontSize: '0.74rem', color: 'var(--stocketics-blue-500)', fontFamily: 'monospace' }}>{exp.voucherNumber}</div>
-                    </td>
-
-                    <td style={{ padding: '0.85rem 1rem' }}>
-                      <span className="delta-badge" style={{ background: '#dbeafe', color: '#1d4ed8', fontSize: '0.74rem' }}>
-                        {exp.expenseHead}
-                      </span>
-                    </td>
-
-                    <td style={{ padding: '0.85rem 1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                      ₹{exp.amount.toLocaleString('en-IN')}
-                    </td>
-
-                    <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)' }}>
-                      {exp.date}
-                    </td>
-
-                    <td style={{ padding: '0.85rem 1rem', fontSize: '0.8rem' }}>
-                      <div>{exp.paymentMode}</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>By: {exp.paidBy}</div>
-                    </td>
-
-                    <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
-                      <span className="delta-badge positive" style={{ fontSize: '0.72rem' }}>
-                        {exp.status}
-                      </span>
-                    </td>
+              <table style={{ width: '100%', minWidth: '650px', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '0.85rem 1.25rem' }}>Voucher & Vendor</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Expense Head</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Amount</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Payment Date</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Channel & Paid By</th>
+                    <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Audit Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredExpenses.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        No expense vouchers matching the current filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredExpenses.map(exp => (
+                      <tr key={exp.id} style={{ borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
+                        <td style={{ padding: '0.85rem 1.25rem' }}>
+                          <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{exp.vendorName}</div>
+                          <div style={{ fontSize: '0.74rem', color: 'var(--stocketics-blue-500)', fontFamily: 'monospace' }}>
+                            {exp.voucherNumber}
+                          </div>
+                          {exp.description && (
+                            <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                              {exp.description}
+                            </div>
+                          )}
+                        </td>
+
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          <span className="delta-badge" style={{ background: 'rgba(56, 189, 248, 0.12)', color: '#0284c7', fontSize: '0.74rem' }}>
+                            {exp.expenseHead}
+                          </span>
+                        </td>
+
+                        <td style={{ padding: '0.85rem 1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                          ₹{exp.amount.toLocaleString('en-IN')}
+                        </td>
+
+                        <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)' }}>
+                          {exp.date}
+                        </td>
+
+                        <td style={{ padding: '0.85rem 1rem', fontSize: '0.8rem' }}>
+                          <div style={{ fontWeight: 600 }}>{exp.paymentMode}</div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Paid By: {exp.paidBy}</div>
+                        </td>
+
+                        <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
+                          <span className={`delta-badge ${exp.status === 'Approved' ? 'positive' : ''}`} style={{ 
+                            fontSize: '0.72rem',
+                            background: exp.status === 'Approved' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                            color: exp.status === 'Approved' ? '#10b981' : '#f59e0b'
+                          }}>
+                            {exp.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </>
       )}
 
-      {/* TAB 3: ADD EXPENSES HEAD */}
-      {currentTab === 'add-head' && (
-        <div className="card" style={{ maxWidth: '680px' }}>
-          <div className="card-header">
-            <div>
-              <div className="card-title">
-                <Tag size={18} style={{ color: 'var(--stocketics-blue-500)' }} />
-                <span>Create New Budget Expense Head</span>
-              </div>
-              <div className="card-subtitle">Define departmental expenditure categories and monthly budget limits</div>
-            </div>
+      {/* TAB 2: BUDGET HEADS LIST */}
+      {currentTab === 'heads' && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Expense Head Title</th>
+                  <th style={{ padding: '0.85rem 1rem' }}>Department Desk</th>
+                  <th style={{ padding: '0.85rem 1rem' }}>Monthly Budget</th>
+                  <th style={{ padding: '0.85rem 1rem' }}>Spent This Month</th>
+                  <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Budget Utilization</th>
+                </tr>
+              </thead>
+              <tbody>
+                {heads.map(h => {
+                  const util = Math.round((h.spentThisMonth / h.monthlyBudget) * 100);
+                  return (
+                    <tr key={h.id} style={{ borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
+                      <td style={{ padding: '0.85rem 1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Tag size={15} style={{ color: 'var(--stocketics-blue-500)' }} />
+                          <span>{h.headName}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)' }}>
+                        {h.department}
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', fontWeight: 700 }}>
+                        ₹{h.monthlyBudget.toLocaleString('en-IN')}
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: 'var(--stocketics-blue-500)' }}>
+                        ₹{h.spentThisMonth.toLocaleString('en-IN')}
+                      </td>
+                      <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
+                        <span className="delta-badge" style={{ 
+                          background: util > 90 ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                          color: util > 90 ? '#ef4444' : '#047857',
+                          fontWeight: 700
+                        }}>
+                          {util}% Utilized
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
+        </div>
+      )}
 
-          <form onSubmit={handleAddHeadSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div className="form-group">
-              <label className="form-label">Expense Head Title *</label>
-              <input 
-                className="form-input" 
-                required
-                placeholder="e.g. Legal, Audit & SEBI Filing Fees"
-                value={newHead.headName}
-                onChange={e => setNewHead({ ...newHead, headName: e.target.value })}
-              />
+      {/* MODAL 1: RECORD EXPENSE */}
+      {showAddExpenseModal && (
+        <div className="modal-overlay" onClick={() => setShowAddExpenseModal(false)}>
+          <div className="modal-content" style={{ maxWidth: '640px', width: '95%' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.85rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Record Expense Voucher</h3>
+                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Enter bill details for accounts audit</p>
+              </div>
+              <button className="btn-icon" onClick={() => setShowAddExpenseModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <form onSubmit={handleAddExpenseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
               <div className="form-group">
-                <label className="form-label">Monthly Budget Limit (₹) *</label>
+                <label className="form-label">Expense Head *</label>
+                <select 
+                  className="form-select"
+                  value={newExpense.expenseHead}
+                  onChange={e => setNewExpense({ ...newExpense, expenseHead: e.target.value })}
+                >
+                  {heads.map(h => (
+                    <option key={h.id} value={h.headName}>{h.headName}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Vendor / Payee Name *</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="e.g. Tata Tele / Cafe Coffee Day"
+                    value={newExpense.vendorName}
+                    onChange={e => setNewExpense({ ...newExpense, vendorName: e.target.value })}
+                    className="form-input"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Amount (₹) *</label>
+                  <input 
+                    type="number"
+                    required
+                    placeholder="e.g. 5000"
+                    value={newExpense.amount || ''}
+                    onChange={e => setNewExpense({ ...newExpense, amount: Number(e.target.value) })}
+                    className="form-input"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Payment Mode</label>
+                  <select 
+                    className="form-select"
+                    value={newExpense.paymentMode}
+                    onChange={e => setNewExpense({ ...newExpense, paymentMode: e.target.value as any })}
+                  >
+                    <option value="Corporate Card">Corporate Card</option>
+                    <option value="Company Account">Company Account</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Cash / Petty Cash">Cash / Petty Cash</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Expense Date</label>
+                  <input 
+                    type="date"
+                    value={newExpense.date}
+                    onChange={e => setNewExpense({ ...newExpense, date: e.target.value })}
+                    className="form-input"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Paid / Authorized By</label>
                 <input 
-                  type="number" 
-                  className="form-input" 
-                  required
-                  value={newHead.monthlyBudget}
-                  onChange={e => setNewHead({ ...newHead, monthlyBudget: Number(e.target.value) })}
+                  type="text"
+                  value={newExpense.paidBy}
+                  onChange={e => setNewExpense({ ...newExpense, paidBy: e.target.value })}
+                  className="form-input"
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Department Responsibility</label>
-                <select 
-                  className="form-select"
-                  value={newHead.department}
-                  onChange={e => setNewHead({ ...newHead, department: e.target.value })}
-                >
-                  <option value="HR & People Ops">HR & People Ops</option>
-                  <option value="IT & Infrastructure">IT & Infrastructure</option>
-                  <option value="Equity Research">Equity Research</option>
-                  <option value="Operations & Facilities">Operations & Facilities</option>
-                  <option value="Admin & Compliance">Admin & Compliance</option>
-                </select>
+                <label className="form-label">Description / Remarks</label>
+                <textarea 
+                  rows={2}
+                  className="form-textarea"
+                  placeholder="Invoice particulars, department purpose..."
+                  value={newExpense.description}
+                  onChange={e => setNewExpense({ ...newExpense, description: e.target.value })}
+                />
               </div>
-            </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
-              <button type="submit" className="btn btn-primary">Create Expense Head</button>
-            </div>
-          </form>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAddExpenseModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Save & Generate Voucher
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
-      {/* TAB 4: EXPENSES HEAD LIST */}
-      {currentTab === 'heads-list' && (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                <th style={{ padding: '0.85rem 1.25rem' }}>Expense Head Title</th>
-                <th style={{ padding: '0.85rem 1rem' }}>Department Desk</th>
-                <th style={{ padding: '0.85rem 1rem' }}>Monthly Budget</th>
-                <th style={{ padding: '0.85rem 1rem' }}>Spent This Month</th>
-                <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Budget Utilization</th>
-              </tr>
-            </thead>
-            <tbody>
-              {heads.map(h => {
-                const util = Math.round((h.spentThisMonth / h.monthlyBudget) * 100);
-                return (
-                  <tr key={h.id} style={{ borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
-                    <td style={{ padding: '0.85rem 1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Tag size={15} style={{ color: 'var(--stocketics-blue-500)' }} />
-                        <span>{h.headName}</span>
-                      </div>
-                    </td>
-                    <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)' }}>
-                      {h.department}
-                    </td>
-                    <td style={{ padding: '0.85rem 1rem', fontWeight: 700 }}>
-                      ₹{h.monthlyBudget.toLocaleString('en-IN')}
-                    </td>
-                    <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: 'var(--stocketics-blue-500)' }}>
-                      ₹{h.spentThisMonth.toLocaleString('en-IN')}
-                    </td>
-                    <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
-                      <span className="delta-badge" style={{ 
-                        background: util > 90 ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
-                        color: util > 90 ? '#ef4444' : '#047857',
-                        fontWeight: 700
-                      }}>
-                        {util}% Utilized
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {/* MODAL 2: ADD EXPENSE HEAD */}
+      {showAddHeadModal && (
+        <div className="modal-overlay" onClick={() => setShowAddHeadModal(false)}>
+          <div className="modal-content" style={{ maxWidth: '560px', width: '95%' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.85rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Create Budget Expense Head</h3>
+                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Define departmental expenditure ceiling</p>
+              </div>
+              <button className="btn-icon" onClick={() => setShowAddHeadModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddHeadSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+              <div className="form-group">
+                <label className="form-label">Expense Head Title *</label>
+                <input 
+                  className="form-input" 
+                  required
+                  placeholder="e.g. Legal, Audit & Regulatory Filing"
+                  value={newHead.headName}
+                  onChange={e => setNewHead({ ...newHead, headName: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Monthly Budget Limit (₹) *</label>
+                  <input 
+                    type="number" 
+                    className="form-input" 
+                    required
+                    value={newHead.monthlyBudget}
+                    onChange={e => setNewHead({ ...newHead, monthlyBudget: Number(e.target.value) })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Department Desk</label>
+                  <select 
+                    className="form-select"
+                    value={newHead.department}
+                    onChange={e => setNewHead({ ...newHead, department: e.target.value })}
+                  >
+                    <option value="HR & People Ops">HR & People Ops</option>
+                    <option value="IT & Infrastructure">IT & Infrastructure</option>
+                    <option value="Equity Research">Equity Research</option>
+                    <option value="Operations & Facilities">Operations & Facilities</option>
+                    <option value="Admin & Compliance">Admin & Compliance</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAddHeadModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Create Head
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

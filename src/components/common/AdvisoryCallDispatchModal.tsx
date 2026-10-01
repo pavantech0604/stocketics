@@ -75,7 +75,7 @@ export const AdvisoryCallDispatchModal: React.FC<AdvisoryCallDispatchModalProps>
     let clients = exact;
     if (clients.length === 0) {
       // Fallback: Show all active clients with option or active status
-      clients = detailedClients.filter(c => c.tabCategory === 'clients' || c.response === 'CLOSED OWN' || c.trialStatus?.includes('Active'));
+      clients = detailedClients.filter(c => c.tabCategory === 'clients' || c.response === 'CLOSED WON' || c.response === 'CLOSED OWN' || c.trialStatus?.includes('Active'));
     }
 
     if (targetClient && !clients.some(c => c.id === targetClient.id)) {

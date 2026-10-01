@@ -5,27 +5,29 @@ import { INITIAL_CONFIRMED_PAYMENTS_LIST } from '../../data/initialData';
 import { ViewInvoiceModal } from '../common/ViewInvoiceModal';
 import { CreateInvoiceModal } from '../common/CreateInvoiceModal';
 import { TipsModal } from '../common/TipsModal';
-import { Home } from 'lucide-react';
+import { LeadKYCOnboardingModal } from '../common/LeadKYCOnboardingModal';
+import { Home, ShieldCheck } from 'lucide-react';
 
 interface AllConfirmedPaymentsViewProps {
   embedded?: boolean;
 }
 
 export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> = ({ embedded = false }) => {
-  const { setActiveTab, showToast, theme } = useApp();
+  const { 
+    setActiveTab, 
+    showToast, 
+    theme, 
+    advisoryLeads, 
+    kycCases, 
+    getKYCCaseForLead,
+    confirmedPayments,
+    approveConfirmedPayment,
+    rejectConfirmedPayment,
+    role
+  } = useApp();
   const isDark = theme === 'dark';
-  const [paymentsList, setPaymentsList] = useState<ConfirmedPaymentRecord[]>(() => {
-    const saved = localStorage.getItem('apex_crm_confirmed_payments');
-    if (saved && (saved.includes('9940721833') || saved.includes('Naveen') || saved.includes('tiruvannamalai') || saved.includes('Ravi R Raju'))) {
-      localStorage.removeItem('apex_crm_confirmed_payments');
-      return INITIAL_CONFIRMED_PAYMENTS_LIST;
-    }
-    return saved ? JSON.parse(saved) : INITIAL_CONFIRMED_PAYMENTS_LIST;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('apex_crm_confirmed_payments', JSON.stringify(paymentsList));
-  }, [paymentsList]);
+  const [kycLead, setKycLead] = useState<any | null>(null);
+  const paymentsList = confirmedPayments;
   
   // Filter Inputs matching Image 2
   const [clientNameInput, setClientNameInput] = useState('');
@@ -57,16 +59,7 @@ export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> =
   };
 
   const handleInvoiceCreated = (paymentId: string, invoiceData: InvoiceData) => {
-    setPaymentsList(prev => prev.map(p => {
-      if (p.id === paymentId) {
-        return {
-          ...p,
-          invoiceCreated: true,
-          invoiceData
-        };
-      }
-      return p;
-    }));
+    approveConfirmedPayment(paymentId, invoiceData.paymentDetail, invoiceData.itemDescription);
     showToast(`Invoice ${invoiceData.invoiceNo} created after bank credit verification!`, 'success');
   };
 
@@ -293,23 +286,13 @@ export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> =
       {/* Confirmed Payment Table Card (matching Image 2) */}
       <div className="payments-table-card" style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
         <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
-          <table className="payments-table" style={{ width: '100%', minWidth: '920px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '11.8px' }}>
-            <thead>
-              <tr style={{ background: '#ffffff', borderBottom: '1.5px solid #e2e8f0', color: '#475569' }}>
-                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>S no.</th>
-                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Owner Name</th>
-                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Client Name</th>
-                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Mobile</th>
-                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Bank</th>
-                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Amount</th>
-                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Status</th>
-                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Reason</th>
-                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Description</th>
-                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Client status</th>
-                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Date</th>
-                <th style={{ padding: '0.65rem 0.5rem', fontWeight: 700, whiteSpace: 'nowrap', color: '#475569' }}>Action</th>
-              </tr>
-            </thead>
+          <table className="payments-table" style={{ width: '100%', minWidth: '920px', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead><tr>
+              <th style={{width:'4%'}}>#</th><th style={{width:'20%'}}>Client / Mobile</th>
+              <th style={{width:'14%'}}>Owner</th><th style={{width:'14%'}}>Payment / Bank</th>
+              <th style={{width:'13%'}}>Status / Date</th><th style={{width:'19%'}}>Details</th>
+              <th style={{width:'16%'}}>Actions</th>
+            </tr></thead>
             <tbody>
               {filteredPayments.length > 0 ? (
                 filteredPayments.map((record, index) => (
@@ -320,18 +303,13 @@ export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> =
                       borderBottom: '1px solid #e2e8f0'
                     }}
                   >
-                    <td style={{ padding: '0.65rem 0.5rem', color: '#475569' }}>{index + 1}</td>
-                    <td style={{ padding: '0.65rem 0.5rem', color: '#1e293b', fontWeight: 500 }}>{record.ownerName}</td>
-                    <td style={{ padding: '0.65rem 0.5rem', color: '#1e293b', fontWeight: 600 }}>{record.clientName}</td>
-                    <td style={{ padding: '0.65rem 0.5rem', color: '#475569', whiteSpace: 'nowrap' }}>{record.mobile}</td>
-                    <td style={{ padding: '0.65rem 0.5rem', color: '#1e293b' }}>{record.bank}</td>
-                    <td style={{ padding: '0.65rem 0.5rem', color: '#1e293b', fontWeight: 600 }}>₹{record.amount?.toLocaleString('en-IN') || record.amount}</td>
-                    <td style={{ padding: '0.65rem 0.5rem', color: '#16a34a', fontWeight: 600 }}>{record.status}</td>
-                    <td style={{ padding: '0.65rem 0.5rem', color: '#475569', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={record.reason}>{record.reason}</td>
-                    <td style={{ padding: '0.65rem 0.5rem', color: '#475569', maxWidth: '130px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={record.description}>{record.description}</td>
-                    <td style={{ padding: '0.65rem 0.5rem', color: '#475569', whiteSpace: 'nowrap' }}>{record.clientStatus}</td>
-                    <td style={{ padding: '0.65rem 0.5rem', color: '#475569', whiteSpace: 'nowrap' }}>{record.date}</td>
-                    <td style={{ padding: '0.65rem 0.5rem', whiteSpace: 'nowrap' }}>
+                    <td>{index + 1}</td>
+                    <td><strong>{record.clientName}</strong><small>{record.mobile}</small></td>
+                    <td>{record.ownerName}</td>
+                    <td><strong>₹{record.amount?.toLocaleString('en-IN') || record.amount}</strong><small>{record.bank}</small></td>
+                    <td><strong>{record.status}</strong><small>{record.date}</small></td>
+                    <td><span>{record.clientStatus}</span><small>{record.reason}</small><details><summary>Service details</summary>{record.description}</details></td>
+                    <td><details className="payment-row-actions"><summary>Actions</summary>
                       {record.screenshotUrl && (
                         <button
                           type="button"
@@ -357,6 +335,81 @@ export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> =
                           <span>🖼️ Receipt</span>
                         </button>
                       )}
+
+                      {/* Complete KYC Action for Closed Payment Lead */}
+                      {(() => {
+                        const phone = record.mobile.replace(/\D/g, '').slice(-10);
+                        const matchedLead = advisoryLeads.find(l => record.leadId ? l.id === record.leadId : phone.length === 10 && l.phone.replace(/\D/g, '').slice(-10) === phone);
+                        const kCase = matchedLead ? getKYCCaseForLead(matchedLead.id) : kycCases.find(c => c.leadPhone.includes(record.mobile) || c.leadName.toLowerCase() === record.clientName.toLowerCase());
+                        const isApproved = kCase?.status === 'Approved';
+                        const isPending = kCase?.status === 'Pending Approval' || kCase?.status === 'In Review';
+                        const isNeedsReupload = kCase?.status === 'Needs Reupload';
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!matchedLead) {
+                                showToast('This payment has no linked lead. Open the correct client from All Leads to complete onboarding.', 'error');
+                                return;
+                              }
+                              setKycLead(matchedLead);
+                            }}
+                            style={{
+                              background: isApproved ? '#16a34a' : isPending ? '#f59e0b' : isNeedsReupload ? '#ef4444' : '#0a192f',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '4px',
+                              padding: '0.4rem 0.65rem',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              marginRight: '6px',
+                              transition: 'all 0.12s ease'
+                            }}
+                            title={kCase ? `KYC Status: ${kCase.status}` : 'Complete KYC Verification for this Closed Client'}
+                          >
+                            <ShieldCheck size={13} color="#38bdf8" />
+                            <span>{isApproved ? 'KYC ✓' : isPending ? 'KYC In Review' : isNeedsReupload ? 'KYC Fix' : 'Complete KYC'}</span>
+                          </button>
+                        );
+                      })()}
+
+                      {/* Approve & Convert Action for Pending Payments (Manager / Finance Role) */}
+                      {record.status === 'Pending' && (role === 'manager' || role === 'hr') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const utr = prompt(`Enter UTR / Bank Reference for ${record.clientName}:`, record.utrNumber || `UTR-${Date.now().toString().slice(-8)}`);
+                            if (utr !== null) {
+                              approveConfirmedPayment(record.id, utr.trim() || undefined);
+                            }
+                          }}
+                          style={{
+                            background: '#16a34a',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '0.4rem 0.65rem',
+                            fontSize: '11.5px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            marginRight: '6px'
+                          }}
+                          title="Verify Bank Credit, Auto-Issue 18% GST Tax Invoice, and Convert to Client Master"
+                        >
+                          <span>✓ Approve</span>
+                        </button>
+                      )}
+
                       {record.invoiceCreated ? (
                         /* Vibrant Green View Invoice Button */
                         <button 
@@ -398,12 +451,13 @@ export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> =
                           Create New Invoice
                         </button>
                       )}
+                    </details>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={12} style={{ textAlign: 'center', padding: '2.5rem 1rem', color: '#94a3b8' }}>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem 1rem', color: '#94a3b8' }}>
                     No confirmed payments found matching search criteria.
                   </td>
                 </tr>
@@ -435,6 +489,15 @@ export const AllConfirmedPaymentsView: React.FC<AllConfirmedPaymentsViewProps> =
 
       {/* Tips Modal */}
       <TipsModal isOpen={isTipsOpen} onClose={() => setIsTipsOpen(false)} />
+
+      {/* KYC Onboarding Modal for Closed Lead */}
+      {kycLead && (
+        <LeadKYCOnboardingModal
+          lead={kycLead}
+          isOpen={!!kycLead}
+          onClose={() => setKycLead(null)}
+        />
+      )}
 
       {/* Client Payment Screenshot Viewer Modal */}
       {selectedScreenshotRecord && (

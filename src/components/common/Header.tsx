@@ -21,7 +21,8 @@ import {
   ChevronRight,
   BarChart2,
   CalendarDays,
-  Flame
+  Flame,
+  Menu
 } from 'lucide-react';
 
 const MONTH_NAMES = [
@@ -47,7 +48,9 @@ export const Header: React.FC = () => {
     activeTab,
     setActiveTab,
     login,
-    showToast
+    showToast,
+    toggleMobileMenu,
+    isMobileMenuOpen
   } = useApp();
 
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -278,6 +281,17 @@ export const Header: React.FC = () => {
     <header className="topbar">
       {/* Left: Welcome Title & Interactive Quick Actions */}
       <div className="topbar-left">
+        {/* Mobile Menu Hamburger Toggle */}
+        <button
+          type="button"
+          className="mobile-menu-toggle-btn"
+          onClick={toggleMobileMenu}
+          aria-label={isMobileMenuOpen ? 'Close navigation drawer' : 'Open navigation drawer'}
+          title="Toggle Navigation Menu"
+        >
+          <Menu size={20} />
+        </button>
+
         <span className="topbar-welcome-title">
           WELCOME{' '}
           <span 

@@ -1,22 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../state/store';
 import { 
-  Home, 
   Tag, 
   Flag, 
   Edit3, 
   PenTool,
-  X, 
   Printer, 
   Calendar, 
-  Filter, 
-  TrendingUp, 
-  CheckCircle2, 
-  FileSpreadsheet,
-  Users,
   Search,
-  ArrowUpDown,
-  ShieldCheck
+  ArrowLeft,
+  Users,
+  FileSpreadsheet,
+  CheckCircle2,
+  PhoneCall,
+  Share2,
+  RotateCcw
 } from 'lucide-react';
 import { TipsModal } from '../common/TipsModal';
 
@@ -28,202 +26,231 @@ interface ReportCardConfig {
   iconType: 'tag' | 'flag' | 'pencil' | 'quill';
   metricsSummary: { label: string; value: string }[];
   columns: string[];
-  sampleData: (string | number)[][];
+  // Format: [dateOffsetDays, ...cells]
+  rows: {
+    offsetDays: number; // 0 = today, 1 = yesterday, etc.
+    cells: (string | number)[];
+  }[];
 }
 
-const HR_REPORT_CONFIGS: ReportCardConfig[] = [
-  // Row 1
-  {
-    id: 'sales-report',
-    title: 'Sales',
-    subtitle: 'Report',
-    colorType: 'blue',
-    iconType: 'tag',
-    metricsSummary: [
-      { label: 'Total Sales Booking', value: '₹12,53,100' },
-      { label: 'Deals Closed This Month', value: '48 Deals' },
-      { label: 'Average Ticket Size', value: '₹26,106' },
-      { label: 'Top Segment', value: 'INDEX OPTION' }
-    ],
-    columns: ['Date', 'Client Name', 'Mobile', 'Segment', 'Executive', 'Amount (₹)', 'Status'],
-    sampleData: [
-      ['08-Sep-2026', 'Rajesh K. Singhania', '9820100401', 'INDEX OPTION', 'Rohan Deshmukh', '45,000', 'Success'],
-      ['08-Sep-2026', 'Dr. Harshvardhan Jain', '9425000402', 'INDEX OPTION', 'Sneha Kapur', '35,000', 'Success'],
-      ['07-Sep-2026', 'Col. Vikram Rathore', '9414000405', 'INDEX OPTION', 'Neha Reddy', '60,000', 'Success'],
-      ['07-Sep-2026', 'Kavita Radhakrishnan', '9847000403', 'Market Pathshala', 'Kabir Varma', '25,000', 'Success'],
-      ['06-Sep-2026', 'Manish Chawla', '9912000404', 'EQUITY PREMIER', 'Rohan Deshmukh', '90,000', 'Success'],
-      ['05-Sep-2026', 'Meenakshi Sundaram', '9444000407', 'FUTURE & OPTIONS', 'Ananya Sen', '1,20,000', 'Success']
-    ]
-  },
-  {
-    id: 'account-report',
-    title: 'Account',
-    subtitle: 'Report',
-    colorType: 'green',
-    iconType: 'pencil',
-    metricsSummary: [
-      { label: 'Ledger Inflow', value: '₹18,40,000' },
-      { label: 'Pending Invoices', value: '6 Pending' },
-      { label: 'Direct Bank Deposits', value: '₹14,25,000' },
-      { label: 'Gateway Settlement', value: '₹4,15,000' }
-    ],
-    columns: ['Txn ID', 'Client Name', 'Payment Mode', 'Bank Account', 'UTR / Ref No', 'Amount (₹)', 'Audit Status'],
-    sampleData: [
-      ['TXN-9011', 'Rajesh K. Singhania', 'NEFT', 'HDFC Bank - 0021', 'HDFCN26090881', '45,000', 'Reconciled'],
-      ['TXN-9012', 'Dr. Harshvardhan Jain', 'UPI / QR', 'ICICI Bank - 4410', 'UPI-260908129', '35,000', 'Reconciled'],
-      ['TXN-9013', 'Col. Vikram Rathore', 'NetBanking', 'HDFC Bank - 0021', 'HDFCN26090714', '60,000', 'Reconciled'],
-      ['TXN-9014', 'Kavita Radhakrishnan', 'Credit Card', 'Razorpay Route', 'RZP-881923019', '25,000', 'Verified'],
-      ['TXN-9015', 'Manish Chawla', 'RTGS', 'Axis Bank - 9912', 'AXISRTGS260906', '90,000', 'Reconciled']
-    ]
-  },
-  {
-    id: 'cr-compliance',
-    title: 'CR',
-    subtitle: 'Compliance',
-    colorType: 'olive',
-    iconType: 'quill',
-    metricsSummary: [
-      { label: 'SEBI Compliance Score', value: '99.4%' },
-      { label: 'Risk Profiling Complete', value: '100%' },
-      { label: 'KYC Document Vaulted', value: '48 / 48' },
-      { label: 'Agreement Consent Signed', value: '100%' }
-    ],
-    columns: ['Client Name', 'PAN Number', 'Risk Category', 'Aadhaar e-Sign', 'Mandate Date', 'SEBI Reg', 'Audit Clearance'],
-    sampleData: [
-      ['Rajesh K. Singhania', 'AAACS1024K', 'High Growth', 'Verified', '08-Sep-2026', 'INA000012345', 'Compliant'],
-      ['Dr. Harshvardhan Jain', 'BKMPM3412E', 'Moderate Aggressive', 'Verified', '08-Sep-2026', 'INA000012345', 'Compliant'],
-      ['Col. Vikram Rathore', 'ALOPR7741F', 'High Growth', 'Verified', '07-Sep-2026', 'INA000012345', 'Compliant'],
-      ['Kavita Radhakrishnan', 'BFFPR4419M', 'Conservative', 'Verified', '07-Sep-2026', 'INA000012345', 'Compliant'],
-      ['Manish Chawla', 'AVBPD5521H', 'High Growth', 'Verified', '06-Sep-2026', 'INA000012345', 'Compliant']
-    ]
-  },
-  {
-    id: 'sales-eod-report',
-    title: 'Sales',
-    subtitle: 'EOD Report',
-    colorType: 'blue',
-    iconType: 'flag',
-    metricsSummary: [
-      { label: "Today's Target", value: '₹80,000' },
-      { label: "Today's Achieved", value: '₹1,05,000' },
-      { label: 'EOD Realization', value: '131.25%' },
-      { label: 'Active Desks Today', value: '14 Desks' }
-    ],
-    columns: ['Executive', 'Calls Made', 'Connects', 'Talktime (min)', 'Interested', 'Sales (₹)', 'Target %'],
-    sampleData: [
-      ['Rohan Deshmukh', '84', '42', '148', '6', '45,000', '112%'],
-      ['Sneha Kapur', '92', '51', '162', '8', '35,000', '100%'],
-      ['Neha Reddy', '78', '38', '135', '5', '60,000', '150%'],
-      ['Kabir Varma', '95', '55', '180', '9', '25,000', '85%'],
-      ['Ananya Sen', '81', '44', '152', '7', '0', '0%']
-    ]
-  },
+const formatDateWithOffset = (offsetDays: number): string => {
+  const d = new Date();
+  d.setDate(d.getDate() - offsetDays);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+};
 
-  // Row 2
-  {
-    id: 'alloted-lead-report',
-    title: 'Alloted Lead',
-    subtitle: 'Report',
-    colorType: 'green',
-    iconType: 'pencil',
-    metricsSummary: [
-      { label: 'Fresh Leads Alloted Today', value: '250 Leads' },
-      { label: 'Claimed By Executives', value: '242 Leads' },
-      { label: 'Uncontacted In Queue', value: '8 Leads' },
-      { label: 'Average First-Dial SLA', value: '8.4 Minutes' }
-    ],
-    columns: ['Lead ID', 'Client Name', 'City', 'Source', 'Alloted To', 'Alloted Time', 'Status'],
-    sampleData: [
-      ['LD-8891', 'Siddharth Varma', 'Mumbai', 'Google Search Ads', 'Rohan Deshmukh', '09:15 AM', 'Contacted'],
-      ['LD-8892', 'Pooja Hegde', 'Bangalore', 'Moneycontrol Partner', 'Sneha Kapur', '09:30 AM', 'In Progress'],
-      ['LD-8893', 'Karthik Raja', 'Chennai', 'Economic Times', 'Neha Reddy', '09:45 AM', 'Interested'],
-      ['LD-8894', 'Harish Chandra', 'Delhi NCR', 'Facebook Campaign', 'Kabir Varma', '10:00 AM', 'Payment Due'],
-      ['LD-8895', 'Meenakshi Iyer', 'Hyderabad', 'Direct Portal Inflow', 'Ananya Sen', '10:15 AM', 'Contacted']
-    ]
-  },
-  {
-    id: 'employee-report',
-    title: 'Employee',
-    subtitle: 'Report',
-    colorType: 'green',
-    iconType: 'pencil',
-    metricsSummary: [
-      { label: 'Active Employees on Roster', value: '24 Staff' },
-      { label: 'Present Today', value: '23 / 24' },
-      { label: 'On Approved Leave', value: '1 Staff' },
-      { label: 'Average Monthly Sales / Head', value: '₹52,212' }
-    ],
-    columns: ['Emp ID', 'Name', 'Department', 'Designation', 'Present Days', 'Monthly Sales', 'Status'],
-    sampleData: [
-      ['EMP-001', 'Priya Sharma', 'HR', 'Head of People & HR Operations', '22', '-', 'Active'],
-      ['EMP-004', 'Arjun Malhotra', 'Equity Research', 'VP, Equity Advisory & Markets', '22', '₹12,53,100', 'Active'],
-      ['EMP-008', 'Aditya Roy', 'Equity Research', 'Senior Research Analyst', '21', '₹4,50,000', 'Active'],
-      ['EMP-012', 'Rohan Deshmukh', 'Advisory Sales', 'Senior Advisory Executive', '22', '₹3,40,000', 'Active'],
-      ['EMP-015', 'Sneha Kapur', 'Advisory Sales', 'Business Development Lead', '21', '₹2,85,000', 'Active']
-    ]
-  },
-  {
-    id: 'call-log-report',
-    title: 'Call Log',
-    subtitle: 'Report',
-    colorType: 'green',
-    iconType: 'pencil',
-    metricsSummary: [
-      { label: 'Total Calls Logged Today', value: '1,248 Dials' },
-      { label: 'Connected Calls', value: '682 Connects' },
-      { label: 'Total Talktime Recorded', value: '3,840 Minutes' },
-      { label: 'Conversion Rate', value: '18.4%' }
-    ],
-    columns: ['Timestamp', 'Executive', 'Client Mobile', 'Direction', 'Duration (sec)', 'Disposition', 'Recording'],
-    sampleData: [
-      ['08-Sep 10:45 AM', 'Rohan Deshmukh', '9820100401', 'Outbound', '245s', 'Payment Done', 'Audio Available'],
-      ['08-Sep 10:32 AM', 'Sneha Kapur', '9425000402', 'Outbound', '180s', 'Follow-up Set', 'Audio Available'],
-      ['08-Sep 10:15 AM', 'Neha Reddy', '9414000405', 'Inbound', '310s', 'Package Upgrade', 'Audio Available'],
-      ['08-Sep 09:55 AM', 'Kabir Varma', '9847000403', 'Outbound', '125s', 'Interested', 'Audio Available'],
-      ['08-Sep 09:40 AM', 'Ananya Sen', '9444000407', 'Outbound', '90s', 'RNR', 'No Answer']
-    ]
-  },
-  {
-    id: 'source-report',
-    title: 'Source',
-    subtitle: 'Report',
-    colorType: 'blue',
-    iconType: 'tag',
-    metricsSummary: [
-      { label: 'Top Converting Source', value: 'Google Ads (34%)' },
-      { label: 'Total Inflow Leads', value: '3,450 Leads' },
-      { label: 'Cost Per Acquisition', value: '₹1,240' },
-      { label: 'Total Campaign RoI', value: '4.8x' }
-    ],
-    columns: ['Source Channel', 'Total Inflow', 'Contacted', 'Interested', 'Sales Closed', 'Conversion %', 'Total Revenue'],
-    sampleData: [
-      ['Google Search Ads', '1,420', '1,380', '280', '24', '1.74%', '₹5,80,000'],
-      ['Moneycontrol Sponsored', '850', '820', '160', '14', '1.70%', '₹3,25,000'],
-      ['Economic Times Inflow', '480', '460', '95', '6', '1.30%', '₹1,90,000'],
-      ['Organic Web Portal', '420', '410', '88', '3', '0.73%', '₹95,000'],
-      ['Referral & Direct', '280', '275', '62', '5', '1.81%', '₹1,25,000']
-    ]
-  }
-];
+const getReportConfigs = (): ReportCardConfig[] => {
+  const today = formatDateWithOffset(0);
+  const yesterday = formatDateWithOffset(1);
+  const day2 = formatDateWithOffset(2);
+  const day3 = formatDateWithOffset(3);
+  const day5 = formatDateWithOffset(5);
+  const day12 = formatDateWithOffset(12);
+
+  return [
+    {
+      id: 'sales-report',
+      title: 'Sales',
+      subtitle: 'Report',
+      colorType: 'blue',
+      iconType: 'tag',
+      metricsSummary: [
+        { label: 'Total Sales Booking', value: '₹12,53,100' },
+        { label: 'Deals Closed This Month', value: '48 Deals' },
+        { label: 'Average Ticket Size', value: '₹26,106' },
+        { label: 'Top Segment', value: 'INDEX OPTION' }
+      ],
+      columns: ['Date', 'Client Name', 'Mobile', 'Segment', 'Executive', 'Amount (₹)', 'Status'],
+      rows: [
+        { offsetDays: 0, cells: [today, 'Rajesh K. Singhania', '9820100401', 'INDEX OPTION', 'Rohan Deshmukh', '45,000', 'Success'] },
+        { offsetDays: 0, cells: [today, 'Dr. Harshvardhan Jain', '9425000402', 'INDEX OPTION', 'Sneha Kapur', '35,000', 'Success'] },
+        { offsetDays: 1, cells: [yesterday, 'Col. Vikram Rathore', '9414000405', 'INDEX OPTION', 'Neha Reddy', '60,000', 'Success'] },
+        { offsetDays: 1, cells: [yesterday, 'Kavita Radhakrishnan', '9847000403', 'Market Pathshala', 'Kabir Varma', '25,000', 'Success'] },
+        { offsetDays: 3, cells: [day3, 'Manish Chawla', '9912000404', 'EQUITY PREMIER', 'Rohan Deshmukh', '90,000', 'Success'] },
+        { offsetDays: 5, cells: [day5, 'Meenakshi Sundaram', '9444000407', 'FUTURE & OPTIONS', 'Ananya Sen', '1,20,000', 'Success'] },
+        { offsetDays: 12, cells: [day12, 'Arvind Kejriwal', '9811000408', 'INDEX OPTION', 'Aditya Roy', '30,000', 'Success'] }
+      ]
+    },
+    {
+      id: 'account-report',
+      title: 'Account',
+      subtitle: 'Report',
+      colorType: 'green',
+      iconType: 'pencil',
+      metricsSummary: [
+        { label: 'Ledger Inflow', value: '₹18,40,000' },
+        { label: 'Pending Invoices', value: '6 Pending' },
+        { label: 'Direct Bank Deposits', value: '₹14,25,000' },
+        { label: 'Gateway Settlement', value: '₹4,15,000' }
+      ],
+      columns: ['Txn ID', 'Client Name', 'Payment Mode', 'Bank Account', 'UTR / Ref No', 'Amount (₹)', 'Audit Status'],
+      rows: [
+        { offsetDays: 0, cells: ['TXN-9011', 'Rajesh K. Singhania', 'NEFT', 'HDFC Bank - 0021', 'HDFCN26090881', '45,000', 'Reconciled'] },
+        { offsetDays: 0, cells: ['TXN-9012', 'Dr. Harshvardhan Jain', 'UPI / QR', 'ICICI Bank - 4410', 'UPI-260908129', '35,000', 'Reconciled'] },
+        { offsetDays: 1, cells: ['TXN-9013', 'Col. Vikram Rathore', 'NetBanking', 'HDFC Bank - 0021', 'HDFCN26090714', '60,000', 'Reconciled'] },
+        { offsetDays: 2, cells: ['TXN-9014', 'Kavita Radhakrishnan', 'Credit Card', 'Razorpay Route', 'RZP-881923019', '25,000', 'Verified'] },
+        { offsetDays: 5, cells: ['TXN-9015', 'Manish Chawla', 'RTGS', 'Axis Bank - 9912', 'AXISRTGS260906', '90,000', 'Reconciled'] }
+      ]
+    },
+    {
+      id: 'cr-compliance',
+      title: 'CR',
+      subtitle: 'Compliance',
+      colorType: 'olive',
+      iconType: 'quill',
+      metricsSummary: [
+        { label: 'Advisory Compliance Score', value: '99.4%' },
+        { label: 'Risk Profiling Complete', value: '100%' },
+        { label: 'KYC Document Vaulted', value: '48 / 48' },
+        { label: 'Agreement Consent Signed', value: '100%' }
+      ],
+      columns: ['Client Name', 'PAN Number', 'Risk Category', 'Aadhaar e-Sign', 'Mandate Date', 'Reg ID', 'Audit Clearance'],
+      rows: [
+        { offsetDays: 0, cells: ['Rajesh K. Singhania', 'AAACS1024K', 'High Growth', 'Verified', today, 'INA000012345', 'Compliant'] },
+        { offsetDays: 0, cells: ['Dr. Harshvardhan Jain', 'BKMPM3412E', 'Moderate Aggressive', 'Verified', today, 'INA000012345', 'Compliant'] },
+        { offsetDays: 1, cells: ['Col. Vikram Rathore', 'ALOPR7741F', 'High Growth', 'Verified', yesterday, 'INA000012345', 'Compliant'] },
+        { offsetDays: 2, cells: ['Kavita Radhakrishnan', 'BFFPR4419M', 'Conservative', 'Verified', day2, 'INA000012345', 'Compliant'] },
+        { offsetDays: 5, cells: ['Manish Chawla', 'AVBPD5521H', 'High Growth', 'Verified', day5, 'INA000012345', 'Compliant'] }
+      ]
+    },
+    {
+      id: 'sales-eod-report',
+      title: 'Sales',
+      subtitle: 'EOD Report',
+      colorType: 'blue',
+      iconType: 'flag',
+      metricsSummary: [
+        { label: "Today's Target", value: '₹80,000' },
+        { label: "Today's Achieved", value: '₹1,05,000' },
+        { label: 'EOD Realization', value: '131.25%' },
+        { label: 'Active Desks Today', value: '14 Desks' }
+      ],
+      columns: ['Executive', 'Calls Made', 'Connects', 'Talktime (min)', 'Interested', 'Sales (₹)', 'Target %'],
+      rows: [
+        { offsetDays: 0, cells: ['Rohan Deshmukh', '84', '42', '148', '6', '45,000', '112%'] },
+        { offsetDays: 0, cells: ['Sneha Kapur', '92', '51', '162', '8', '35,000', '100%'] },
+        { offsetDays: 0, cells: ['Neha Reddy', '78', '38', '135', '5', '60,000', '150%'] },
+        { offsetDays: 1, cells: ['Kabir Varma', '95', '55', '180', '9', '25,000', '85%'] },
+        { offsetDays: 1, cells: ['Ananya Sen', '81', '44', '152', '7', '0', '0%'] }
+      ]
+    },
+    {
+      id: 'alloted-lead-report',
+      title: 'Allotted Lead',
+      subtitle: 'Report',
+      colorType: 'green',
+      iconType: 'pencil',
+      metricsSummary: [
+        { label: 'Fresh Leads Allotted Today', value: '250 Leads' },
+        { label: 'Claimed By Executives', value: '242 Leads' },
+        { label: 'Uncontacted In Queue', value: '8 Leads' },
+        { label: 'Average First-Dial SLA', value: '8.4 Minutes' }
+      ],
+      columns: ['Lead ID', 'Client Name', 'City', 'Source', 'Allotted To', 'Allotted Time', 'Status'],
+      rows: [
+        { offsetDays: 0, cells: ['LD-8891', 'Siddharth Varma', 'Mumbai', 'Google Search Ads', 'Rohan Deshmukh', '09:15 AM', 'Contacted'] },
+        { offsetDays: 0, cells: ['LD-8892', 'Pooja Hegde', 'Bangalore', 'Moneycontrol Partner', 'Sneha Kapur', '09:30 AM', 'In Progress'] },
+        { offsetDays: 1, cells: ['LD-8893', 'Karthik Raja', 'Chennai', 'Economic Times', 'Neha Reddy', '09:45 AM', 'Interested'] },
+        { offsetDays: 1, cells: ['LD-8894', 'Harish Chandra', 'Delhi NCR', 'Facebook Campaign', 'Kabir Varma', '10:00 AM', 'Payment Due'] },
+        { offsetDays: 3, cells: ['LD-8895', 'Gaurav Sethi', 'Pune', 'Organic Search', 'Ananya Sen', '11:15 AM', 'Contacted'] }
+      ]
+    },
+    {
+      id: 'employee-report',
+      title: 'Employee',
+      subtitle: 'Report',
+      colorType: 'blue',
+      iconType: 'tag',
+      metricsSummary: [
+        { label: 'Total Active Staff', value: '28 Staff' },
+        { label: 'Advisory Sales Reps', value: '16 Execs' },
+        { label: 'Research & Analysts', value: '6 Team' },
+        { label: 'Average Performance Score', value: '92.4%' }
+      ],
+      columns: ['Employee ID', 'Name', 'Department', 'Role', 'Monthly Target', 'MTD Booking', 'Attendance Rate'],
+      rows: [
+        { offsetDays: 0, cells: ['EMP-014', 'Rohan Deshmukh', 'Advisory Sales', 'Senior Advisory Specialist', '₹3,00,000', '₹3,35,000', '98%'] },
+        { offsetDays: 0, cells: ['EMP-018', 'Sneha Kapur', 'Derivatives Desk', 'Options Research Strategist', '₹2,50,000', '₹2,65,000', '100%'] },
+        { offsetDays: 1, cells: ['EMP-021', 'Neha Reddy', 'Advisory Sales', 'Relationship Manager', '₹2,50,000', '₹2,90,000', '96%'] },
+        { offsetDays: 2, cells: ['EMP-025', 'Kabir Varma', 'Advisory Sales', 'Equity Advisor', '₹2,00,000', '₹1,75,000', '92%'] },
+        { offsetDays: 5, cells: ['EMP-029', 'Ananya Sen', 'Institutional Sales', 'Associate Specialist', '₹1,80,000', '₹1,40,000', '95%'] }
+      ]
+    },
+    {
+      id: 'call-log-report',
+      title: 'Call Log',
+      subtitle: 'Report',
+      colorType: 'olive',
+      iconType: 'quill',
+      metricsSummary: [
+        { label: 'Total Calls Logged', value: '1,420 Calls' },
+        { label: 'Connected Calls', value: '980 Connected' },
+        { label: 'Total Calling Talktime', value: '3,840 Mins' },
+        { label: 'Conversion Connect Ratio', value: '69.01%' }
+      ],
+      columns: ['Call ID', 'Executive', 'Client Name', 'Phone', 'Duration', 'Disposition', 'Recorded Audio'],
+      rows: [
+        { offsetDays: 0, cells: ['CAL-9912', 'Rohan Deshmukh', 'Rajesh K. Singhania', '9820100401', '4m 12s', 'Sale Closed', 'Available'] },
+        { offsetDays: 0, cells: ['CAL-9913', 'Sneha Kapur', 'Dr. Harshvardhan Jain', '9425000402', '5m 45s', 'Payment Link Sent', 'Available'] },
+        { offsetDays: 1, cells: ['CAL-9914', 'Neha Reddy', 'Col. Vikram Rathore', '9414000405', '3m 20s', 'Follow-up Scheduled', 'Available'] },
+        { offsetDays: 1, cells: ['CAL-9915', 'Kabir Varma', 'Kavita Radhakrishnan', '9847000403', '6m 10s', 'Sale Closed', 'Available'] },
+        { offsetDays: 4, cells: ['CAL-9916', 'Ananya Sen', 'Manish Chawla', '9912000404', '2m 15s', 'Ringing / No Answer', 'None'] }
+      ]
+    },
+    {
+      id: 'source-report',
+      title: 'Source',
+      subtitle: 'Report',
+      colorType: 'green',
+      iconType: 'pencil',
+      metricsSummary: [
+        { label: 'Top Inflow Channel', value: 'Google Search Ads' },
+        { label: 'Overall Source ROI', value: '4.8x Return' },
+        { label: 'Total Paid Clicks', value: '3,050 Inflows' },
+        { label: 'Average Cost Per Lead', value: '₹145 / Lead' }
+      ],
+      columns: ['Lead Source Channel', 'Total Inflows', 'Connects', 'Interested', 'Conversions', 'Conv. Rate', 'Revenue Generated'],
+      rows: [
+        { offsetDays: 0, cells: ['Google Search Ads', '1,420', '1,380', '280', '24', '1.74%', '₹5,80,000'] },
+        { offsetDays: 0, cells: ['Moneycontrol Sponsored', '850', '820', '160', '14', '1.70%', '₹3,25,000'] },
+        { offsetDays: 1, cells: ['Economic Times Inflow', '480', '460', '95', '6', '1.30%', '₹1,90,000'] },
+        { offsetDays: 2, cells: ['Organic Web Portal', '420', '410', '88', '3', '0.73%', '₹95,000'] },
+        { offsetDays: 5, cells: ['Referral & Direct', '280', '275', '62', '5', '1.81%', '₹1,25,000'] }
+      ]
+    }
+  ];
+};
 
 export const HRReportView: React.FC = () => {
-  const { setActiveTab, showToast } = useApp();
+  const { setActiveTab } = useApp();
   const [isTipsOpen, setIsTipsOpen] = useState(false);
-  const [activeReport, setActiveReport] = useState<ReportCardConfig | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [dateFilter, setDateFilter] = useState('Today');
+  const [periodFilter, setPeriodFilter] = useState<'today' | 'yesterday' | 'week' | 'month' | 'all'>('month');
+
+  const reportConfigs = useMemo(() => getReportConfigs(), []);
+  const activeReport = useMemo(() => 
+    reportConfigs.find(r => r.id === selectedReportId) || null,
+    [reportConfigs, selectedReportId]
+  );
+
+  const todayStr = useMemo(() => formatDateWithOffset(0), []);
+  const yesterdayStr = useMemo(() => formatDateWithOffset(1), []);
+  const currentMonthStr = useMemo(() => {
+    return new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  }, []);
 
   const renderIcon = (type: ReportCardConfig['iconType']) => {
     switch (type) {
       case 'tag':
-        return <Tag size={26} color="#ffffff" strokeWidth={2.2} />;
+        return <Tag size={24} color="#ffffff" strokeWidth={2.2} />;
       case 'flag':
-        return <Flag size={26} color="#ffffff" strokeWidth={2.2} />;
+        return <Flag size={24} color="#ffffff" strokeWidth={2.2} />;
       case 'quill':
-        return <PenTool size={26} color="#ffffff" strokeWidth={2.2} />;
+        return <PenTool size={24} color="#ffffff" strokeWidth={2.2} />;
       case 'pencil':
       default:
-        return <Edit3 size={26} color="#ffffff" strokeWidth={2.2} />;
+        return <Edit3 size={24} color="#ffffff" strokeWidth={2.2} />;
     }
   };
 
@@ -231,173 +258,249 @@ export const HRReportView: React.FC = () => {
     window.print();
   };
 
+  // Real filtered rows calculation based on actual period & search!
+  const filteredRows = useMemo(() => {
+    if (!activeReport) return [];
+
+    return activeReport.rows.filter(item => {
+      // Period filter
+      if (periodFilter === 'today' && item.offsetDays !== 0) return false;
+      if (periodFilter === 'yesterday' && item.offsetDays !== 1) return false;
+      if (periodFilter === 'week' && item.offsetDays > 7) return false;
+      if (periodFilter === 'month' && item.offsetDays > 30) return false;
+
+      // Text search filter
+      if (searchQuery.trim() !== '') {
+        const q = searchQuery.toLowerCase();
+        const matches = item.cells.some(cell => String(cell).toLowerCase().includes(q));
+        if (!matches) return false;
+      }
+
+      return true;
+    });
+  }, [activeReport, periodFilter, searchQuery]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      {/* Subpage Breadcrumb Strip (Direct Match to Reference Image 2) */}
+      {/* Breadcrumb Strip */}
       <div className="subpage-header-strip">
         <div className="subpage-breadcrumb">
           <span className="home-link" onClick={() => setActiveTab('dashboard')} style={{ cursor: 'pointer' }}>
-            <Home size={16} />
-            <span style={{ color: '#ea580c', fontWeight: 600 }}>/ Report</span>
+            <span>Home</span>
           </span>
+          <span style={{ color: 'var(--text-muted)' }}>/</span>
+          <span 
+            style={{ color: activeReport ? 'var(--text-secondary)' : 'var(--stocketics-blue-500)', cursor: activeReport ? 'pointer' : 'default', fontWeight: activeReport ? 500 : 700 }}
+            onClick={() => setSelectedReportId(null)}
+          >
+            Reports
+          </span>
+          {activeReport && (
+            <>
+              <span style={{ color: 'var(--text-muted)' }}>/</span>
+              <span style={{ fontWeight: 700, color: 'var(--stocketics-blue-500)' }}>
+                {activeReport.title} {activeReport.subtitle}
+              </span>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Page Title */}
-      <h1 className="page-title-ref">Report</h1>
-
-      {/* 8 Two-Tone Report Cards (Exact 4x2 Grid Matching Image 2) */}
-      <div className="report-two-tone-grid">
-        {HR_REPORT_CONFIGS.map(report => (
-          <div 
-            key={report.id}
-            className="report-two-tone-card"
-            onClick={() => setActiveReport(report)}
-            title={`Click to open ${report.title} ${report.subtitle}`}
-          >
-            {/* Left Colored Icon Block */}
-            <div className={`report-card-icon-box report-icon-${report.colorType}`}>
-              {renderIcon(report.iconType)}
-            </div>
-
-            {/* Right White Content Block */}
-            <div className="report-card-text-box">
-              <div className="report-card-title">{report.title}</div>
-              <div className="report-card-subtitle">{report.subtitle}</div>
+      {/* OVERVIEW MODE: 8 Two-Tone Cards Grid */}
+      {!activeReport && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h1 className="page-title-ref" style={{ margin: 0 }}>Reports</h1>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Operational intelligence, sales EOD audits, compliance rosters, and channel analytics.
+              </p>
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* Interactive Report Generator Modal */}
-      {activeReport && (
-        <div className="modal-overlay" onClick={() => setActiveReport(null)}>
-          <div 
-            className="modal-content" 
-            style={{ maxWidth: '950px', width: '95%', maxHeight: '90vh', overflowY: 'auto' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.85rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div className={`report-card-icon-box report-icon-${activeReport.colorType}`} style={{ width: '42px', height: '42px', borderRadius: '8px' }}>
-                  {renderIcon(activeReport.iconType)}
+          <div className="report-two-tone-grid">
+            {reportConfigs.map(report => (
+              <div 
+                key={report.id}
+                className="report-two-tone-card"
+                onClick={() => setSelectedReportId(report.id)}
+                title={`Open focused workspace for ${report.title} ${report.subtitle}`}
+                style={{ cursor: 'pointer' }}
+              >
+                {/* Left Colored Icon Block */}
+                <div className={`report-card-icon-box report-icon-${report.colorType}`}>
+                  {renderIcon(report.iconType)}
                 </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>
-                    {activeReport.title} {activeReport.subtitle}
-                  </h3>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    Enterprise Audit & Performance Report • Live Database Sync
-                  </span>
+
+                {/* Right Content Block */}
+                <div className="report-card-text-box">
+                  <div className="report-card-title">{report.title}</div>
+                  <div className="report-card-subtitle">{report.subtitle}</div>
                 </div>
               </div>
+            ))}
+          </div>
+        </>
+      )}
 
+      {/* FOCUSED REPORT WORKSPACE MODE (Replaces entire viewport area with clean Report Workspace!) */}
+      {activeReport && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Focused Header with Back navigation & Quick Report Switcher */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <button 
-                className="btn-icon" 
-                onClick={() => setActiveReport(null)}
-                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                className="btn btn-secondary btn-sm"
+                onClick={() => setSelectedReportId(null)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', height: '36px', borderRadius: '6px' }}
               >
-                <X size={20} />
+                <ArrowLeft size={15} />
+                <span>All Reports</span>
+              </button>
+
+              <div>
+                <h1 className="page-title-ref" style={{ margin: 0, fontSize: '1.4rem' }}>
+                  {activeReport.title} {activeReport.subtitle}
+                </h1>
+                <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Institutional audit ledger and operational analytics
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button 
+                className="btn btn-secondary btn-sm"
+                onClick={handlePrint}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', height: '36px' }}
+              >
+                <Printer size={15} />
+                <span>Print Report</span>
               </button>
             </div>
+          </div>
 
-            {/* Metrics Ribbon */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.85rem', margin: '1.2rem 0' }}>
-              {activeReport.metricsSummary.map((m, idx) => (
-                <div 
-                  key={idx}
-                  style={{
-                    background: 'var(--bg-surface-soft, #f8fafc)',
-                    padding: '0.75rem 1rem',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-subtle)'
-                  }}
-                >
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                    {m.label}
-                  </div>
-                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
-                    {m.value}
-                  </div>
+          {/* Quick Report Switcher Pill Bar */}
+          <div style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+            {reportConfigs.map(r => (
+              <button
+                key={r.id}
+                onClick={() => setSelectedReportId(r.id)}
+                className={`btn btn-sm ${r.id === activeReport.id ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ 
+                  borderRadius: '20px', 
+                  fontSize: '0.78rem', 
+                  padding: '0.3rem 0.85rem',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {r.title} {r.subtitle}
+              </button>
+            ))}
+          </div>
+
+          {/* Metrics Summary Ribbon */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem' }}>
+            {activeReport.metricsSummary.map((m, idx) => (
+              <div 
+                key={idx}
+                className="card"
+                style={{ padding: '0.85rem 1.15rem' }}
+              >
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+                  {m.label}
                 </div>
-              ))}
-            </div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
+                  {m.value}
+                </div>
+              </div>
+            ))}
+          </div>
 
-            {/* Filter Toolbar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem', background: 'var(--bg-surface)', padding: '0.6rem 0.8rem', border: '1px solid var(--border-subtle)', borderRadius: '6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <div style={{ position: 'relative' }}>
-                  <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          {/* Real Filter Toolbar */}
+          <div className="card" style={{ padding: '0.85rem 1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', flex: 1, minWidth: '260px' }}>
+                <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                  <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                   <input 
                     type="text"
-                    placeholder="Filter records..."
+                    placeholder={`Search within ${activeReport.title} records...`}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="input-field"
-                    style={{ paddingLeft: '32px', height: '34px', fontSize: '0.85rem', width: '220px' }}
+                    className="form-input"
+                    style={{ paddingLeft: '32px', height: '36px', fontSize: '0.84rem' }}
                   />
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                   <Calendar size={15} style={{ color: 'var(--text-muted)' }} />
                   <select 
-                    className="input-field" 
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                    style={{ height: '34px', fontSize: '0.85rem' }}
+                    className="form-select" 
+                    value={periodFilter}
+                    onChange={(e) => setPeriodFilter(e.target.value as any)}
+                    style={{ height: '36px', fontSize: '0.82rem', width: 'auto' }}
                   >
-                    <option value="Today">Today (22-Sep-2026)</option>
-                    <option value="Yesterday">Yesterday</option>
-                    <option value="This Month">This Month (September 2026)</option>
-                    <option value="Last Month">Last Month (August 2026)</option>
-                    <option value="Custom">Custom Date Range</option>
+                    <option value="today">Today ({todayStr})</option>
+                    <option value="yesterday">Yesterday ({yesterdayStr})</option>
+                    <option value="week">Last 7 Days</option>
+                    <option value="month">This Month ({currentMonthStr})</option>
+                    <option value="all">All Available Records</option>
                   </select>
                 </div>
+
+                {(searchQuery !== '' || periodFilter !== 'month') && (
+                  <button 
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => { setSearchQuery(''); setPeriodFilter('month'); }}
+                    style={{ height: '36px', display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)' }}
+                  >
+                    <RotateCcw size={13} />
+                    <span>Reset</span>
+                  </button>
+                )}
               </div>
 
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button 
-                  className="btn btn-secondary btn-sm"
-                  onClick={handlePrint}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', height: '34px' }}
-                >
-                  <Printer size={15} />
-                  <span>Print</span>
-                </button>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Showing <strong>{filteredRows.length}</strong> matching rows
               </div>
             </div>
+          </div>
 
-            {/* Data Table */}
-            <div style={{ overflowX: 'auto', border: '1px solid var(--border-subtle)', borderRadius: '6px' }}>
-              <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+          {/* Interactive Data Table */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="table-wrapper responsive-table-wrap" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: '650px', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ background: '#051d33', color: '#ffffff' }}>
+                  <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                     {activeReport.columns.map((col, idx) => (
-                      <th key={idx} style={{ padding: '0.65rem 0.85rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700 }}>
+                      <th key={idx} style={{ padding: '0.85rem 1rem' }}>
                         {col}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {activeReport.sampleData
-                    .filter(row => 
-                      searchQuery === '' || 
-                      row.some(cell => String(cell).toLowerCase().includes(searchQuery.toLowerCase()))
-                    )
-                    .map((row, rIdx) => (
+                  {filteredRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={activeReport.columns.length} style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        No records match the selected date interval ({periodFilter}) or search keywords.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRows.map((rowItem, rIdx) => (
                       <tr 
                         key={rIdx} 
-                        style={{ 
-                          borderBottom: '1px solid var(--border-subtle)',
-                          background: rIdx % 2 === 0 ? 'var(--bg-surface)' : 'var(--bg-surface-soft, rgba(0,0,0,0.01))'
-                        }}
+                        style={{ borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}
                       >
-                        {row.map((cell, cIdx) => (
-                          <td key={cIdx} style={{ padding: '0.65rem 0.85rem', fontSize: '0.83rem', color: 'var(--text-primary)' }}>
+                        {rowItem.cells.map((cell, cIdx) => (
+                          <td key={cIdx} style={{ padding: '0.85rem 1rem', color: 'var(--text-primary)' }}>
                             {cell === 'Success' || cell === 'Reconciled' || cell === 'Compliant' || cell === 'Active' || cell === 'Verified' ? (
-                              <span className="badge badge-success" style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem' }}>
+                              <span className="delta-badge positive" style={{ fontSize: '0.72rem' }}>
+                                {cell}
+                              </span>
+                            ) : cell === 'In Progress' || cell === 'Payment Due' ? (
+                              <span className="delta-badge" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#d97706', fontSize: '0.72rem' }}>
                                 {cell}
                               </span>
                             ) : (
@@ -406,15 +509,16 @@ export const HRReportView: React.FC = () => {
                           </td>
                         ))}
                       </tr>
-                    ))}
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
 
-            {/* Footer Summary */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              <span>Showing all <strong>{activeReport.sampleData.length}</strong> audited rows for this interval</span>
-              <span>SEBI Master Circular Compliance Confirmed • Certified Sign-off</span>
+            {/* Authentic, Honest Footer Metadata */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 1.25rem', borderTop: '1px solid var(--border-subtle)', fontSize: '0.78rem', color: 'var(--text-muted)', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <span>Showing <strong>{filteredRows.length}</strong> audited records for period: <strong>{periodFilter}</strong></span>
+              <span>Stocketics Internal Analytics Ledger • Generated on {new Date().toLocaleTimeString()}</span>
             </div>
           </div>
         </div>

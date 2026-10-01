@@ -563,7 +563,7 @@ export const HRTipArchiveView: React.FC<Props> = ({ defaultMode }) => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>+ Add Closed Trade to Archive</h3>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Add Closed Trade to Archive</h3>
               <button 
                 className="btn-icon" 
                 onClick={() => setIsAddCallModalOpen(false)}

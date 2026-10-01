@@ -12,16 +12,20 @@ import {
   ShieldCheck, 
   Home,
   Lightbulb,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Archive,
+  UserCheck
 } from 'lucide-react';
 import { EmployeeDirectory } from './EmployeeDirectory';
 import { AttendanceRoster } from './AttendanceRoster';
 import { LeaveApprovalsHR } from './LeaveApprovalsHR';
 import { PayrollProcessor } from './PayrollProcessor';
 import { ComplianceVault } from './ComplianceVault';
+import { ConfigurationHub } from '../common/ConfigurationHub';
+import { ConfigCategory } from '../../types/config';
 import { AdvisoryPipeline } from '../manager/AdvisoryPipeline';
 import { LeavePortal } from '../employee/LeavePortal';
-import { RefKPIGrid } from '../common/RefKPIGrid';
+import { LegacyKPIGrid } from '../common/LegacyKPIGrid';
 import { MarketWorkspace } from '../market/MarketWorkspace';
 import { SalesExecutiveChart, ManagersChart } from '../common/ChartWidgets';
 import { TipsModal } from '../common/TipsModal';
@@ -48,6 +52,7 @@ import { ManagerSMSView } from '../manager/ManagerSMSView';
 import { HRTeamsManagementView } from './HRTeamsManagementView';
 import { RACallsDashboardView } from '../common/RACallsDashboardView';
 import { AllotLeadsView } from '../common/AllotLeadsView';
+import { LeadReassignmentView } from '../teamlead/LeadReassignmentView';
 
 export const HRDashboard: React.FC = () => {
   const { 
@@ -75,26 +80,52 @@ export const HRDashboard: React.FC = () => {
     return <RACallsDashboardView />;
   }
 
-  // Lead Allotment Engine
-  if (activeTab === 'allot-leads') {
-    return <AllotLeadsView />;
+  // Lead Allotment Engine: Explicitly restricted for HR role per verified capability matrix
+  if (activeTab === 'allot-leads' || activeTab === 'allot-team-leads') {
+    return (
+      <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-xl border border-red-200 dark:border-red-900/40 my-6 shadow-sm">
+        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+        <h2 className="text-xl font-bold text-slate-800 dark:text-white">Lead Allocation Restricted</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+          The verified CRM information architecture restricts lead allotment and bulk distribution to Manager and Administrator roles. HR accounts manage People & Teams, Communications, Research Dictionaries, and Organization Content.
+        </p>
+        <button 
+          onClick={() => setActiveTab('configuration')}
+          className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+        >
+          Go to HR Configuration Hub
+        </button>
+      </div>
+    );
   }
 
-  // 0. Configuration & Compliance Vault
+  // 0. Configuration & HR Master Data Hub
   if (
     activeTab === 'configuration' || 
+    activeTab === 'configuration-hub' ||
+    activeTab === 'config-people' ||
+    activeTab === 'config-scripts' ||
+    activeTab === 'config-communications' ||
+    activeTab === 'config-org-content' ||
     activeTab === 'user-management' || 
     activeTab === 'role-permissions' || 
-    activeTab === 'department-settings' || 
-    activeTab === 'service-master' || 
-    activeTab === 'compliance-vault'
+    activeTab === 'department-settings'
   ) {
+    let initialCat: ConfigCategory = 'people_teams';
+    if (activeTab === 'config-scripts') initialCat = 'research_content';
+    else if (activeTab === 'config-communications') initialCat = 'communications';
+    else if (activeTab === 'config-org-content') initialCat = 'hr_organization';
+    return <ConfigurationHub initialCategory={initialCat} />;
+  }
+
+  if (activeTab === 'compliance-vault' || activeTab === 'compliance') {
     return <ComplianceVault />;
   }
 
   // Teams & Squads Architecture
   if (
     activeTab === 'teams' ||
+    activeTab === 'teams-hierarchy' ||
     activeTab === 'create-team' ||
     activeTab === 'all-teams' ||
     activeTab === 'assign-members'
@@ -245,10 +276,13 @@ export const HRDashboard: React.FC = () => {
     activeTab === 'modified-today' ||
     activeTab === 'disposed-today' ||
     activeTab === 'interested-leads' ||
-    activeTab === 'confirmed-payment' ||
+    activeTab === 'closed-won' || activeTab === 'closed-own' || activeTab === 'confirmed-payment' ||
     activeTab === 'payment-leads'
   ) {
     return <AdvisoryPipeline />;
+  }
+  if (activeTab === 'lead-reassignment') {
+    return <LeadReassignmentView />;
   }
 
   // 9. Approve Pipeline
@@ -314,18 +348,6 @@ export const HRDashboard: React.FC = () => {
     return <HRReportView />;
   }
 
-  // 14. Configuration & Compliance Vault
-  if (
-    activeTab === 'configuration' || 
-    activeTab === 'compliance' || 
-    activeTab === 'user-management' || 
-    activeTab === 'role-permissions' || 
-    activeTab === 'department-settings' || 
-    activeTab === 'service-master' || 
-    activeTab === 'compliance-vault'
-  ) {
-    return <ComplianceVault />;
-  }
 
   // 15. Targets
   if (
@@ -393,36 +415,51 @@ export const HRDashboard: React.FC = () => {
         {/* Reference Title */}
         <h1 className="page-title-ref">Dashboard</h1>
 
-        {/* 6+2 Vibrant Colorful KPI Grid (Direct Match to Reference Image 1) */}
-        <RefKPIGrid 
-          customRow1={[
-            { id: 'followup', value: followupCount, label: "Today's Followup", colorClass: 'kpi-c-blue' },
-            { id: 'prospect', value: prospectCount, label: "Today's Prospect", colorClass: 'kpi-c-orange' },
-            { id: 'available', value: availableLeadsCount, label: 'Available Leads', colorClass: 'kpi-c-teal' },
-            { id: 'modified', value: modifiedCount, label: 'Modified Today', colorClass: 'kpi-c-purple' },
-            { id: 'dispose', value: disposeCount, label: 'Dispose Today', colorClass: 'kpi-c-red' },
-            { id: 'monthly-sale', value: monthlySaleVal, format: 'currency' as const, decimals: 0, label: 'Monthly Sale', colorClass: 'kpi-c-navy' },
+        {/* 6+2 Legacy Solid Color KPI Grid */}
+        <LegacyKPIGrid 
+          row1={[
+            { id: 'followup', value: followupCount, label: "Today's Followup", colorClass: 'kpi-c-followup' },
+            { id: 'prospect', value: prospectCount, label: "Today's Prospect", colorClass: 'kpi-c-prospect' },
+            { id: 'available', value: availableLeadsCount, label: 'Available Leads', colorClass: 'kpi-c-available' },
+            { id: 'modified', value: modifiedCount, label: 'Modified Today', colorClass: 'kpi-c-modified' },
+            { id: 'dispose', value: disposeCount, label: 'Dispose Today', colorClass: 'kpi-c-dispose' },
+            { id: 'monthly-sale', value: monthlySaleVal, format: 'currency' as const, decimals: 0, label: 'Monthly Sale', colorClass: 'kpi-c-monthly-sale' },
           ]}
-          customRow2={[
-            { id: 'interested', value: interestedCount, label: 'Interested leads', colorClass: 'kpi-c-violet' },
-            { id: 'payment', value: paymentCount, label: 'Payment leads', colorClass: 'kpi-c-amber' },
+          row2={[
+            { id: 'interested', value: interestedCount, label: 'Interested leads', colorClass: 'kpi-c-interested' },
+            { id: 'payment', value: paymentCount, label: 'Payment leads', colorClass: 'kpi-c-payment' },
           ]}
           onCardClick={handleKpiCardClick} 
           activeId={activeTab}
         />
-
-      {/* Two Side-by-Side Charts: SALES EXECUTIVE & MANAGERS (Matching Reference Screenshot) */}
-      <div className="charts-split-grid">
-        <SalesExecutiveChart />
-        <ManagersChart />
-      </div>
-
-      {/* Quick Action Navigation Strip for HR Suite */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', padding: '1rem 1.25rem', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <ShieldCheck size={20} style={{ color: 'var(--stocketics-blue-500)' }} />
+      {/* Quick Action Navigation Strip for HR Suite - Premium Unified Suite Card */}
+      <div className="card" style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        flexWrap: 'wrap', 
+        gap: '1rem', 
+        padding: '1rem 1.25rem',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--border-subtle)',
+        background: 'var(--bg-surface)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ 
+            width: '40px', 
+            height: '40px', 
+            borderRadius: '10px', 
+            background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', 
+            color: '#fff', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)' 
+          }}>
+            <ShieldCheck size={20} />
+          </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+            <div style={{ fontWeight: 800, fontSize: '0.96rem', color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
               Stocketics Enterprise Administration Suite
             </div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
@@ -431,17 +468,17 @@ export const HRDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-          <button className="btn btn-primary btn-sm" onClick={() => setActiveTab('allot-leads')} style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: '#fff', border: 'none' }}>
-            <Users size={14} />
+        <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <button className="btn btn-primary btn-sm" onClick={() => setActiveTab('allot-leads')}>
+            <UserCheck size={14} />
             <span>Allot Leads</span>
           </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('teams')}>
+          <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('teams-hierarchy')}>
             <Users size={14} />
             <span>Teams Architecture</span>
           </button>
           <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('recruitment')}>
-            <Users size={14} />
+            <UserPlus size={14} />
             <span>Recruitment</span>
           </button>
           <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('attendance')}>
@@ -465,10 +502,16 @@ export const HRDashboard: React.FC = () => {
             <span>Compliance Vault</span>
           </button>
           <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('tip-archive')}>
-            <ShieldCheck size={14} />
+            <Archive size={14} />
             <span>Tip Archives</span>
           </button>
         </div>
+      </div>
+
+      {/* Two Side-by-Side Charts: SALES EXECUTIVE & MANAGERS (Matching Reference Screenshot) */}
+      <div className="charts-split-grid">
+        <SalesExecutiveChart />
+        <ManagersChart />
       </div>
 
       {/* Operational Two-Column Split: Workforce Roster & Pending Approvals */}

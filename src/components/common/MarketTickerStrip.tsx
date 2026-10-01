@@ -1160,7 +1160,7 @@ export const MarketTickerStrip: React.FC = () => {
               {/* Add Custom Stock / Option Form */}
               <form onSubmit={handleAddCustomInstrument} className="kite-add-instrument-card">
                 <div style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
-                  + Add Custom Stock or Option Contract
+                  Add Custom Stock or Option Contract
                 </div>
 
                 <div className="form-group-row">

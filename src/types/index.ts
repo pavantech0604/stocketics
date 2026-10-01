@@ -1,6 +1,8 @@
-export type UserRole = 'hr' | 'manager' | 'employee' | 'team_leader';
 
-export type Department = 
+
+export type UserRole = 'hr' | 'manager' | 'employee' | 'team_leader' | 'admin';
+
+export type Department =
   | 'HR'
   | 'IT'
   | 'Equity Research'
@@ -113,6 +115,35 @@ export interface AdvisoryLead {
   disposedToday?: boolean;
   disposedAt?: string;
   isDND?: boolean;
+  leadCode?: string;
+  panNumber?: string;
+  dispositionHistory?: LeadDispositionEvent[];
+}
+
+export interface LeadDispositionEvent {
+  id: string;
+  leadId: string;
+  timestamp: string;
+  actorId: string;
+  actorName: string;
+  actorRole: string;
+  response: string;
+  note?: string;
+  callbackDate?: string;
+  callbackTime?: string;
+  sentiment?: 'Positive' | 'Neutral' | 'Challenging';
+  durationSeconds?: number;
+}
+
+export interface GlobalDNDEntry {
+  id: string;
+  phone: string;
+  clientName?: string;
+  leadId?: string;
+  reason: string;
+  addedById: string;
+  addedByName: string;
+  addedAt: string;
 }
 
 export interface LeadSourcePool {
@@ -245,6 +276,20 @@ export interface InvoiceData {
   paymentMode: string;
   bankName: string;
   paymentDetail?: string;
+  taxBreakdown?: InvoiceTaxBreakdown;
+}
+
+export interface InvoiceTaxBreakdown {
+  sacCode: string; // '997152' Investment Advisory Services
+  taxableValue: number;
+  cgstRate: number; // 9%
+  cgstAmount: number;
+  sgstRate: number; // 9%
+  sgstAmount: number;
+  igstRate: number; // 18%
+  igstAmount: number;
+  totalGstAmount: number;
+  netPayable: number;
 }
 
 export interface ConfirmedPaymentRecord {
@@ -268,6 +313,21 @@ export interface ConfirmedPaymentRecord {
   entryPrice?: number;
   exitPrice?: number;
   lots?: number;
+  utrNumber?: string;
+  verifiedBy?: string;
+  verifiedById?: string;
+  verifiedDate?: string;
+  servicePackage?: string;
+  leadId?: string;
+  clientId?: string;
+  splitAttribution?: {
+    generatorId?: string;
+    generatorName?: string;
+    closerId?: string;
+    closerName?: string;
+    generatorSharePct?: number;
+    closerSharePct?: number;
+  };
 }
 
 export type CallDirection = 'Outbound' | 'Inbound';
@@ -346,6 +406,20 @@ export interface ClientKYCData {
   uploadedAt?: string;
 }
 
+export interface ClientServiceSubscription {
+  id: string;
+  serviceName: string;
+  serviceCategory: string;
+  startDate: string;
+  endDate: string;
+  status: 'Active' | 'Hold' | 'Expired' | 'Suspended';
+  invoiceNo?: string;
+  paidAmount: number;
+  assignedAdvisorId?: string;
+  assignedAdvisorName?: string;
+  createdAt: string;
+}
+
 export interface ActiveClientRecordDetailed {
   id: string;
   clientCode: string;
@@ -380,6 +454,7 @@ export interface ActiveClientRecordDetailed {
   callsDeliveredCount?: number;
   lastCallSentAt?: string;
   serviceCategory?: string;
+  serviceSubscriptions?: ClientServiceSubscription[];
 }
 
 // ─── Team Leader Role Types ──────────────────────────────────────────
@@ -832,5 +907,267 @@ export const STANDARD_ADVISORY_SERVICES: StandardAdvisoryService[] = [
   { id: 'EQUITY PREMIER', name: 'EQUITY PREMIER (Cash Long-Term & Delivery)', category: 'Cash / Equity', segment: 'Equity Cash', description: 'High alpha fundamental delivery & positional equity' },
 ];
 
+// ─── KYC Case Workflow Types (Full Lifecycle) ─────────────────────────
+export type KYCCaseStatus =
+  | 'Not Started'
+  | 'Documents Requested'
+  | 'Awaiting Documents'
+  | 'Draft'
+  | 'Pending Approval'
+  | 'In Review'
+  | 'Needs Reupload'
+  | 'Approved'
+  | 'Rejected'
+  | 'Withdrawn';
 
+export type KYCCaseDocStatus =
+  | 'Requested'
+  | 'Uploaded'
+  | 'Pending Review'
+  | 'Verified'
+  | 'Needs Reupload'
+  | 'Rejected';
+
+export interface KYCCaseDocument {
+  type: KYCDocumentType;
+  status: KYCCaseDocStatus;
+  documentId?: string;        // Reference to KYCDocumentItem
+  maskedNumber?: string;       // e.g. "XXXX-XXXX-8821"
+  fileName?: string;
+  uploadedAt?: string;
+  version: number;
+}
+
+export interface KYCAuditEntry {
+  id: string;
+  timestamp: string;
+  action: string;
+  actorId: string;
+  actorName: string;
+  actorRole: string;
+  detail: string;
+  previousValue?: string;
+  newValue?: string;
+  isDelegated?: boolean;       // true when TL acts under delegated permission
+}
+
+export interface KYCCase {
+  id: string;
+  leadId: string;
+  leadName: string;
+  leadPhone: string;
+  leadEmail: string;
+  assignedAdvisorId: string;
+  assignedAdvisorName: string;
+  teamId?: string;
+  teamLeaderId?: string;
+  status: KYCCaseStatus;
+  requiredDocuments: KYCDocumentType[];
+  documents: KYCCaseDocument[];
+  requestChannel?: string;      // 'SMS' | 'WhatsApp' | 'Email' | 'In-Person'
+  requestedAt?: string;
+  submittedAt?: string;
+  reviewerId?: string;
+  reviewerName?: string;
+  reviewDecision?: 'Approved' | 'Rejected' | 'Needs Reupload';
+  reviewReason?: string;
+  reviewedAt?: string;
+  isDelegatedReview?: boolean;
+  policyNote?: string;
+  auditTrail: KYCAuditEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Lead Change Audit Entry ──────────────────────────────────────────
+export interface LeadChangeEntry {
+  id: string;
+  leadId: string;
+  timestamp: string;
+  actorId: string;
+  actorName: string;
+  actorRole: string;
+  field: string;
+  previousValue: string;
+  newValue: string;
+  reason?: string;
+}
+
+// ─── Explicit Role Permission Matrix ──────────────────────────────────
+export interface RolePermissionMatrix {
+  // Lead access
+  'leads.view.own': boolean;
+  'leads.view.team': boolean;
+  'leads.view.all': boolean;
+  'leads.edit.own': boolean;
+  'leads.edit.team': boolean;
+  'leads.edit.all': boolean;
+  'leads.assign.team': boolean;
+  'leads.assign.all': boolean;
+  'leads.reassign.team': boolean;
+  'leads.reassign.all': boolean;
+  // KYC
+  'kyc.upload': boolean;
+  'kyc.submit': boolean;
+  'kyc.review.team': boolean;
+  'kyc.review.all': boolean;
+  'kyc.view.documents.team': boolean;
+  'kyc.view.documents.all': boolean;
+  // Team management
+  'team.view.own': boolean;
+  'team.coaching': boolean;
+  'team.standup': boolean;
+  'team.targets': boolean;
+  // Administration
+  'admin.employees': boolean;
+  'admin.payroll': boolean;
+  'admin.roles': boolean;
+  'admin.settings': boolean;
+  // Approval
+  'approve.prospects': boolean;
+  'approve.payments': boolean;
+}
+
+export const ROLE_PERMISSION_MATRIX: Record<UserRole, RolePermissionMatrix> = {
+  admin: {
+    'leads.view.own': true,
+    'leads.view.team': true,
+    'leads.view.all': true,
+    'leads.edit.own': true,
+    'leads.edit.team': true,
+    'leads.edit.all': true,
+    'leads.assign.team': true,
+    'leads.assign.all': true,
+    'leads.reassign.team': true,
+    'leads.reassign.all': true,
+    'kyc.upload': true,
+    'kyc.submit': true,
+    'kyc.review.team': true,
+    'kyc.review.all': true,
+    'kyc.view.documents.team': true,
+    'kyc.view.documents.all': true,
+    'team.view.own': true,
+    'team.coaching': true,
+    'team.standup': true,
+    'team.targets': true,
+    'admin.employees': true,
+    'admin.payroll': true,
+    'admin.roles': true,
+    'admin.settings': true,
+    'approve.prospects': true,
+    'approve.payments': true,
+  },
+  employee: {
+    'leads.view.own': true,
+    'leads.view.team': false,
+    'leads.view.all': false,
+    'leads.edit.own': true,
+    'leads.edit.team': false,
+    'leads.edit.all': false,
+    'leads.assign.team': false,
+    'leads.assign.all': false,
+    'leads.reassign.team': false,
+    'leads.reassign.all': false,
+    'kyc.upload': true,
+    'kyc.submit': true,
+    'kyc.review.team': false,
+    'kyc.review.all': false,
+    'kyc.view.documents.team': false,
+    'kyc.view.documents.all': false,
+    'team.view.own': false,
+    'team.coaching': false,
+    'team.standup': false,
+    'team.targets': false,
+    'admin.employees': false,
+    'admin.payroll': false,
+    'admin.roles': false,
+    'admin.settings': false,
+    'approve.prospects': false,
+    'approve.payments': false,
+  },
+  team_leader: {
+    'leads.view.own': true,
+    'leads.view.team': true,
+    'leads.view.all': false,
+    'leads.edit.own': true,
+    'leads.edit.team': true,
+    'leads.edit.all': false,
+    'leads.assign.team': true,
+    'leads.assign.all': false,
+    'leads.reassign.team': true,
+    'leads.reassign.all': false,
+    'kyc.upload': true,
+    'kyc.submit': true,
+    'kyc.review.team': true,   // Delegated KYC review – enabled by default
+    'kyc.review.all': false,
+    'kyc.view.documents.team': true,
+    'kyc.view.documents.all': false,
+    'team.view.own': true,
+    'team.coaching': true,
+    'team.standup': true,
+    'team.targets': true,
+    'admin.employees': false,
+    'admin.payroll': false,
+    'admin.roles': false,
+    'admin.settings': false,
+    'approve.prospects': false,
+    'approve.payments': false,
+  },
+  manager: {
+    'leads.view.own': true,
+    'leads.view.team': true,
+    'leads.view.all': true,
+    'leads.edit.own': true,
+    'leads.edit.team': true,
+    'leads.edit.all': true,
+    'leads.assign.team': true,
+    'leads.assign.all': true,
+    'leads.reassign.team': true,
+    'leads.reassign.all': true,
+    'kyc.upload': true,
+    'kyc.submit': true,
+    'kyc.review.team': true,
+    'kyc.review.all': true,
+    'kyc.view.documents.team': true,
+    'kyc.view.documents.all': true,
+    'team.view.own': true,
+    'team.coaching': true,
+    'team.standup': true,
+    'team.targets': true,
+    'admin.employees': false,
+    'admin.payroll': false,
+    'admin.roles': false,
+    'admin.settings': false,
+    'approve.prospects': true,
+    'approve.payments': true,
+  },
+  hr: {
+    'leads.view.own': false,
+    'leads.view.team': false,
+    'leads.view.all': true,
+    'leads.edit.own': false,
+    'leads.edit.team': false,
+    'leads.edit.all': true,
+    'leads.assign.team': false,
+    'leads.assign.all': true,
+    'leads.reassign.team': false,
+    'leads.reassign.all': true,
+    'kyc.upload': false,
+    'kyc.submit': false,
+    'kyc.review.team': false,
+    'kyc.review.all': false,
+    'kyc.view.documents.team': false,
+    'kyc.view.documents.all': false,
+    'team.view.own': false,
+    'team.coaching': false,
+    'team.standup': false,
+    'team.targets': false,
+    'admin.employees': true,
+    'admin.payroll': true,
+    'admin.roles': true,
+    'admin.settings': true,
+    'approve.prospects': false,
+    'approve.payments': false,
+  },
+};
 

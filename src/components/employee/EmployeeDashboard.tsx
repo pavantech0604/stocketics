@@ -4,14 +4,14 @@ import { PunchClockWidget } from './PunchClockWidget';
 import { LeavePortal } from './LeavePortal';
 import { PayslipViewer } from './PayslipViewer';
 import { TasksView } from './TasksView';
-import { 
-  Calendar, 
-  CreditCard, 
-  CheckSquare, 
-  TrendingUp, 
-  Download, 
-  Bell, 
-  ArrowUpRight, 
+import {
+  Calendar,
+  CreditCard,
+  CheckSquare,
+  TrendingUp,
+  Download,
+  Bell,
+  ArrowUpRight,
   Award,
   Home,
   CheckCircle2,
@@ -40,12 +40,12 @@ import { RACallsDashboardView } from '../common/RACallsDashboardView';
 import { TicketManagementView } from '../manager/TicketManagementView';
 
 export const EmployeeDashboard: React.FC = () => {
-  const { 
-    activeTab, 
-    setActiveTab, 
-    currentUser, 
-    tasks, 
-    toggleTask, 
+  const {
+    activeTab,
+    setActiveTab,
+    currentUser,
+    tasks,
+    toggleTask,
     payslips,
     advisoryLeads,
     cashbackRules,
@@ -68,14 +68,14 @@ export const EmployeeDashboard: React.FC = () => {
 
   // 1. Leads: New Leads, View All Leads, Confirmed Payment, Today's Follow-up, Active Prospect, Past Prospect, Unknown Calls, Add Lead, Call Logs
   if (
-    activeTab === 'leads' || 
-    activeTab === 'advisory' || 
-    activeTab === 'available-leads' || 
-    activeTab === 'today-followup' || 
-    activeTab === 'new-leads' || 
-    activeTab === 'view-all-leads' || 
-    activeTab === 'confirmed-payment' || 
-    activeTab === 'active-prospect' || 
+    activeTab === 'leads' ||
+    activeTab === 'advisory' ||
+    activeTab === 'available-leads' ||
+    activeTab === 'today-followup' ||
+    activeTab === 'new-leads' ||
+    activeTab === 'view-all-leads' ||
+    activeTab === 'confirmed-payment' ||
+    activeTab === 'active-prospect' ||
     activeTab === 'past-prospect' ||
     activeTab === 'unknown-calls' ||
     activeTab === 'modified-today' ||
@@ -89,10 +89,10 @@ export const EmployeeDashboard: React.FC = () => {
 
   // 2. Client: Register Clients, Active Clients, Expire Clients, Expired Clients, Hold Clients, Hold & Expire, Payment Reminder
   if (
-    activeTab === 'client' || 
-    activeTab === 'register-clients' || 
-    activeTab === 'active-clients' || 
-    activeTab === 'expire-clients' || 
+    activeTab === 'client' ||
+    activeTab === 'register-clients' ||
+    activeTab === 'active-clients' ||
+    activeTab === 'expire-clients' ||
     activeTab === 'expired-clients' ||
     activeTab === 'hold-clients' ||
     activeTab === 'hold-expire' ||
@@ -127,9 +127,9 @@ export const EmployeeDashboard: React.FC = () => {
 
   // 4. Leave: New Entry, List
   if (
-    activeTab === 'leave' || 
-    activeTab === 'new-entry' || 
-    activeTab === 'leave-list' || 
+    activeTab === 'leave' ||
+    activeTab === 'new-entry' ||
+    activeTab === 'leave-list' ||
     activeTab === 'apply-leave' ||
     activeTab === 'leave-portal'
   ) {
@@ -153,7 +153,7 @@ export const EmployeeDashboard: React.FC = () => {
   const pendingTasks = tasks.filter(t => !t.completed);
 
   // Dynamic Employee KPIs strictly matching Image 1, scoped to logged in employee
-  const myLeads = advisoryLeads.filter(l => 
+  const myLeads = advisoryLeads.filter(l =>
     (l.assignedToId === currentUser.id || l.assignedToName?.toLowerCase() === currentUser.name.toLowerCase()) && !l.isTeamPool
   );
 
@@ -177,13 +177,13 @@ export const EmployeeDashboard: React.FC = () => {
   ];
 
   const employeeRow2 = [
-    { 
-      id: 'monthly-sale', 
-      value: myMonthlySale, 
-      format: 'currency' as const, 
-      decimals: 2, 
-      label: 'Monthly Sale', 
-      colorClass: 'kpi-c-navy' 
+    {
+      id: 'monthly-sale',
+      value: myMonthlySale,
+      format: 'currency' as const,
+      decimals: 2,
+      label: 'Monthly Sale',
+      colorClass: 'kpi-c-navy'
     },
     { id: 'interested', value: myInterestedCount, label: 'Interested leads', colorClass: 'kpi-c-violet' },
     { id: 'payment', value: myPaymentCount, label: 'Payment leads', colorClass: 'kpi-c-amber' },
@@ -249,26 +249,6 @@ export const EmployeeDashboard: React.FC = () => {
         {/* Quick Enterprise Workflow Actions Strip */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: '0.75rem' }}>
           <button
-            onClick={() => setActiveTab('view-all-leads')}
-            style={{
-              background: 'linear-gradient(135deg, #059669, #047857)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              padding: '8px 14px',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(5,150,105,0.3)'
-            }}
-          >
-            <TrendingUp size={14} /> My Assigned Leads ({myLeads.length})
-          </button>
-
-          <button
             onClick={() => setIsBankSMSOpen(true)}
             style={{
               background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
@@ -333,11 +313,10 @@ export const EmployeeDashboard: React.FC = () => {
         <h1 className="page-title-ref" style={{ margin: '0 0 0.5rem 0' }}>Dashboard</h1>
 
         {/* 6+3 Vibrant Colorful KPI Grid (Row 1 has 6 cards; Row 2 has 3 cards aligned under cols 1-3) */}
-        <RefKPIGrid 
+        <RefKPIGrid
           customRow1={employeeRow1}
           customRow2={employeeRow2}
           onCardClick={handleCardClick}
-          activeId={activeTab}
         />
 
         {/* Sales Incentive & Cashback Progress Card */}
@@ -391,237 +370,237 @@ export const EmployeeDashboard: React.FC = () => {
           )}
         </div>
 
-      {/* Dual Performance Charts: SALES EXECUTIVE & MANAGERS (Side-by-Side Matching Image 1) */}
-      <div className="charts-split-grid">
-        <SalesExecutiveChart />
-        <ManagersChart />
-      </div>
+        {/* Dual Performance Charts: SALES EXECUTIVE & MANAGERS (Side-by-Side Matching Image 1) */}
+        <div className="charts-split-grid">
+          <SalesExecutiveChart />
+          <ManagersChart />
+        </div>
 
-      {/* Personal Operational Workdesk */}
-      <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        {/* Top 3 Column Action Grid */}
-        <div className="kpi-grid-3">
-          {/* Widget 1: Punch Clock */}
-          <PunchClockWidget />
+        {/* Personal Operational Workdesk */}
+        <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Top 3 Column Action Grid */}
+          <div className="kpi-grid-3">
+            {/* Widget 1: Punch Clock */}
+            <PunchClockWidget />
 
-          {/* Widget 2: Leave Quotas */}
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div>
-              <div className="card-header" style={{ marginBottom: '0.75rem' }}>
-                <div className="card-title">
-                  <Calendar size={18} style={{ color: 'var(--stocketics-blue-500)' }} />
-                  <span>My Leave Quotas</span>
+            {/* Widget 2: Leave Quotas */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div>
+                <div className="card-header" style={{ marginBottom: '0.75rem' }}>
+                  <div className="card-title">
+                    <Calendar size={18} style={{ color: 'var(--stocketics-blue-500)' }} />
+                    <span>My Leave Quotas</span>
+                  </div>
+                  <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('new-entry')}>
+                    Apply
+                  </button>
                 </div>
-                <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('new-entry')}>
-                  Apply
-                </button>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: 'var(--bg-surface-alt)', borderRadius: 'var(--radius-md)' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Paid Leave (PTO)</span>
+                    <span className="mono-cell" style={{ fontWeight: 800, color: 'var(--stocketics-blue-600)' }}>
+                      {currentUser.leaveBalance.paid} Days Left
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: 'var(--bg-surface-alt)', borderRadius: 'var(--radius-md)' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Sick / Medical Leave</span>
+                    <span className="mono-cell" style={{ fontWeight: 800, color: 'var(--success)' }}>
+                      {currentUser.leaveBalance.sick} Days Left
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: 'var(--bg-surface-alt)', borderRadius: 'var(--radius-md)' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Compensatory Off</span>
+                    <span className="mono-cell" style={{ fontWeight: 800, color: 'var(--warning)' }}>
+                      {currentUser.leaveBalance.comp} Days Available
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: 'var(--bg-surface-alt)', borderRadius: 'var(--radius-md)' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Paid Leave (PTO)</span>
-                  <span className="mono-cell" style={{ fontWeight: 800, color: 'var(--stocketics-blue-600)' }}>
-                    {currentUser.leaveBalance.paid} Days Left
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: 'var(--bg-surface-alt)', borderRadius: 'var(--radius-md)' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Sick / Medical Leave</span>
-                  <span className="mono-cell" style={{ fontWeight: 800, color: 'var(--success)' }}>
-                    {currentUser.leaveBalance.sick} Days Left
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: 'var(--bg-surface-alt)', borderRadius: 'var(--radius-md)' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Compensatory Off</span>
-                  <span className="mono-cell" style={{ fontWeight: 800, color: 'var(--warning)' }}>
-                    {currentUser.leaveBalance.comp} Days Available
-                  </span>
-                </div>
-              </div>
+              <button
+                className="btn btn-outline btn-sm"
+                style={{ width: '100%', marginTop: '1rem' }}
+                onClick={() => setActiveTab('leave')}
+              >
+                Open Leave Portal & History
+              </button>
             </div>
 
-            <button 
-              className="btn btn-outline btn-sm" 
-              style={{ width: '100%', marginTop: '1rem' }}
-              onClick={() => setActiveTab('leave')}
-            >
-              Open Leave Portal & History
-            </button>
+            {/* Widget 3: Compensation & Payslip Snapshot */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div>
+                <div className="card-header" style={{ marginBottom: '0.75rem' }}>
+                  <div className="card-title">
+                    <CreditCard size={18} style={{ color: 'var(--success)' }} />
+                    <span>Monthly Compensation</span>
+                  </div>
+                  <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('payslips')}>
+                    All Slips
+                  </button>
+                </div>
+
+                {latestSlip ? (
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Net Payout • {latestSlip.month}
+                    </div>
+                    <div className="mono-cell" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0.25rem 0' }}>
+                      ₹{latestSlip.netPay.toLocaleString('en-IN')}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--success)', fontSize: '0.78rem', fontWeight: 600 }}>
+                      <CheckCircle2 size={14} />
+                      <span>Salary Disbursed to Bank</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No payslips generated yet</div>
+                )}
+              </div>
+
+              <button
+                className="btn btn-outline btn-sm"
+                style={{ width: '100%', marginTop: '1rem' }}
+                onClick={() => setActiveTab('payslips')}
+              >
+                Download Latest Payslip (PDF)
+              </button>
+            </div>
           </div>
 
-          {/* Widget 3: Compensation & Payslip Snapshot */}
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div>
-              <div className="card-header" style={{ marginBottom: '0.75rem' }}>
+          {/* Daily Tasks / Call Schedule */}
+          <div className="card">
+            <div className="card-header">
+              <div>
                 <div className="card-title">
-                  <CreditCard size={18} style={{ color: 'var(--success)' }} />
-                  <span>Monthly Compensation</span>
+                  <CheckSquare size={18} style={{ color: 'var(--stocketics-blue-500)' }} />
+                  <span>Today's Action Items ({pendingTasks.length})</span>
                 </div>
-                <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('payslips')}>
-                  All Slips
-                </button>
+                <div className="card-subtitle">Calls, client onboarding, and risk profiling tasks</div>
               </div>
-
-              {latestSlip ? (
-                <div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Net Payout • {latestSlip.month}
-                  </div>
-                  <div className="mono-cell" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0.25rem 0' }}>
-                    ₹{latestSlip.netPay.toLocaleString('en-IN')}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--success)', fontSize: '0.78rem', fontWeight: 600 }}>
-                    <CheckCircle2 size={14} />
-                    <span>Salary Disbursed to Bank</span>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No payslips generated yet</div>
-              )}
+              <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('tasks')}>
+                Manage
+              </button>
             </div>
 
-            <button 
-              className="btn btn-outline btn-sm" 
-              style={{ width: '100%', marginTop: '1rem' }}
-              onClick={() => setActiveTab('payslips')}
-            >
-              Download Latest Payslip (PDF)
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+              {tasks.slice(0, 4).map(task => (
+                <div
+                  key={task.id}
+                  onClick={() => toggleTask(task.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '0.65rem 0.85rem',
+                    background: 'var(--bg-surface-alt)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-subtle)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={task.completed}
+                    onChange={() => { }}
+                    style={{ accentColor: 'var(--stocketics-blue-500)', width: 16, height: 16 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      color: task.completed ? 'var(--text-muted)' : 'var(--text-primary)',
+                      textDecoration: task.completed ? 'line-through' : 'none'
+                    }}>
+                      {task.title}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      Due: {task.dueDate} • Priority: {task.priority}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Daily Tasks / Call Schedule */}
+        {/* Operational Assigned Prospects Table */}
         <div className="card">
           <div className="card-header">
             <div>
               <div className="card-title">
-                <CheckSquare size={18} style={{ color: 'var(--stocketics-blue-500)' }} />
-                <span>Today's Action Items ({pendingTasks.length})</span>
+                <UserCheck size={18} style={{ color: 'var(--stocketics-blue-500)' }} />
+                <span>My Assigned Advisory Leads & Prospects</span>
               </div>
-              <div className="card-subtitle">Calls, client onboarding, and risk profiling tasks</div>
+              <div className="card-subtitle">Active prospects assigned for advisory conversion</div>
             </div>
-            <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('tasks')}>
-              Manage
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-            {tasks.slice(0, 4).map(task => (
-              <div 
-                key={task.id} 
-                onClick={() => toggleTask(task.id)}
-                style={{
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.75rem', 
-                  padding: '0.65rem 0.85rem', 
-                  background: 'var(--bg-surface-alt)', 
-                  borderRadius: 'var(--radius-md)', 
-                  border: '1px solid var(--border-subtle)',
-                  cursor: 'pointer'
-                }}
-              >
-                <input 
-                  type="checkbox" 
-                  checked={task.completed} 
-                  onChange={() => {}} 
-                  style={{ accentColor: 'var(--stocketics-blue-500)', width: 16, height: 16 }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ 
-                    fontSize: '0.85rem', 
-                    fontWeight: 600, 
-                    color: task.completed ? 'var(--text-muted)' : 'var(--text-primary)',
-                    textDecoration: task.completed ? 'line-through' : 'none'
-                  }}>
-                    {task.title}
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    Due: {task.dueDate} • Priority: {task.priority}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Operational Assigned Prospects Table */}
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div className="card-title">
-              <UserCheck size={18} style={{ color: 'var(--stocketics-blue-500)' }} />
-              <span>My Assigned Advisory Leads & Prospects</span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('call-logs')}>
+                <PhoneCall size={14} style={{ color: '#2563eb' }} />
+                <span>My Call Logs</span>
+              </button>
+              <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('view-all-leads')}>
+                <span>Pipeline ({advisoryLeads.length})</span>
+                <ArrowUpRight size={14} />
+              </button>
             </div>
-            <div className="card-subtitle">Active prospects assigned for advisory conversion</div>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('call-logs')}>
-              <PhoneCall size={14} style={{ color: '#2563eb' }} />
-              <span>My Call Logs</span>
-            </button>
-            <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('view-all-leads')}>
-              <span>Pipeline ({advisoryLeads.length})</span>
-              <ArrowUpRight size={14} />
-            </button>
-          </div>
-        </div>
 
-        <div style={{ width: '100%', overflow: 'hidden' }}>
-          <table className="data-table" style={{ width: '100%', tableLayout: 'fixed', minWidth: 0 }}>
-            <thead>
-              <tr>
-                <th style={{ width: '26%', padding: '0.65rem 0.6rem' }}>Prospect Profile</th>
-                <th style={{ width: '22%', padding: '0.65rem 0.6rem' }}>Service Plan</th>
-                <th style={{ width: '16%', padding: '0.65rem 0.6rem' }}>Expected Revenue</th>
-                <th style={{ width: '14%', padding: '0.65rem 0.6rem' }}>Last Contact</th>
-                <th style={{ width: '10%', padding: '0.65rem 0.6rem' }}>Status</th>
-                <th style={{ width: '12%', padding: '0.65rem 0.6rem', textAlign: 'right' }}>Dialer Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {advisoryLeads.slice(0, 4).map(lead => (
-                <tr key={lead.id}>
-                  <td style={{ padding: '0.65rem 0.6rem', overflow: 'hidden' }}>
-                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.clientName}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.phone}{lead.city ? ` • ${lead.city}` : ''}</div>
-                  </td>
-                  <td style={{ padding: '0.65rem 0.6rem', overflow: 'hidden' }}>
-                    <div style={{ fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.serviceType || '-'}</div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Source: {lead.source || 'Direct Website'}</div>
-                  </td>
-                  <td className="mono-cell" style={{ padding: '0.65rem 0.6rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                    {lead.expectedRevenue > 0 ? `₹${lead.expectedRevenue.toLocaleString()}` : '-'}
-                  </td>
-                  <td className="mono-cell" style={{ padding: '0.65rem 0.6rem', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                    {lead.lastContactDate}
-                  </td>
-                  <td style={{ padding: '0.65rem 0.6rem' }}>
-                    <span className="delta-badge positive" style={{ whiteSpace: 'nowrap', fontSize: '0.72rem', padding: '0.15rem 0.45rem' }}>{lead.status}</span>
-                  </td>
-                  <td style={{ padding: '0.65rem 0.6rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <button 
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => showToast(`Dialing ${lead.clientName} (${lead.phone}) via PBX Cloud...`, 'info')}
-                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.74rem' }}
-                    >
-                      <PhoneCall size={12} style={{ color: 'var(--success)' }} />
-                      <span>Call</span>
-                    </button>
-                  </td>
+          <div style={{ width: '100%', overflow: 'hidden' }}>
+            <table className="data-table" style={{ width: '100%', tableLayout: 'fixed', minWidth: 0 }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '26%', padding: '0.65rem 0.6rem' }}>Prospect Profile</th>
+                  <th style={{ width: '22%', padding: '0.65rem 0.6rem' }}>Service Plan</th>
+                  <th style={{ width: '16%', padding: '0.65rem 0.6rem' }}>Expected Revenue</th>
+                  <th style={{ width: '14%', padding: '0.65rem 0.6rem' }}>Last Contact</th>
+                  <th style={{ width: '10%', padding: '0.65rem 0.6rem' }}>Status</th>
+                  <th style={{ width: '12%', padding: '0.65rem 0.6rem', textAlign: 'right' }}>Dialer Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {advisoryLeads.slice(0, 4).map(lead => (
+                  <tr key={lead.id}>
+                    <td style={{ padding: '0.65rem 0.6rem', overflow: 'hidden' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.clientName}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.phone} • {lead.city || 'Mumbai'}</div>
+                    </td>
+                    <td style={{ padding: '0.65rem 0.6rem', overflow: 'hidden' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.serviceType}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Source: {lead.source || 'Direct Website'}</div>
+                    </td>
+                    <td className="mono-cell" style={{ padding: '0.65rem 0.6rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                      ₹{lead.expectedRevenue.toLocaleString()}
+                    </td>
+                    <td className="mono-cell" style={{ padding: '0.65rem 0.6rem', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                      {lead.lastContactDate}
+                    </td>
+                    <td style={{ padding: '0.65rem 0.6rem' }}>
+                      <span className="delta-badge positive" style={{ whiteSpace: 'nowrap', fontSize: '0.72rem', padding: '0.15rem 0.45rem' }}>{lead.status}</span>
+                    </td>
+                    <td style={{ padding: '0.65rem 0.6rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => showToast(`Dialing ${lead.clientName} (${lead.phone}) via PBX Cloud...`, 'info')}
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.74rem' }}
+                      >
+                        <PhoneCall size={12} style={{ color: 'var(--success)' }} />
+                        <span>Call</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
 
-    {/* Direct Bank Details SMS Dispatch Modal */}
-    <BankDetailsSMSModal 
-      isOpen={isBankSMSOpen} 
-      onClose={() => setIsBankSMSOpen(false)} 
-    />
-  </div>
-);
+      {/* Direct Bank Details SMS Dispatch Modal */}
+      <BankDetailsSMSModal
+        isOpen={isBankSMSOpen}
+        onClose={() => setIsBankSMSOpen(false)}
+      />
+    </div>
+  );
 };

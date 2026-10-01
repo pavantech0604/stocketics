@@ -147,12 +147,12 @@
   margin-top: 0.15rem;
 }
 
-/* KPI Metric Cards */
+/* KPI Metric Cards Grid - 6 columns desktop matching legacy CRM layout */
 .kpi-grid-6 {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.55rem;
-  margin-bottom: 0.55rem;
+  gap: 16px 24px;
+  margin-bottom: 1.25rem;
   width: 100%;
   box-sizing: border-box;
 }
@@ -160,38 +160,62 @@
 .kpi-grid-3-ref {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.65rem;
-  margin-bottom: 0.85rem;
+  gap: 16px 24px;
+  margin-bottom: 1.25rem;
   width: 100%;
   box-sizing: border-box;
 }
 
-/* Reference 6-Column Alignment for Row 2 (occupies columns 1, 2, 3 matching Image 1) */
+/* Reference 6-Column Alignment for Row 2 (occupies columns 1, 2, 3 matching Legacy CRM) */
 .kpi-row-2-ref {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.55rem;
-  margin-bottom: 0.85rem;
+  gap: 16px 24px;
+  margin-bottom: 1.25rem;
   width: 100%;
   box-sizing: border-box;
 }
 
 .kpi-grid-flexible {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0.55rem;
-  margin-bottom: 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 16px 20px;
+  margin-bottom: 1.25rem;
   width: 100%;
   box-sizing: border-box;
 }
 
 .kpi-grid-compact {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 0.45rem;
-  margin-bottom: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 1rem;
   width: 100%;
   box-sizing: border-box;
+}
+
+@media (max-width: 1280px) {
+  .kpi-grid-6,
+  .kpi-row-2-ref {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px 18px;
+  }
+}
+
+@media (max-width: 768px) {
+  .kpi-grid-6,
+  .kpi-row-2-ref {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid-6,
+  .kpi-row-2-ref {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 }
 
 /* Reference Filter Card & Inputs (Matching Images 2 & 4) */
@@ -459,243 +483,146 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-/* Reference Vibrant Colorful KPI Cards (Reduced Size, Interactive & Attractive) */
-.kpi-card-ref {
-  border-radius: 8px;
-  padding: 0.6rem 0.75rem;
+/* Legacy Stocketics KPI Cards (Flat Solid Color, Centered Metrics, Verified Reference) */
+.kpi-card-ref,
+.kpi-card-legacy {
+  border-radius: 5px;
+  padding: 15px 12px;
   color: #ffffff;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  min-height: 70px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 85px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease, filter 0.18s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   user-select: none;
+  width: 100%;
+  box-sizing: border-box;
+  background-clip: padding-box;
 }
 
-/* Subtle Glass Sheen Top Reflection */
-.kpi-card-ref::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 45%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 100%);
-  pointer-events: none;
+/* Remove decorative overlays / sheens from legacy flat card */
+.kpi-card-ref::before,
+.kpi-card-ref::after,
+.kpi-card-legacy::before,
+.kpi-card-legacy::after {
+  display: none !important;
 }
 
-.kpi-card-ref::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.5);
-  transition: height 0.18s ease, background 0.18s ease;
+.kpi-card-ref:hover,
+.kpi-card-legacy:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.kpi-card-ref:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px -2px rgba(0, 0, 0, 0.25);
-  filter: brightness(1.05);
+.kpi-card-ref:active,
+.kpi-card-legacy:active {
+  transform: translateY(0);
 }
 
-.kpi-card-ref:active {
-  transform: scale(0.98);
+/* Accessible focus ring */
+.kpi-card-ref:focus-visible,
+.kpi-card-legacy:focus-visible {
+  outline: 3px solid #0f172a;
+  outline-offset: 3px;
 }
 
 /* Active Selected Card State */
-.kpi-card-ref.is-active {
-  box-shadow: 0 0 0 2px #ffffff, 0 8px 24px rgba(0, 0, 0, 0.35);
-  transform: translateY(-2px);
-  filter: brightness(1.08);
+.kpi-card-ref.is-active,
+.kpi-card-legacy.is-active {
+  box-shadow: 0 0 0 2px #ffffff, 0 4px 14px rgba(0, 0, 0, 0.35);
+  transform: translateY(-1px);
 }
 
-.kpi-card-ref.is-active::after {
-  height: 3px;
-  background: #ffffff;
-}
-
-/* Card Header (Icon badge + Nav arrow hint) */
-.kpi-card-header-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.15rem;
-}
-
-.kpi-icon-badge {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.22);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  backdrop-filter: blur(4px);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  flex-shrink: 0;
-}
-
-.kpi-card-arrow {
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity 0.18s ease, transform 0.18s ease;
-  color: rgba(255, 255, 255, 0.9);
-  display: flex;
-  align-items: center;
-}
-
-.kpi-card-ref:hover .kpi-card-arrow,
-.kpi-card-ref.is-active .kpi-card-arrow {
-  opacity: 1;
-  transform: translateX(0);
-}
-
+/* Center-aligned Metric Number */
 .kpi-card-num {
-  font-size: clamp(1.18rem, 1.35vw, 1.5rem);
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.025em;
-  font-family: var(--font-sans);
-  margin-bottom: 0.15rem;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.kpi-card-label {
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.95);
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.kpi-active-tag {
-  background: rgba(255, 255, 255, 0.95);
-  color: #0f172a;
-  font-size: 0.58rem;
-  font-weight: 800;
-  padding: 0.08rem 0.32rem;
-  border-radius: 8px;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-}
-
-/* ==========================================================================
-   ULTRA-COMPACT DENSITY CARD STYLES (~50px height)
-   ========================================================================== */
-.kpi-card-ref.kpi-compact {
-  min-height: 50px;
-  padding: 0.4rem 0.6rem;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.55rem;
-}
-
-.kpi-card-ref.kpi-compact .kpi-icon-badge {
-  width: 22px;
-  height: 22px;
-}
-
-.kpi-card-ref.kpi-compact .kpi-compact-content {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
-}
-
-.kpi-card-ref.kpi-compact .kpi-card-num {
-  font-size: 1.05rem;
-  margin-bottom: 0;
+  font-size: clamp(1.4rem, 1.75vw, 1.85rem);
+  font-weight: 700;
   line-height: 1.15;
+  letter-spacing: -0.01em;
+  font-family: var(--font-sans);
+  color: #ffffff;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
-.kpi-card-ref.kpi-compact .kpi-card-label {
-  font-size: 0.7rem;
-  opacity: 0.92;
+/* Center-aligned Metric Label */
+.kpi-card-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.01em;
+  margin-top: 0.35rem;
+  text-align: center;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
-/* Row 2 Quick Actions & Live Hub (Fills columns 4, 5, 6 in standard view) */
-.kpi-row2-action-banner {
-  grid-column: span 3;
-  background: var(--bg-surface, #ffffff);
-  border: 1px solid var(--border-subtle, #cbd5e1);
-  border-radius: 8px;
-  padding: 0.5rem 0.8rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-  transition: all 0.2s ease;
+/* Subtext / Definition tooltip hint */
+.kpi-card-subtext {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 0.15rem;
+  text-align: center;
 }
 
-@media (max-width: 1280px) {
-  .kpi-row2-action-banner {
-    grid-column: span 3;
-  }
+/* Solid tile colors sampled from the supplied legacy dashboard reference. */
+.kpi-c-blue,
+.kpi-c-followup {
+  background-color: var(--kpi-followup, #0492F6);
 }
 
-@media (max-width: 768px) {
-  .kpi-row2-action-banner {
-    grid-column: span 2;
-  }
+.kpi-c-orange,
+.kpi-c-prospect {
+  background-color: var(--kpi-prospect, #E39016);
 }
 
-@media (max-width: 480px) {
-  .kpi-row2-action-banner {
-    grid-column: span 1;
-  }
+.kpi-c-teal,
+.kpi-c-available {
+  background-color: var(--kpi-available, #16A086);
 }
 
-/* Reference Vibrant Gradient Variants */
-.kpi-c-blue {
-  background: linear-gradient(135deg, #0088ea 0%, #006ec0 100%);
+.kpi-c-purple,
+.kpi-c-modified {
+  background-color: var(--kpi-modified, #8A2BE1);
 }
 
-.kpi-c-orange {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+.kpi-c-red,
+.kpi-c-dispose {
+  background-color: var(--kpi-dispose, #F31500);
 }
 
-.kpi-c-teal {
-  background: linear-gradient(135deg, #00a884 0%, #059669 100%);
+.kpi-c-cyan,
+.kpi-c-today-sale {
+  background-color: var(--kpi-today-sale, #15A1FF);
 }
 
-.kpi-c-purple {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+.kpi-c-navy,
+.kpi-c-monthly-sale {
+  background-color: var(--kpi-monthly-sale, #2C4C87);
 }
 
-.kpi-c-red {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+.kpi-c-violet,
+.kpi-c-interested {
+  background-color: var(--kpi-interested, #8A2BE1);
 }
 
-.kpi-c-cyan {
-  background: linear-gradient(135deg, #0099ff 0%, #0284c7 100%);
-}
-
-.kpi-c-navy {
-  background: linear-gradient(135deg, #2e5685 0%, #1e3a8a 100%);
-}
-
-.kpi-c-violet {
-  background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
-}
-
-.kpi-c-amber {
-  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+.kpi-c-amber,
+.kpi-c-payment {
+  background-color: var(--kpi-payment, #D25400);
 }
 
 /* Dark Theme overrides for KPI Controls */
@@ -2871,13 +2798,16 @@ div[style*="overflow-x: auto"]::-webkit-scrollbar-thumb:hover {
   color: #f8fafc !important;
 }
 
-[data-theme='dark'] .kpi-card-ref {
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+[data-theme='dark'] .kpi-card-ref,
+[data-theme='dark'] .kpi-card-legacy {
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
 }
 
-[data-theme='dark'] .kpi-card-ref:hover {
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65), 0 0 12px rgba(0, 210, 255, 0.3) !important;
+[data-theme='dark'] .kpi-card-ref:hover,
+[data-theme='dark'] .kpi-card-legacy:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5) !important;
+  transform: translateY(-1px);
 }
 
 /* 9. PUNCH CLOCK & TIME TICKER */
@@ -8955,3 +8885,167 @@ div[style*="overflow-x: auto"]::-webkit-scrollbar-thumb:hover {
     position: static !important;
   }
 }
+/* ==========================================================================
+   ELEGANT CRM OPERATIONAL & ENTERPRISE DATA TABLES
+   Clean, attractive, spacious, interactive with responsive horizontal scroll
+   ========================================================================== */
+
+.table-wrapper,
+.responsive-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  margin-bottom: 1rem;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 var(--bg-surface-alt, #f1f5f9);
+}
+
+:is(.data-table, .crm-table, .payments-table) {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Table Headers */
+:is(.data-table, .crm-table, .payments-table) th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 10px 14px;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* Table Cells */
+:is(.data-table, .crm-table, .payments-table) td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  vertical-align: middle;
+  background: #ffffff;
+  transition: background 0.15s ease;
+}
+
+/* Row Hover States */
+:is(.data-table, .crm-table, .payments-table) tbody tr:hover td {
+  background: #f0f7ff;
+}
+
+:is(.data-table, .crm-table, .payments-table) tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Ensure Action Buttons inside all tables NEVER wrap letters or get crushed */
+:is(.data-table, .crm-table, .payments-table) button,
+.table-wrapper button,
+.responsive-table-wrap button {
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-radius: 4px !important;
+  padding: 5px 10px !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  line-height: 1.4 !important;
+}
+
+/* Dedicated KYC Data Table Styling */
+.kyc-data-table {
+  min-width: 1040px;
+}
+
+.kyc-data-table th,
+.kyc-data-table td {
+  padding: 12px 14px;
+}
+
+.kyc-data-table .mono-cell {
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Dedicated Payments Table Styling */
+.payments-table {
+  min-width: 940px;
+}
+
+.payments-table th {
+  text-align: left;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.payments-table td {
+  border-bottom: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.payments-table small {
+  display: block;
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 11.5px;
+}
+
+.payments-table details {
+  margin-top: 4px;
+  font-size: 11.5px;
+}
+
+.payments-table summary {
+  cursor: pointer;
+  color: #0073b7;
+  font-weight: 600;
+}
+
+.payments-table td:last-child {
+  white-space: nowrap;
+}
+
+/* Fit operational records to the dashboard instead of forcing wide tables. */
+:is(.data-table, .crm-table, .payments-table, .kyc-data-table, .responsive-table-wrap > table, .table-wrapper > table) {
+  width: 100% !important;
+  min-width: unset;
+  table-layout: auto;
+}
+:is(.data-table, .crm-table, .payments-table, .kyc-data-table) :is(th, td) {
+  padding: 8px 6px !important;
+  white-space: normal;
+  overflow-wrap: normal;
+  font-size: 12px;
+}
+:is(.data-table, .crm-table, .payments-table, .kyc-data-table) th { font-size: 10.5px; }
+:is(.data-table, .crm-table, .payments-table, .kyc-data-table) :is(button, input, select) {
+  min-width: unset;
+  max-width: none;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+.payment-row-actions { margin: 0 !important; }
+.payment-row-actions > summary {
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #0369a1;
+  cursor: pointer;
+}
+.payment-row-actions[open] > button { margin: 5px 0 0 !important; width: 100% !important; font-size: 11px !important; }

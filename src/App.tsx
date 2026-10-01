@@ -8,14 +8,32 @@ import { HRDashboard } from './components/hr/HRDashboard';
 import { ManagerDashboard } from './components/manager/ManagerDashboard';
 import { EmployeeDashboard } from './components/employee/EmployeeDashboard';
 import { TeamLeaderDashboard } from './components/teamlead/TeamLeaderDashboard';
+import { AdminDashboard } from './components/admin/AdminDashboard';
 import { ClientSearchAlertPopup } from './components/common/ClientSearchAlertPopup';
 import { BirthdayCelebrationPopup } from './components/common/BirthdayCelebrationPopup';
+import { LeadCallbackReminder } from './components/common/LeadCallbackReminder';
 
 import { LoginPortal } from './components/auth/LoginPortal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import Workspace from './crm/Workspace';
+
+import { ConfigProvider } from './state/configContext';
 
 const MainContent: React.FC = () => {
-  const { role, isAuthenticated } = useApp();
+  const { role, isAuthenticated, activeTab } = useApp();
+
+  // Ensure user and staff always land on the top of the dashboard and every view
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      const mainWrapper = document.querySelector('.main-wrapper');
+      if (mainWrapper) mainWrapper.scrollTop = 0;
+      const pageWrapper = document.querySelector('.page-content-wrapper');
+      if (pageWrapper) pageWrapper.scrollTop = 0;
+    }
+  }, [isAuthenticated, role, activeTab]);
 
   if (!isAuthenticated) {
     return (
@@ -37,6 +55,7 @@ const MainContent: React.FC = () => {
         
         <main className="page-content-wrapper">
           <ErrorBoundary>
+            {role === 'admin' && <AdminDashboard />}
             {role === 'hr' && <HRDashboard />}
             {role === 'manager' && <ManagerDashboard />}
             {role === 'team_leader' && <TeamLeaderDashboard />}
@@ -50,14 +69,26 @@ const MainContent: React.FC = () => {
       <ToastContainer />
       <ClientSearchAlertPopup />
       <BirthdayCelebrationPopup />
+      <LeadCallbackReminder />
     </div>
   );
 };
 
 export function App() {
+  const showBackendWorkspace = window.location.pathname.startsWith('/backend-workspace');
+  if (showBackendWorkspace) {
+    return (
+      <ErrorBoundary>
+        <Workspace />
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <AppProvider>
-      <MainContent />
+      <ConfigProvider>
+        <MainContent />
+      </ConfigProvider>
     </AppProvider>
   );
 }

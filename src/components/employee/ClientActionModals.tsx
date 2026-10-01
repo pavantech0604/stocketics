@@ -1387,7 +1387,7 @@ export const C2CDialerModal: React.FC<C2CDialerModalProps> = ({
   currentEmployeeName
 }) => {
   const [callDuration, setCallDuration] = useState(14);
-  const [disposition, setDisposition] = useState('CLOSED OWN');
+  const [disposition, setDisposition] = useState('CLOSED WON');
   const [callNoteText, setCallNoteText] = useState('');
 
   if (!isOpen) return null;
@@ -1438,7 +1438,7 @@ export const C2CDialerModal: React.FC<C2CDialerModalProps> = ({
               onChange={(e) => setDisposition(e.target.value)}
               style={{ width: '100%', padding: '0.45rem', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.85rem' }}
             >
-              <option value="CLOSED OWN">CLOSED OWN</option>
+              <option value="CLOSED WON">CLOSED WON</option>
               <option value="INTERESTED">INTERESTED</option>
               <option value="FOLLOW UP">FOLLOW UP</option>
               <option value="CALL BACK">CALL BACK</option>

@@ -5,6 +5,21 @@ const _now = new Date();
 const currentMonthDay = `${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
 
 export const CURRENT_PROFILES = {
+  admin: {
+    id: 'emp-000',
+    name: 'System Admin',
+    email: 'admin@stocketics.com',
+    phone: '+91 99999 00000',
+    role: 'System Administrator',
+    department: 'IT' as const,
+    title: 'Chief Technology Officer',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    status: 'Active' as const,
+    joinDate: '01-Jan-2020',
+    dob: '1985-01-01',
+    salary: 250000,
+    leaveBalance: { paid: 30, sick: 10, comp: 5 },
+  },
   hr: {
     id: 'emp-001',
     name: 'Priya Sharma',
@@ -124,9 +139,9 @@ export const INITIAL_EMPLOYEES: Employee[] = [
     name: 'Rohan Deshmukh',
     email: 'rohan.d@stocketics.com',
     phone: '+91 98451 00204',
-    role: 'Advisory Lead',
+    role: 'Team Leader',
     department: 'Advisory Sales',
-    title: 'Senior Portfolio Advisor',
+    title: 'Team Leader, HNI Advisory',
     avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80',
     status: 'Active',
     joinDate: '14-Nov-2022',
@@ -245,6 +260,22 @@ export const INITIAL_EMPLOYEES: Employee[] = [
     salary: 85000,
     managerId: 'emp-011',
     leaveBalance: { paid: 11, sick: 5, comp: 1 },
+  },
+  {
+    id: 'emp-016',
+    name: 'Rahul Verma',
+    email: 'rahul.verma@stocketics.com',
+    phone: '+91 98220 55781',
+    role: 'Advisory Associate',
+    department: 'Advisory Sales',
+    title: 'Junior Equity Advisor',
+    avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
+    status: 'Active',
+    joinDate: '15-Mar-2024',
+    dob: '1996-07-14',
+    salary: 80000,
+    managerId: 'emp-006',
+    leaveBalance: { paid: 10, sick: 4, comp: 1 },
   }
 ];
 
@@ -1431,19 +1462,61 @@ export const INITIAL_CALL_LOGS: CallLogRecord[] = [
 export const INITIAL_TEAMS: Team[] = [
   {
     id: 'team-001',
-    name: 'Alpha Advisory Squad',
+    name: 'Alpha Derivatives & Options Squad',
     leaderId: 'emp-011',
     department: 'Advisory Sales',
     createdAt: '01-Apr-2024',
     status: 'Active',
   },
+  {
+    id: 'team-002',
+    name: 'Institutional & Equity Research Desk',
+    leaderId: 'emp-004',
+    department: 'Equity Research',
+    createdAt: '15-May-2024',
+    status: 'Active',
+  },
+  {
+    id: 'team-003',
+    name: 'HNI Wealth & Portfolio Advisory',
+    leaderId: 'emp-006',
+    department: 'Advisory Sales',
+    createdAt: '01-Jun-2024',
+    status: 'Active',
+  },
+  {
+    id: 'team-004',
+    name: 'FinTech OMS & Algorithmic Terminals',
+    leaderId: 'emp-003',
+    department: 'IT',
+    createdAt: '10-Jul-2024',
+    status: 'Active',
+  },
+  {
+    id: 'team-005',
+    name: 'SEBI Compliance & Mandate Audit',
+    leaderId: 'emp-001',
+    department: 'HR',
+    createdAt: '01-Aug-2024',
+    status: 'Active',
+  },
 ];
 
 export const INITIAL_TEAM_MEMBERS: TeamMember[] = [
-  { teamId: 'team-001', employeeId: 'emp-005', joinedAt: '01-Apr-2024' },
-  { teamId: 'team-001', employeeId: 'emp-006', joinedAt: '01-Apr-2024' },
-  { teamId: 'team-001', employeeId: 'emp-007', joinedAt: '15-May-2024' },
-  { teamId: 'team-001', employeeId: 'emp-008', joinedAt: '01-Jun-2024' },
+  // ── Team Alpha (team-001) led by Vikram Desai (emp-011) ── 4 members
+  { teamId: 'team-001', employeeId: 'emp-008', joinedAt: '15-May-2024' }, // Aditya Roy
+  { teamId: 'team-001', employeeId: 'emp-013', joinedAt: '15-Aug-2023' }, // Kishore B
+  { teamId: 'team-001', employeeId: 'emp-014', joinedAt: '01-Nov-2023' }, // Sunil Kumar
+  { teamId: 'team-001', employeeId: 'emp-015', joinedAt: '12-Jan-2024' }, // Deepika N
+  // ── Team Beta (team-003) led by Rohan Deshmukh (emp-006) ── 4 members
+  { teamId: 'team-003', employeeId: 'emp-005', joinedAt: '01-Jun-2024' }, // Sneha Kapur
+  { teamId: 'team-003', employeeId: 'emp-007', joinedAt: '01-Jun-2024' }, // Ananya Sen
+  { teamId: 'team-003', employeeId: 'emp-012', joinedAt: '10-Jul-2023' }, // Vinod Kumar K J
+  { teamId: 'team-003', employeeId: 'emp-016', joinedAt: '15-Mar-2024' }, // Rahul Verma
+  // ── Support Teams ──
+  { teamId: 'team-004', employeeId: 'emp-009', joinedAt: '10-Jul-2024' }, // Vikram Patel (IT)
+  { teamId: 'team-005', employeeId: 'emp-002', joinedAt: '01-Aug-2024' }, // Karan Mehra (HR)
+  { teamId: 'team-005', employeeId: 'emp-010', joinedAt: '01-Aug-2024' }, // Meera Iyer (Finance)
 ];
 
 export const INITIAL_COACHING_NOTES: CoachingNote[] = [

@@ -587,8 +587,8 @@ export const ClientSearchResultsView: React.FC<ClientSearchResultsViewProps> = (
                         <span style={{
                           padding: '2px 8px',
                           borderRadius: 6,
-                          background: c.response === 'CLOSED OWN' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-                          color: c.response === 'CLOSED OWN' ? '#10b981' : '#d97706',
+                          background: c.response === 'CLOSED WON' || c.response === 'CLOSED OWN' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                          color: c.response === 'CLOSED WON' || c.response === 'CLOSED OWN' ? '#10b981' : '#d97706',
                           fontSize: '0.72rem'
                         }}>
                           {c.response}

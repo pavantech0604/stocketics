@@ -199,6 +199,8 @@ export const Sidebar: React.FC = () => {
     hasPermission,
     isSidebarCollapsed, 
     toggleSidebar, 
+    isMobileMenuOpen,
+    closeMobileMenu,
     activeTab, 
     setActiveTab, 
     showToast,
@@ -236,6 +238,17 @@ export const Sidebar: React.FC = () => {
 
   const profileRef = React.useRef<HTMLDivElement>(null);
 
+  // Close mobile drawer on Escape key or resize to desktop
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMobileMenuOpen) {
+        closeMobileMenu();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileMenuOpen, closeMobileMenu]);
+
   React.useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
@@ -250,49 +263,66 @@ export const Sidebar: React.FC = () => {
     };
   }, [isProfileMenuOpen]);
 
-  // Sub-Options under Configuration matching PHP CRM
-  const configurationSubItems: SubItem[] = [
-    { id: 'allot-leads', label: 'Allot Leads' },
+  // Sub-Options under Configuration for Manager (Lead Operations, Billing, Banks, Comms)
+  const managerConfigSubItems: SubItem[] = [
+    { id: 'configuration-hub', label: 'Configuration Hub' },
+    { id: 'config-lead-ops', label: 'Lead Dictionaries & Transfer' },
+    { id: 'config-products', label: 'Products & Price Schedules' },
+    { id: 'config-banks', label: 'Bank & Payment Details' },
+    { id: 'config-templates', label: 'Communication Templates' },
     { id: 'compliance-vault', label: 'Compliance & Settings' },
   ];
 
-  // EXACT Sub-Options under Leads for HR (Matching CRM)
+  // Sub-Options under Configuration for HR (People, Communications, Research & Content)
+  const hrConfigSubItems: SubItem[] = [
+    { id: 'configuration-hub', label: 'Configuration Hub' },
+    { id: 'config-people', label: 'Departments & Profiles' },
+    { id: 'config-scripts', label: 'Script Types & Limits' },
+    { id: 'config-communications', label: 'Templates, Prefixes & Gateways' },
+    { id: 'config-org-content', label: 'Training & Org Content' },
+    { id: 'compliance-vault', label: 'Compliance & Settings' },
+  ];
+
+  // EXACT Sub-Options under Leads for HR (Sanitized per verified capability matrix - no allotment)
   const leadsSubItems: SubItem[] = [
-    { id: 'allot-leads', label: 'Allot Leads' },
     { id: 'bulk-upload-leads', label: 'Upload Leads File' },
     { id: 'add-new-lead', label: 'Add New Lead' },
     { id: 'new-leads', label: 'New Leads' },
     { id: 'view-all-leads', label: 'View All Leads' },
     { id: 'today-followup', label: "Today's Follow-up" },
     { id: 'active-prospect', label: 'Active Prospect' },
-    { id: 'past-prospect', label: 'Past Prospect' },
+
     { id: 'call-logs', label: 'Call Logs' },
     { id: 'unknown-calls', label: 'Unknown Calls' },
   ];
 
   // EXACT Sub-Options under Leads for Manager (Bulk upload, Allot Leads, and Segregate)
   const managerLeadsSubItems: SubItem[] = [
+    { id: 'lead-pool', label: 'Lead Pool' },
     { id: 'allot-leads', label: 'Allot Leads' },
     { id: 'bulk-upload-leads', label: 'Upload Leads File' },
     { id: 'new-leads', label: 'New Leads' },
     { id: 'view-all-leads', label: 'View All Leads' },
+    { id: 'closed-won', label: 'Closed Won' },
     { id: 'confirmed-payment', label: 'Confirmed Payment' },
     { id: 'today-followup', label: "Today's Follow-up" },
     { id: 'active-prospect', label: 'Active Prospect' },
-    { id: 'past-prospect', label: 'Past Prospect' },
+
     { id: 'call-logs', label: 'Call Logs' },
     { id: 'unknown-calls', label: 'Unknown Calls' },
   ];
 
   // EXACT Sub-Options under Leads for Team Leader (Allot to Employees + Scoped Leads)
   const teamLeaderLeadsSubItems: SubItem[] = [
+    { id: 'lead-pool', label: 'Lead Pool' },
     { id: 'allot-leads', label: 'Allot Team Leads' },
     { id: 'new-leads', label: 'New Leads' },
     { id: 'view-all-leads', label: 'View All Leads' },
+    { id: 'closed-won', label: 'Closed Won' },
     { id: 'confirmed-payment', label: 'Confirmed Payment' },
     { id: 'today-followup', label: "Today's Follow-up" },
     { id: 'active-prospect', label: 'Active Prospect' },
-    { id: 'past-prospect', label: 'Past Prospect' },
+
     { id: 'unknown-calls', label: 'Unknown Calls' },
   ];
 
@@ -306,12 +336,14 @@ export const Sidebar: React.FC = () => {
 
   // EXACT Sub-Options under Leads for Employee (7 Sub-Options matching Screenshot 1)
   const employeeLeadsSubItems: SubItem[] = [
+    { id: 'lead-pool', label: 'Lead Pool' },
     { id: 'new-leads', label: 'New Leads' },
     { id: 'view-all-leads', label: 'View All Leads' },
+    { id: 'closed-won', label: 'Closed Won' },
     { id: 'confirmed-payment', label: 'Confirmed Payment' },
     { id: 'today-followup', label: "Today's Follow-up" },
     { id: 'active-prospect', label: 'Active Prospect' },
-    { id: 'past-prospect', label: 'Past Prospect' },
+
     { id: 'unknown-calls', label: 'Unknown Calls' },
   ];
 
@@ -372,7 +404,7 @@ export const Sidebar: React.FC = () => {
     { id: 'assets-add-product', label: 'Add Product' },
     { id: 'assets-list', label: 'Assets list' },
     { id: 'assets-allot-product', label: 'Allot Product' },
-    { id: 'assets-alloted-list', label: 'Alloted list' },
+    { id: 'assets-alloted-list', label: 'Allotted List' },
   ];
 
   // EXACT Sub-Options under Allowance (HR)
@@ -422,7 +454,7 @@ export const Sidebar: React.FC = () => {
     { id: 'teams', label: 'Teams', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: teamsSubItems },
     { id: 'leads', label: 'Leads', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: leadsSubItems },
     { id: 'it-problem', label: 'IT Problem', icon: <CircleChevronRightIcon />, hasSubmenu: false },
-    { id: 'configuration', label: 'Configuration', icon: <ConfigurationIcon />, hasSubmenu: true, subItems: configurationSubItems },
+    { id: 'configuration', label: 'Configuration', icon: <ConfigurationIcon />, hasSubmenu: true, subItems: hrConfigSubItems },
     { id: 'report', label: 'Report', icon: <ReportIcon />, hasSubmenu: false },
     { id: 'mail', label: 'Mail', icon: <MailIcon />, hasSubmenu: false },
     { id: 'sms', label: 'SMS', icon: <SMSIcon />, hasSubmenu: false },
@@ -430,7 +462,7 @@ export const Sidebar: React.FC = () => {
     { id: 'greeting', label: 'Greeting', icon: <MessengerIcon />, hasSubmenu: false },
     { id: 'tip-archive', label: 'Tip Archive', icon: <ReportIcon />, hasSubmenu: false },
     { id: 'pre-tip-archive', label: 'Pre Tip Archive', icon: <ReportIcon />, hasSubmenu: false },
-    { id: 'greeting-tip-archive', label: 'Greenting tip Archive', icon: <ReportIcon />, hasSubmenu: false },
+    { id: 'greeting-tip-archive', label: 'Greeting Tip Archive', icon: <ReportIcon />, hasSubmenu: false },
     { id: 'open-call', label: 'Open Call', icon: <ReportIcon />, hasSubmenu: false },
     { id: 'closed-call', label: 'Closed Call', icon: <ReportIcon />, hasSubmenu: false },
     { id: 'recruitment', label: 'Recruitment', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: recruitmentSubItems },
@@ -450,12 +482,13 @@ export const Sidebar: React.FC = () => {
     { id: 'ra-calls', label: 'Live Advisory Calls', icon: <RadioIcon />, hasSubmenu: false },
     { id: 'expiry-sms', label: 'Subscription Expiry SMS', icon: <SMSIcon />, hasSubmenu: false },
     { id: 'leads', label: 'Leads', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: managerLeadsSubItems },
+    { id: 'lead-reassignment', label: 'Lead Reassignment', icon: <TargetIcon />, hasSubmenu: false },
     { id: 'kyc', label: 'KYC Details', icon: <ShieldCheckIcon />, hasSubmenu: true, subItems: kycSubItems },
     { id: 'approve', label: 'Approve', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: approveSubItems },
     { id: 'client', label: 'Client', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: clientSubItems },
     { id: 'it-problem', label: 'IT Problem', icon: <CircleChevronRightIcon />, hasSubmenu: false },
     { id: 'ticket', label: 'Ticket', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: ticketSubItems },
-    { id: 'configuration', label: 'Configuration', icon: <ConfigurationIcon />, hasSubmenu: true, subItems: configurationSubItems },
+    { id: 'configuration', label: 'Configuration', icon: <ConfigurationIcon />, hasSubmenu: true, subItems: managerConfigSubItems },
     { id: 'report', label: 'Report', icon: <ReportIcon />, hasSubmenu: false },
     { id: 'mail', label: 'Mail', icon: <MailIcon />, hasSubmenu: false },
     { id: 'sms', label: 'SMS', icon: <SMSIcon />, hasSubmenu: false },
@@ -495,6 +528,8 @@ export const Sidebar: React.FC = () => {
     { id: 'market', label: 'Market', icon: <MarketMenuIcon />, hasSubmenu: false },
     { id: 'ra-calls', label: 'Live Advisory Calls', icon: <RadioIcon />, hasSubmenu: false },
     { id: 'leads', label: 'Leads', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: teamLeaderLeadsSubItems },
+    { id: 'kyc-review', label: 'Team KYC Review', icon: <ShieldCheckIcon />, hasSubmenu: false },
+    { id: 'kyc-upload', label: 'KYC Verification', icon: <FileCheckIcon />, hasSubmenu: false },
     { id: 'client', label: 'Client', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: clientSubItems },
     { id: 'lead-reassignment', label: 'Lead Reassignment', icon: <TargetIcon />, hasSubmenu: false },
     { id: 'team-leaderboard', label: 'Team Leaderboard', icon: <ReportIcon />, hasSubmenu: false },
@@ -507,8 +542,17 @@ export const Sidebar: React.FC = () => {
     { id: 'leave', label: 'Leave', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: employeeLeaveSubItems },
   ];
 
+  const adminMenuItems: NavMenuItem[] = [
+    { id: 'dashboard', label: 'System Control', icon: <DashboardIcon /> },
+    { id: 'configuration', label: 'Configuration', icon: <ConfigurationIcon />, hasSubmenu: true, subItems: managerConfigSubItems },
+    { id: 'teams', label: 'User & Teams', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: teamsSubItems },
+    { id: 'ticket', label: 'Tickets', icon: <CircleChevronDownIcon />, hasSubmenu: true, subItems: ticketSubItems },
+    { id: 'report', label: 'System Reports', icon: <ReportIcon />, hasSubmenu: false },
+    { id: 'mail', label: 'System Mail', icon: <MailIcon />, hasSubmenu: false },
+  ];
+
   // Select menu according to current role, filtering by permissions
-  const rawMenuItems = role === 'hr' ? hrMenuItems : role === 'employee' ? employeeMenuItems : role === 'team_leader' ? teamLeaderMenuItems : managerMenuItems;
+  const rawMenuItems = role === 'admin' ? adminMenuItems : role === 'hr' ? hrMenuItems : role === 'employee' ? employeeMenuItems : role === 'team_leader' ? teamLeaderMenuItems : managerMenuItems;
   const menuItems = rawMenuItems.filter(item => {
     if (item.id === 'market') {
       return hasPermission('market_workspace_view');
@@ -521,7 +565,7 @@ export const Sidebar: React.FC = () => {
   // When an activeTab belongs to a specific section, only that section is expanded!
   React.useEffect(() => {
     if (activeTab === 'dashboard') {
-      setExpandedMenus({});
+      setExpandedMenus(prev => (Object.keys(prev).length === 0 ? prev : {}));
       return;
     }
 
@@ -530,9 +574,9 @@ export const Sidebar: React.FC = () => {
     );
 
     if (currentParent && currentParent.hasSubmenu) {
-      setExpandedMenus({ [currentParent.id]: true });
+      setExpandedMenus(prev => (prev[currentParent.id] && Object.keys(prev).length === 1 ? prev : { [currentParent.id]: true }));
     } else {
-      setExpandedMenus({});
+      setExpandedMenus(prev => (Object.keys(prev).length === 0 ? prev : {}));
     }
   }, [activeTab, role]);
 
@@ -553,11 +597,13 @@ export const Sidebar: React.FC = () => {
       // Flat item without submenu (e.g. Dashboard, IT Problem, Report, Mail, SMS):
       // Cleanly fold away any open submenus so no irrelevant sub-options clutter the view!
       setExpandedMenus({});
+      closeMobileMenu();
     }
   };
 
   const handleSubItemClick = (sub: SubItem, parentId: string) => {
     setActiveTab(sub.id);
+    closeMobileMenu();
     // Keep ONLY this parent expanded
     setExpandedMenus({ [parentId]: true });
 
@@ -582,6 +628,7 @@ export const Sidebar: React.FC = () => {
     const searchParam = matchedClient ? (matchedClient.mobile || matchedClient.clientName) : targetQuery;
     setClientSearchQuery(searchParam);
     setActiveTab('active-clients');
+    closeMobileMenu();
     
     // Automatically expand the Client menu in sidebar to reflect the active tab
     setExpandedMenus({ client: true });
@@ -638,7 +685,16 @@ export const Sidebar: React.FC = () => {
 
   return (
     <>
-      <aside className={`app-sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+      {/* Mobile Drawer Backdrop */}
+      {isMobileMenuOpen && (
+        <div 
+          className="sidebar-backdrop"
+          onClick={closeMobileMenu}
+          aria-label="Close sidebar drawer"
+        />
+      )}
+
+      <aside className={`app-sidebar ${isSidebarCollapsed ? 'collapsed' : ''} ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         {/* Brand Header */}
         <div className="sidebar-header">
           <div 
@@ -721,7 +777,7 @@ export const Sidebar: React.FC = () => {
                 >
                   <div className="sidebar-client-header">
                     <span className="sidebar-client-tag">
-                      {client.response === 'CLOSED OWN' ? 'ACTIVE CLIENT' : client.response}
+                      {client.response === 'CLOSED WON' || client.response === 'CLOSED OWN' ? 'ACTIVE CLIENT' : client.response}
                     </span>
                     <span className="sidebar-client-code">{client.clientCode}</span>
                   </div>

@@ -44,6 +44,9 @@ export const LoginPortal: React.FC = () => {
     setIsLoading(true);
     setErrorMsg(null);
     setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
       const res = login(targetRole);
       setIsLoading(false);
       if (!res.success && res.error) {
@@ -58,6 +61,9 @@ export const LoginPortal: React.FC = () => {
     setErrorMsg(null);
 
     setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
       const res = login(selectedRole, email, password);
       setIsLoading(false);
       if (!res.success && res.error) {

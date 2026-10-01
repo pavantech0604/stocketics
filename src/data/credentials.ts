@@ -13,6 +13,17 @@ export interface RoleCredential {
 }
 
 export const DEFAULT_ROLE_CREDENTIALS: Record<UserRole, RoleCredential> = {
+  admin: {
+    role: 'admin',
+    name: 'System Admin',
+    title: 'Chief Technology Officer',
+    department: 'IT & Systems',
+    email: 'admin@stocketics.com',
+    password: 'admin123',
+    badgeColor: '#dc2626',
+    description: 'System administration, access control, global settings and data health.',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'
+  },
   manager: {
     role: 'manager',
     name: 'Arjun Malhotra',

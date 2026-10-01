@@ -257,11 +257,12 @@ export const ManagerLeavePortal: React.FC = () => {
             <h2 className="messages-section-title" style={{ margin: 0 }}>Leave</h2>
             <button 
               type="button"
-              className="client-search-btn-blue"
+              className="client-search-btn-blue action-btn-interactive"
               onClick={() => setViewMode('request')}
-              style={{ fontSize: '0.78rem', padding: '4px 12px' }}
+              style={{ fontSize: '0.78rem', padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
             >
-              + New Leave Request
+              <Plus size={13} />
+              <span>New Leave Request</span>
             </button>
           </div>
 

@@ -26,16 +26,22 @@ import {
   Search,
   Filter,
   Check,
-  X
+  X,
+  RefreshCw,
+  Target
 } from 'lucide-react';
+import { LeadReassignmentView } from '../teamlead/LeadReassignmentView';
 import { AdvisoryPipeline } from './AdvisoryPipeline';
 import { TeamScheduler } from './TeamScheduler';
 import { PerformanceReviews } from './PerformanceReviews';
 import { EmployeeDirectory } from '../hr/EmployeeDirectory';
 import { AttendanceRoster } from '../hr/AttendanceRoster';
 import { ComplianceVault } from '../hr/ComplianceVault';
+import { ConfigurationHub } from '../common/ConfigurationHub';
+import { ConfigCategory } from '../../types/config';
 import { AllotLeadsView } from '../common/AllotLeadsView';
-import { RefKPIGrid } from '../common/RefKPIGrid';
+import { LeadPoolView } from '../common/LeadPoolView';
+import { LegacyKPIGrid } from '../common/LegacyKPIGrid';
 import { MarketWorkspace } from '../market/MarketWorkspace';
 import { SalesExecutiveChart, ManagersChart } from '../common/ChartWidgets';
 import { TipsModal } from '../common/TipsModal';
@@ -55,7 +61,7 @@ import { ExpirySMSManagementView } from './ExpirySMSManagementView';
 import { RACallsDashboardView } from '../common/RACallsDashboardView';
 import { AdvisoryCallDispatchModal } from '../common/AdvisoryCallDispatchModal';
 import { AnnouncementType, STANDARD_ADVISORY_SERVICES, ActiveClientRecordDetailed, RACallRecord } from '../../types';
-
+import { RefKPIGrid } from '../common/RefKPIGrid';
 export const ManagerDashboard: React.FC = () => {
   const { 
     activeTab, 
@@ -212,7 +218,7 @@ export const ManagerDashboard: React.FC = () => {
     activeTab === 'past-prospect' ||
     activeTab === 'add-new-lead' ||
     activeTab === 'bulk-upload-leads' ||
-    activeTab === 'confirmed-payment' ||
+    activeTab === 'closed-won' || activeTab === 'closed-own' || activeTab === 'confirmed-payment' ||
     activeTab === 'modified-today' ||
     activeTab === 'disposed-today' ||
     activeTab === 'interested-leads' ||
@@ -284,15 +290,37 @@ export const ManagerDashboard: React.FC = () => {
     return <AllotLeadsView />;
   }
 
-  // 5. Configuration
+  // Phase 1 Lead Pool
+  if (activeTab === 'lead-pool') {
+    return <LeadPoolView />;
+  }
+
+  // Lead Reassignment Center (Dynamic Load Balancing & Reallocation)
+  if (activeTab === 'lead-reassignment') {
+    return <LeadReassignmentView />;
+  }
+
+  // 5. Configuration & Lead Master Data Hub
   if (
     activeTab === 'configuration' || 
+    activeTab === 'configuration-hub' ||
+    activeTab === 'config-lead-ops' ||
+    activeTab === 'config-products' ||
+    activeTab === 'config-banks' ||
+    activeTab === 'config-templates' ||
     activeTab === 'user-management' || 
     activeTab === 'role-permissions' || 
     activeTab === 'department-settings' || 
-    activeTab === 'service-master' || 
-    activeTab === 'compliance-vault'
+    activeTab === 'service-master'
   ) {
+    let initialCat: ConfigCategory = 'lead_operations';
+    if (activeTab === 'config-products' || activeTab === 'service-master') initialCat = 'products_billing';
+    else if (activeTab === 'config-banks') initialCat = 'products_billing';
+    else if (activeTab === 'config-templates') initialCat = 'communications';
+    return <ConfigurationHub initialCategory={initialCat} />;
+  }
+
+  if (activeTab === 'compliance-vault') {
     return <ComplianceVault />;
   }
 
@@ -353,12 +381,12 @@ export const ManagerDashboard: React.FC = () => {
   const mgrPaymentLeads = advisoryLeads.filter(l => l.status === 'Converted' || l.response === 'Payment').length;
 
   const managerRow1 = [
-    { id: 'today-followup', value: mgrTodayFollowup, label: "Today's Followup", colorClass: 'kpi-c-blue' },
-    { id: 'active-prospect', value: mgrActiveProspect, label: "Today's Prospect", colorClass: 'kpi-c-orange' },
-    { id: 'available-leads', value: mgrAvailableLeads, label: 'Available Leads', colorClass: 'kpi-c-teal' },
-    { id: 'modified-today', value: mgrModifiedToday, label: 'Modified Today', colorClass: 'kpi-c-purple' },
-    { id: 'dispose-today', value: mgrDisposeToday, label: 'Dispose Today', colorClass: 'kpi-c-red' },
-    { id: 'today-sale', value: mgrTodaySale, format: 'currency' as const, decimals: 0, label: "Today's Sale", colorClass: 'kpi-c-cyan' },
+    { id: 'today-followup', value: mgrTodayFollowup, label: "Today's Followup", colorClass: 'kpi-c-followup' },
+    { id: 'active-prospect', value: mgrActiveProspect, label: "Today's Prospect", colorClass: 'kpi-c-prospect' },
+    { id: 'available-leads', value: mgrAvailableLeads, label: 'Available Leads', colorClass: 'kpi-c-available' },
+    { id: 'modified-today', value: mgrModifiedToday, label: 'Modified Today', colorClass: 'kpi-c-modified' },
+    { id: 'dispose-today', value: mgrDisposeToday, label: 'Dispose Today', colorClass: 'kpi-c-dispose' },
+    { id: 'today-sale', value: mgrTodaySale, format: 'currency' as const, decimals: 0, label: "Today's Sale", colorClass: 'kpi-c-today-sale' },
   ];
 
   const managerRow2 = [
@@ -368,10 +396,10 @@ export const ManagerDashboard: React.FC = () => {
       format: 'currency' as const, 
       decimals: 2, 
       label: 'Monthly Sale', 
-      colorClass: 'kpi-c-navy' 
+      colorClass: 'kpi-c-monthly-sale' 
     },
-    { id: 'interested-leads', value: mgrInterestedLeads, label: 'Interested leads', colorClass: 'kpi-c-violet' },
-    { id: 'payment-leads', value: mgrPaymentLeads, label: 'Payment leads', colorClass: 'kpi-c-amber' },
+    { id: 'interested-leads', value: mgrInterestedLeads, label: 'Interested leads', colorClass: 'kpi-c-interested' },
+    { id: 'payment-leads', value: mgrPaymentLeads, label: 'Payment leads', colorClass: 'kpi-c-payment' },
   ];
 
   const handleKPIClick = (kpiId: string) => {
@@ -426,702 +454,281 @@ export const ManagerDashboard: React.FC = () => {
           customRow1={managerRow1}
           customRow2={managerRow2}
           onCardClick={handleKPIClick}
-          activeId={activeTab}
         />
 
-      {/* Dual Charts: Sales Executive & Managers */}
-      <div className="charts-split-grid">
-        <SalesExecutiveChart />
-        <ManagersChart />
-      </div>
-
-      {/* Manager Navigation Bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', padding: '1rem 1.25rem', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <Briefcase size={20} style={{ color: 'var(--stocketics-blue-500)' }} />
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
-              Team Lead Execution & Advisory Pipeline
-            </div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              13 Active team members across Equity Research & Portfolio Advisory Desks.
-            </div>
-          </div>
+        {/* Dual Charts: Sales Executive & Managers */}
+        <div className="charts-split-grid">
+          <SalesExecutiveChart />
+          <ManagersChart />
         </div>
 
-        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-          <button className="btn btn-primary btn-sm" onClick={() => setActiveTab('allot-leads')} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: '#fff', border: 'none' }}>
-            <Users size={14} />
-            <span>Allot Leads</span>
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setAnnouncementModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #f59e0b', color: '#f59e0b' }}>
-            <Megaphone size={14} />
-            <span>Post Greeting / Announcement</span>
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('expiry-sms')} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <BellRing size={14} />
-            <span>Expiry SMS Center</span>
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('ra-calls')} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <Flame size={14} style={{ color: '#f97316' }} />
-            <span>Live RA Calls</span>
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('schedule')}>
-            <CalendarDays size={14} />
-            <span>Shift Gantt</span>
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('reviews')}>
-            <TrendingUp size={14} />
-            <span>OKRs & 1-on-1s</span>
-          </button>
-          <button className="btn btn-primary btn-sm" onClick={() => setActiveTab('advisory')}>
-            <TrendingUp size={14} />
-            <span>Lead Pipeline ({advisoryLeads.length})</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ─── Active Clients Requiring Live Advisory Calls Service Command Desk ─── */}
-      <div 
-        className="card advisory-command-desk"
-        style={{
-          background: isDark 
-            ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.85))' 
-            : 'linear-gradient(135deg, #ffffff, #f0f9ff)',
-          border: `1px solid ${isDark ? 'rgba(56, 189, 248, 0.35)' : '#bae6fd'}`,
-          boxShadow: isDark ? '0 10px 30px rgba(0,0,0,0.4)' : '0 4px 20px rgba(2, 132, 199, 0.08)',
-          borderRadius: 'var(--radius-lg, 16px)'
-        }}
-      >
-        {/* Header & Subtitle */}
-        <div className="card-header" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
-              background: 'linear-gradient(135deg, #0284c7, #38bdf8)',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)'
-            }}>
-              <Radio size={20} />
-            </div>
-            <div>
-              <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', fontWeight: 800 }}>
-                <span>Active Clients Requiring Live Advisory Calls Service</span>
-                <span style={{
-                  fontSize: '0.72rem',
-                  padding: '2px 8px',
-                  borderRadius: 12,
-                  background: 'rgba(56, 189, 248, 0.15)',
-                  color: '#0284c7',
-                  border: '1px solid rgba(56, 189, 248, 0.3)',
-                  fontWeight: 800
-                }}>
-                  Live Desk
-                </span>
-              </div>
-              <div className="card-subtitle" style={{ fontSize: '0.78rem' }}>
-                Monitor client service periods, required options/segments, and dispatch real-time RA calls via SMS & Email.
-              </div>
-            </div>
-          </div>
-
+        {/* Manager Navigation Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', padding: '1rem 1.25rem', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <button 
-              className="btn btn-primary btn-sm"
-              onClick={() => setActiveTab('ra-calls')}
-              style={{
-                background: 'linear-gradient(135deg, #f97316, #ea580c)',
-                borderColor: '#f97316',
-                color: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                fontWeight: 700
-              }}
-            >
-              <Flame size={14} /> View All RA Calls Board
+            <Briefcase size={20} style={{ color: 'var(--stocketics-blue-500)' }} />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                Team Lead Execution & Advisory Pipeline
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                13 Active team members across Equity Research & Portfolio Advisory Desks.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => setAnnouncementModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #f59e0b', color: '#f59e0b' }}>
+              <Megaphone size={14} />
+              <span>Post Greeting / Announcement</span>
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('expiry-sms')} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <BellRing size={14} />
+              <span>Expiry SMS Center</span>
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('ra-calls')} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Flame size={14} style={{ color: '#f97316' }} />
+              <span>Live RA Calls</span>
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('schedule')}>
+              <CalendarDays size={14} />
+              <span>Shift Gantt</span>
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('reviews')}>
+              <TrendingUp size={14} />
+              <span>OKRs & 1-on-1s</span>
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => setActiveTab('advisory')}>
+              <TrendingUp size={14} />
+              <span>Lead Pipeline ({advisoryLeads.length})</span>
             </button>
           </div>
         </div>
 
-        {/* 4 Summary Stat Tiles */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '0.85rem',
-          marginBottom: '1.25rem'
-        }}>
-          {/* Tile 1: Active Advisory Subscribers */}
-          <div style={{
-            background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#ffffff',
-            border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0'}`,
-            borderRadius: 12,
-            padding: '12px 14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12
-          }}>
-            <div style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: 'rgba(16, 185, 129, 0.15)',
-              color: '#10b981',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <Users size={18} />
+        {/* Sales Target Cashback & Incentive Approval Queue */}
+        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(234,179,8,0.04), rgba(245,158,11,0.02))', border: '1px solid rgba(234,179,8,0.25)' }}>
+          <div className="card-header" style={{ marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Gift size={18} style={{ color: '#eab308' }} />
+              <span>Employee Sales Limit Cashback & Incentive Approvals</span>
+              <span style={{ fontSize: '0.72rem', background: 'rgba(234,179,8,0.18)', color: '#ca8a04', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                {cashbackRecords.filter(c => c.status === 'Pending').length} Pending Payouts
+              </span>
             </div>
-            <div>
-              <div style={{ fontSize: '0.72rem', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600 }}>Active Advisory Subscribers</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#10b981' }}>{activeAdvisoryClients.length}</div>
-            </div>
-          </div>
-
-          {/* Tile 2: Active Today (Eligible for calls) */}
-          <div style={{
-            background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#ffffff',
-            border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0'}`,
-            borderRadius: 12,
-            padding: '12px 14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12
-          }}>
-            <div style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: 'rgba(56, 189, 248, 0.15)',
-              color: '#0284c7',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <BellRing size={18} />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.72rem', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600 }}>Active Today (Eligible)</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#0284c7' }}>{activeTodayCount}</div>
-            </div>
-          </div>
-
-          {/* Tile 3: Calls Dispatched Today */}
-          <div style={{
-            background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#ffffff',
-            border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0'}`,
-            borderRadius: 12,
-            padding: '12px 14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12
-          }}>
-            <div style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: 'rgba(249, 115, 22, 0.15)',
-              color: '#f97316',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <Send size={18} />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.72rem', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600 }}>Calls Dispatched Today</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#f97316' }}>{callsDispatchedTodayCount}</div>
-            </div>
-          </div>
-
-          {/* Tile 4: Services Expiring Soon */}
-          <div style={{
-            background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#ffffff',
-            border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0'}`,
-            borderRadius: 12,
-            padding: '12px 14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12
-          }}>
-            <div style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: 'rgba(245, 158, 11, 0.15)',
-              color: '#d97706',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <Clock size={18} />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.72rem', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600 }}>Services Expiring Soon</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#d97706' }}>{expiringSoonCount}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filter Tabs & Search Strip */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.6rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-            <Filter size={14} color={isDark ? '#94a3b8' : '#64748b'} />
-            {[
-              { id: 'all', label: 'All Active' },
-              { id: 'Index Options', label: 'Index Options' },
-              { id: 'Bank Nifty', label: 'Bank Nifty' },
-              { id: 'Cash / Equity', label: 'Cash / Equity' },
-              { id: 'Commodity', label: 'Commodity' }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setAdvisoryFilterTab(tab.id)}
-                style={{
-                  background: advisoryFilterTab === tab.id
-                    ? (isDark ? 'rgba(56, 189, 248, 0.2)' : 'rgba(2, 132, 199, 0.12)')
-                    : (isDark ? 'rgba(255, 255, 255, 0.04)' : '#ffffff'),
-                  color: advisoryFilterTab === tab.id ? '#0284c7' : (isDark ? '#94a3b8' : '#64748b'),
-                  border: `1px solid ${advisoryFilterTab === tab.id ? '#0284c7' : (isDark ? 'rgba(255, 255, 255, 0.08)' : '#cbd5e1')}`,
-                  borderRadius: 6,
-                  padding: '5px 10px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <div style={{ position: 'relative', width: '240px' }}>
-              <Search size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input
-                type="text"
-                placeholder="Search client or phone..."
-                value={advisorySearch}
-                onChange={e => setAdvisorySearch(e.target.value)}
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  padding: '6px 26px 6px 26px',
-                  fontSize: '0.78rem',
-                  borderRadius: 6,
-                  background: isDark ? 'rgba(0,0,0,0.25)' : '#ffffff',
-                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : '#cbd5e1'}`,
-                  color: isDark ? '#fff' : '#0f172a'
-                }}
-              />
-              {advisorySearch && (
-                <button
-                  type="button"
-                  onClick={() => setAdvisorySearch('')}
-                  style={{
-                    position: 'absolute',
-                    right: 8,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--text-muted)',
-                    padding: 0,
-                    display: 'flex'
-                  }}
-                  title="Clear search"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-              Showing {filteredDeskClients.length} of {detailedClients.length}
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Cashback bonuses unlocked upon crossing sales limit slabs
             </span>
           </div>
-        </div>
 
-        {/* Client Table */}
-        <div style={{ overflowX: 'auto' }}>
-          <table className="data-table" style={{ width: '100%', minWidth: 650, borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', textTransform: 'uppercase', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                <th style={{ padding: '0.6rem 0.8rem' }}>Client Name & Contact</th>
-                <th style={{ padding: '0.6rem 0.8rem' }}>Needed Option / Service</th>
-                <th style={{ padding: '0.6rem 0.8rem' }}>Active Period (From - To)</th>
-                <th style={{ padding: '0.6rem 0.8rem' }}>Calls Delivered</th>
-                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'right' }}>Quick Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredDeskClients.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
-                    <div style={{ marginBottom: 8, fontSize: '0.88rem' }}>
-                      No active advisory clients matching your criteria
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => {
-                        setAdvisoryFilterTab('all');
-                        setAdvisorySearch('');
-                      }}
-                    >
-                      Reset Filter & Search
-                    </button>
-                  </td>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table" style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', textTransform: 'uppercase', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  <th style={{ padding: '0.6rem 0.8rem' }}>Employee Name</th>
+                  <th style={{ padding: '0.6rem 0.8rem' }}>Sales Achieved MTD</th>
+                  <th style={{ padding: '0.6rem 0.8rem' }}>Target Limit Slab</th>
+                  <th style={{ padding: '0.6rem 0.8rem' }}>Bonus Cashback</th>
+                  <th style={{ padding: '0.6rem 0.8rem' }}>Status</th>
+                  <th style={{ padding: '0.6rem 0.8rem', textAlign: 'right' }}>Authorization Action</th>
                 </tr>
-              ) : filteredDeskClients.slice(0, 10).map(c => {
-                  const today = new Date();
-                  const end = c.endDate ? new Date(c.endDate) : null;
-                  const diffDays = end ? Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
-                  const isExpiringToday = diffDays === 0;
-                  const isExpired = diffDays < 0;
-
-                  return (
-                    <tr key={c.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <td 
-                        style={{ padding: '0.6rem 0.8rem', cursor: 'pointer' }}
-                        onClick={() => openEditClientModal(c)}
-                        title="Click to configure advisory service & validity"
-                      >
-                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{c.clientName}</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{c.mobile} • {c.email || 'Email on file'}</div>
+              </thead>
+              <tbody>
+                {cashbackRecords.map(cb => (
+                  <tr key={cb.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    <td style={{ padding: '0.6rem 0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {cb.employeeName}
+                    </td>
+                    <td style={{ padding: '0.6rem 0.8rem', color: '#10b981', fontWeight: 700 }}>
+                      ₹{(cb.salesAchieved ?? cb.currentSales).toLocaleString()}
+                    </td>
+                    <td style={{ padding: '0.6rem 0.8rem', color: 'var(--text-secondary)' }}>
+                      ₹{(cb.salesLimitTarget ?? cb.targetSalesAmount).toLocaleString()}
+                    </td>
+                    <td style={{ padding: '0.6rem 0.8rem', color: '#eab308', fontWeight: 800 }}>
+                      ₹{cb.cashbackEarned.toLocaleString()}
                     </td>
                     <td style={{ padding: '0.6rem 0.8rem' }}>
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        padding: '3px 8px',
-                        borderRadius: 6,
-                        background: 'rgba(2, 132, 199, 0.12)',
-                        color: '#0284c7',
-                        border: '1px solid rgba(2, 132, 199, 0.25)',
-                        fontWeight: 700,
-                        fontSize: '0.74rem'
-                      }}>
-                        <Sparkles size={12} /> {c.serviceName || 'INDEX OPTION'}
+                      <span className={`delta-badge ${cb.status === 'Paid' ? 'positive' : cb.status === 'Approved' ? 'warning' : 'negative'}`}>
+                        {cb.status}
                       </span>
                     </td>
-                    <td style={{ padding: '0.6rem 0.8rem' }}>
-                      <div style={{ color: 'var(--text-primary)', fontSize: '0.78rem' }}>
-                        {c.startDate || 'Immediate'} → <strong>{c.endDate || 'Ongoing'}</strong>
-                      </div>
-                      <div style={{ marginTop: 2 }}>
-                        {isExpired ? (
-                          <span style={{ padding: '1px 6px', borderRadius: 8, background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', fontWeight: 700, fontSize: '0.68rem' }}>
-                            Expired
-                          </span>
-                        ) : isExpiringToday ? (
-                          <span style={{ padding: '1px 6px', borderRadius: 8, background: 'rgba(245, 158, 11, 0.2)', color: '#d97706', fontWeight: 800, fontSize: '0.68rem' }}>
-                            Expiring Today
-                          </span>
-                        ) : (
-                          <span style={{ padding: '1px 6px', borderRadius: 8, background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 700, fontSize: '0.68rem' }}>
-                            {diffDays} Days Remaining
+                    <td style={{ padding: '0.6rem 0.8rem', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                        {cb.status === 'Pending' && (
+                          <button
+                            className="btn btn-success btn-sm"
+                            onClick={() => approveCashback(cb.id)}
+                            style={{ padding: '3px 8px', fontSize: '0.72rem' }}
+                          >
+                            Approve Bonus
+                          </button>
+                        )}
+                        {cb.status === 'Approved' && (
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => markCashbackPaid(cb.id)}
+                            style={{ padding: '3px 8px', fontSize: '0.72rem' }}
+                          >
+                            Mark as Paid
+                          </button>
+                        )}
+                        {cb.status === 'Paid' && (
+                          <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 700 }}>
+                            ✓ Disbursed
                           </span>
                         )}
                       </div>
                     </td>
-                    <td style={{ padding: '0.6rem 0.8rem' }}>
-                      <span style={{ fontWeight: 800, color: (c.callsDeliveredCount || 0) > 0 ? '#10b981' : 'var(--text-muted)' }}>
-                        🎯 {c.callsDeliveredCount || 0} Calls Sent
-                      </span>
-                      {c.lastCallSentAt && (
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                          Latest: {c.lastCallSentAt.split(',')[0]}
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ padding: '0.6rem 0.8rem', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-                        <button
-                          type="button"
-                          className="btn btn-sm"
-                          onClick={() => {
-                            const matchedCall = raCalls.find(call => {
-                              const sName = (c.serviceName || '').toUpperCase();
-                              const seg = (call.segment || '').toUpperCase();
-                              return call.status === 'ACTIVE' && (sName.includes(seg) || seg.includes(sName));
-                            }) || raCalls.find(call => call.status === 'ACTIVE') || raCalls[0];
-
-                            setDispatchCall(matchedCall);
-                            setDispatchClient(c);
-                          }}
-                          style={{
-                            background: 'linear-gradient(135deg, #0284c7, #0369a1)',
-                            color: '#ffffff',
-                            border: 'none',
-                            padding: '4px 10px',
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4
-                          }}
-                        >
-                          <Send size={11} /> Send Live Call
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => openEditClientModal(c)}
-                          style={{ padding: '4px 8px', fontSize: '0.72rem' }}
-                        >
-                          <Edit3 size={11} /> Edit Dates
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => setActiveTab('ra-calls')}
-                          style={{ padding: '4px 8px', fontSize: '0.72rem' }}
-                        >
-                          <Eye size={11} /> View RA
-                        </button>
-                      </div>
-                    </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Sales Target Cashback & Incentive Approval Queue */}
-      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(234,179,8,0.04), rgba(245,158,11,0.02))', border: '1px solid rgba(234,179,8,0.25)' }}>
-        <div className="card-header" style={{ marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Gift size={18} style={{ color: '#eab308' }} />
-            <span>Employee Sales Limit Cashback & Incentive Approvals</span>
-            <span style={{ fontSize: '0.72rem', background: 'rgba(234,179,8,0.18)', color: '#ca8a04', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
-              {cashbackRecords.filter(c => c.status === 'Pending').length} Pending Payouts
-            </span>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Cashback bonuses unlocked upon crossing sales limit slabs
-          </span>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table className="data-table" style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', textTransform: 'uppercase', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                <th style={{ padding: '0.6rem 0.8rem' }}>Employee Name</th>
-                <th style={{ padding: '0.6rem 0.8rem' }}>Sales Achieved MTD</th>
-                <th style={{ padding: '0.6rem 0.8rem' }}>Target Limit Slab</th>
-                <th style={{ padding: '0.6rem 0.8rem' }}>Bonus Cashback</th>
-                <th style={{ padding: '0.6rem 0.8rem' }}>Status</th>
-                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'right' }}>Authorization Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cashbackRecords.map(cb => (
-                <tr key={cb.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <td style={{ padding: '0.6rem 0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {cb.employeeName}
-                  </td>
-                  <td style={{ padding: '0.6rem 0.8rem', color: '#10b981', fontWeight: 700 }}>
-                    ₹{(cb.salesAchieved ?? cb.currentSales).toLocaleString()}
-                  </td>
-                  <td style={{ padding: '0.6rem 0.8rem', color: 'var(--text-secondary)' }}>
-                    ₹{(cb.salesLimitTarget ?? cb.targetSalesAmount).toLocaleString()}
-                  </td>
-                  <td style={{ padding: '0.6rem 0.8rem', color: '#eab308', fontWeight: 800 }}>
-                    ₹{cb.cashbackEarned.toLocaleString()}
-                  </td>
-                  <td style={{ padding: '0.6rem 0.8rem' }}>
-                    <span className={`delta-badge ${cb.status === 'Paid' ? 'positive' : cb.status === 'Approved' ? 'warning' : 'negative'}`}>
-                      {cb.status}
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.6rem 0.8rem', textAlign: 'right' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-                      {cb.status === 'Pending' && (
-                        <button
-                          className="btn btn-success btn-sm"
-                          onClick={() => approveCashback(cb.id)}
-                          style={{ padding: '3px 8px', fontSize: '0.72rem' }}
-                        >
-                          Approve Bonus
-                        </button>
-                      )}
-                      {cb.status === 'Approved' && (
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => markCashbackPaid(cb.id)}
-                          style={{ padding: '3px 8px', fontSize: '0.72rem' }}
-                        >
-                          Mark as Paid
-                        </button>
-                      )}
-                      {cb.status === 'Paid' && (
-                        <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 700 }}>
-                          ✓ Disbursed
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Operational Split: Pending Approvals & Advisory Leads Overview */}
-      <div className="dashboard-split-equal">
-        {/* Actionable Approvals Queue */}
-        <div className="card" style={{ minWidth: 0 }}>
-          <div className="card-header">
-            <div>
-              <div className="card-title">
-                <AlertCircle size={18} style={{ color: 'var(--warning)' }} />
-                <span>Direct Reports • Pending Approvals ({pendingLeaves.length})</span>
-              </div>
-              <div className="card-subtitle">
-                Contextual decision cards with quota balance & 1-click approvals
+        {/* Operational Split: Pending Approvals & Advisory Leads Overview */}
+        <div className="dashboard-split-equal">
+          {/* Actionable Approvals Queue */}
+          <div className="card" style={{ minWidth: 0 }}>
+            <div className="card-header">
+              <div>
+                <div className="card-title">
+                  <AlertCircle size={18} style={{ color: 'var(--warning)' }} />
+                  <span>Direct Reports • Pending Approvals ({pendingLeaves.length})</span>
+                </div>
+                <div className="card-subtitle">
+                  Contextual decision cards with quota balance & 1-click approvals
+                </div>
               </div>
             </div>
-          </div>
 
-          {pendingLeaves.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
-              <CheckCircle2 size={40} style={{ color: 'var(--success)', margin: '0 auto 0.75rem', display: 'block' }} />
-              <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Zero Pending Requests</div>
-              <div style={{ fontSize: '0.8rem' }}>Your team's coverage and attendance is all approved.</div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              {pendingLeaves.map(req => {
-                const applicant = employees.find(e => e.id === req.employeeId);
-                return (
-                  <div 
-                    key={req.id} 
-                    style={{ 
-                      padding: '1rem', 
-                      borderRadius: 'var(--radius-md)', 
-                      border: '1px solid var(--border-subtle)',
-                      background: 'var(--bg-surface-alt)',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden' }}>
-                          <img src={applicant?.avatar} alt={req.employeeName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                            {req.employeeName}
+            {pendingLeaves.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
+                <CheckCircle2 size={40} style={{ color: 'var(--success)', margin: '0 auto 0.75rem', display: 'block' }} />
+                <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Zero Pending Requests</div>
+                <div style={{ fontSize: '0.8rem' }}>Your team's coverage and attendance is all approved.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                {pendingLeaves.map(req => {
+                  const applicant = employees.find(e => e.id === req.employeeId);
+                  return (
+                    <div 
+                      key={req.id} 
+                      style={{ 
+                        padding: '1rem', 
+                        borderRadius: 'var(--radius-md)', 
+                        border: '1px solid var(--border-subtle)',
+                        background: 'var(--bg-surface-alt)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden' }}>
+                            <img src={applicant?.avatar} alt={req.employeeName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           </div>
-                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                            {applicant?.title} • {req.type}
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                              {req.employeeName}
+                            </div>
+                            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                              {applicant?.title} • {req.type}
+                            </div>
                           </div>
                         </div>
+                        <span className="status-badge status-pending">{req.daysCount} Days</span>
                       </div>
-                      <span className="status-badge status-pending">{req.daysCount} Days</span>
-                    </div>
 
-                    <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', padding: '0.4rem 0.6rem', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                      "{req.reason}"
-                    </div>
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', padding: '0.4rem 0.6rem', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                        "{req.reason}"
+                      </div>
 
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button 
-                        className="btn btn-success btn-sm"
-                        style={{ flex: 1 }}
-                        onClick={() => updateLeaveStatus(req.id, 'Approved', 'Approved by Team Lead')}
-                      >
-                        <CheckCircle2 size={14} />
-                        <span>Approve Leave</span>
-                      </button>
-                      <button 
-                        className="btn btn-outline btn-sm"
-                        style={{ flex: 1 }}
-                        onClick={() => updateLeaveStatus(req.id, 'Declined', 'Coverage constraints on trading floor')}
-                      >
-                        <XCircle size={14} />
-                        <span>Decline</span>
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button 
+                          className="btn btn-success btn-sm"
+                          style={{ flex: 1 }}
+                          onClick={() => updateLeaveStatus(req.id, 'Approved', 'Approved by Team Lead')}
+                        >
+                          <CheckCircle2 size={14} />
+                          <span>Approve Leave</span>
+                        </button>
+                        <button 
+                          className="btn btn-outline btn-sm"
+                          style={{ flex: 1 }}
+                          onClick={() => updateLeaveStatus(req.id, 'Declined', 'Coverage constraints on trading floor')}
+                        >
+                          <XCircle size={14} />
+                          <span>Decline</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Advisory Leads Quick Pipeline */}
-        <div className="card" style={{ minWidth: 0 }}>
-          <div className="card-header">
-            <div>
-              <div className="card-title">
-                <TrendingUp size={18} style={{ color: 'var(--stocketics-blue-500)' }} />
-                <span>High-Value Lead Pipeline</span>
+                  );
+                })}
               </div>
-              <div className="card-subtitle">
-                Institutional & HNI advisory leads in active negotiation
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('call-logs')}>
-                <PhoneCall size={14} style={{ color: '#0ea5e9' }} />
-                <span>Team Call Logs</span>
-              </button>
-              <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('advisory')}>
-                <span>Full Pipeline</span>
-                <ArrowUpRight size={14} />
-              </button>
-            </div>
+            )}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {advisoryLeads.slice(0, 4).map(lead => (
-              <div 
-                key={lead.id}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'space-between',
-                  padding: '0.75rem 0.9rem',
-                  borderRadius: 'var(--radius-md)',
-                  background: 'var(--bg-surface-alt)',
-                  border: '1px solid var(--border-subtle)'
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
-                    {lead.clientName}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    {lead.serviceType ? `${lead.serviceType} • ` : ''}Assigned to {lead.assignedToName || 'Unassigned'}
-                  </div>
+          {/* Advisory Leads Quick Pipeline */}
+          <div className="card" style={{ minWidth: 0 }}>
+            <div className="card-header">
+              <div>
+                <div className="card-title">
+                  <TrendingUp size={18} style={{ color: 'var(--stocketics-blue-500)' }} />
+                  <span>High-Value Lead Pipeline</span>
                 </div>
-
-                <div style={{ textAlign: 'right' }}>
-                  <div className="mono-cell" style={{ fontWeight: 800, color: 'var(--stocketics-blue-600)', fontSize: '0.9rem' }}>
-                    {lead.expectedRevenue > 0 ? `₹${(lead.expectedRevenue / 100000).toFixed(1)}L` : '-'}
-                  </div>
-                  <span className={`status-badge ${lead.status === 'Converted' ? 'status-active' : 'status-pending'}`} style={{ fontSize: '0.7rem' }}>
-                    {lead.status}
-                  </span>
+                <div className="card-subtitle">
+                  Institutional & HNI advisory leads in active negotiation
                 </div>
               </div>
-            ))}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('call-logs')}>
+                  <PhoneCall size={14} style={{ color: '#0ea5e9' }} />
+                  <span>Team Call Logs</span>
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('advisory')}>
+                  <span>Full Pipeline</span>
+                  <ArrowUpRight size={14} />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {advisoryLeads.slice(0, 4).map(lead => (
+                <div 
+                  key={lead.id}
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    padding: '0.75rem 0.9rem',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-surface-alt)',
+                    border: '1px solid var(--border-subtle)'
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+                      {lead.clientName}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {lead.serviceType} • Assigned to {lead.assignedToName}
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'right' }}>
+                    <div className="mono-cell" style={{ fontWeight: 800, color: 'var(--stocketics-blue-600)', fontSize: '0.9rem' }}>
+                      ₹{(lead.expectedRevenue / 100000).toFixed(1)}L
+                    </div>
+                    <span className={`status-badge ${lead.status === 'Converted' ? 'status-active' : 'status-pending'}`} style={{ fontSize: '0.7rem' }}>
+                      {lead.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
 
       {/* Tips Modal */}
       <TipsModal isOpen={isTipsOpen} onClose={() => setIsTipsOpen(false)} />

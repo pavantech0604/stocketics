@@ -60,11 +60,6 @@ export const MarketSnapshot: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<'all' | 'indices' | 'commodities' | 'options'>('all');
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
 
-  // Guard: check permission
-  if (!hasAccess || !hasPermission('market_dashboard_view')) {
-    return null;
-  }
-
   // Filter quotes based on active category
   const filteredQuotes = useMemo(() => {
     if (activeCategory === 'indices') {
@@ -82,6 +77,11 @@ export const MarketSnapshot: React.FC = () => {
   const activeQuote: MarketQuote = useMemo(() => {
     return quotes.find(q => q.key === selectedKey) || filteredQuotes[0] || quotes[0];
   }, [quotes, selectedKey, filteredQuotes]);
+
+  // Guard: check permission
+  if (!hasAccess || !hasPermission('market_dashboard_view')) {
+    return null;
+  }
 
   if (!activeQuote) return null;
 

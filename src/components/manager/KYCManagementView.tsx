@@ -266,17 +266,17 @@ export const KYCManagementView: React.FC = () => {
 
         {/* KYC Table */}
         <div className="table-wrapper">
-          <table className="crm-table">
+          <table className="crm-table kyc-data-table">
             <thead>
               <tr>
-                <th>Customer Name</th>
-                <th>Identity (PAN / Aadhaar)</th>
-                <th>Demat & Depository</th>
-                <th>Bank Account</th>
-                <th>Risk Profile</th>
-                <th>Status</th>
-                <th>Submitted</th>
-                <th style={{ textAlign: 'center' }}>Manager Actions</th>
+                <th style={{ minWidth: '190px' }}>Customer Name</th>
+                <th style={{ minWidth: '135px', whiteSpace: 'nowrap' }}>Identity (PAN / Aadhaar)</th>
+                <th style={{ minWidth: '145px', whiteSpace: 'nowrap' }}>Demat & Depository</th>
+                <th style={{ minWidth: '175px' }}>Bank Account</th>
+                <th style={{ minWidth: '115px' }}>Risk Profile</th>
+                <th style={{ minWidth: '125px' }}>Status</th>
+                <th style={{ minWidth: '110px', whiteSpace: 'nowrap' }}>Submitted</th>
+                <th style={{ minWidth: '220px', textAlign: 'center', whiteSpace: 'nowrap' }}>Manager Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -287,29 +287,29 @@ export const KYCManagementView: React.FC = () => {
                       <div>
                         <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>{record.customerName}</div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{record.phone} • {record.email}</div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--stocketics-blue-600)', marginTop: '2px' }}>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--stocketics-blue-600)', marginTop: '2px', fontWeight: 600 }}>
                           Advisor: {record.assignedAdvisorName}
                         </div>
                       </div>
                     </td>
 
                     <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span className="mono-cell" style={{ fontWeight: 700, letterSpacing: '0.5px', color: 'var(--text-primary)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <span className="mono-cell" style={{ fontWeight: 700, letterSpacing: '0.5px', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                           {record.panNumber}
                         </span>
-                        <span className="mono-cell" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        <span className="mono-cell" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                           {record.aadhaarMasked}
                         </span>
                       </div>
                     </td>
 
                     <td>
-                      <div>
-                        <div className="mono-cell" style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'flex-start' }}>
+                        <div className="mono-cell" style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                           {record.dematClientId}
                         </div>
-                        <span className="delta-badge" style={{ fontSize: '0.68rem', padding: '1px 6px', background: 'var(--bg-surface-alt)' }}>
+                        <span className="delta-badge" style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '4px', background: '#e0f2fe', color: '#0369a1', fontWeight: 700 }}>
                           {record.depository}
                         </span>
                       </div>
@@ -317,17 +317,20 @@ export const KYCManagementView: React.FC = () => {
 
                     <td>
                       <div>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>{record.bankName}</div>
-                        <div className="mono-cell" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          A/C: {record.bankAccountMasked} • {record.ifscCode}
+                        <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)' }}>{record.bankName}</div>
+                        <div className="mono-cell" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', whiteSpace: 'nowrap' }}>
+                          A/C: {record.bankAccountMasked}
+                        </div>
+                        <div className="mono-cell" style={{ fontSize: '0.72rem', color: '#64748b', whiteSpace: 'nowrap' }}>
+                          IFSC: {record.ifscCode}
                         </div>
                       </div>
                     </td>
 
                     <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'flex-start' }}>
                         {getRiskBadge(record.riskProfile)}
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{record.annualIncomeBracket}</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{record.annualIncomeBracket}</span>
                       </div>
                     </td>
 
@@ -339,20 +342,20 @@ export const KYCManagementView: React.FC = () => {
                         </div>
                       )}
                       {record.verifiedDate && (
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px', whiteSpace: 'nowrap' }}>
                           {record.verifiedDate}
                         </div>
                       )}
                     </td>
 
                     <td>
-                      <span className="mono-cell" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      <span className="mono-cell" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                         {record.submittedDate}
                       </span>
                     </td>
 
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
                         <button 
                           className="btn btn-secondary btn-sm"
                           title="Inspect Documents"
@@ -360,7 +363,7 @@ export const KYCManagementView: React.FC = () => {
                             setInspectRecord(record);
                             setSelectedDocType('pan');
                           }}
-                          style={{ padding: '0.35rem 0.5rem', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem' }}
+                          style={{ padding: '0.38rem 0.65rem', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', whiteSpace: 'nowrap' }}
                         >
                           <Eye size={13} /> View Docs
                         </button>
@@ -371,7 +374,7 @@ export const KYCManagementView: React.FC = () => {
                               className="btn btn-success btn-sm"
                               title="Approve KYC"
                               onClick={() => handleQuickApprove(record)}
-                              style={{ padding: '0.35rem 0.6rem', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.78rem' }}
+                              style={{ padding: '0.38rem 0.65rem', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', whiteSpace: 'nowrap', background: '#16a34a', color: '#ffffff', border: 'none' }}
                             >
                               <Check size={13} /> Approve
                             </button>
@@ -379,7 +382,7 @@ export const KYCManagementView: React.FC = () => {
                               className="btn btn-outline btn-sm"
                               title="Reject KYC"
                               onClick={() => handleOpenReject(record)}
-                              style={{ padding: '0.35rem 0.6rem', color: '#dc2626', borderColor: '#fca5a5', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.78rem' }}
+                              style={{ padding: '0.38rem 0.65rem', color: '#dc2626', borderColor: '#fca5a5', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', whiteSpace: 'nowrap' }}
                             >
                               <X size={13} /> Reject
                             </button>

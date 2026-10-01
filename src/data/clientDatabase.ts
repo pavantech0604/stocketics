@@ -24,7 +24,7 @@ export const INITIAL_DETAILED_CLIENTS: ActiveClientRecordDetailed[] = [
     state: 'Kerala',
     city: 'MALLAPURAM',
     address: 'MALLAPURAM',
-    response: 'CLOSED OWN',
+    response: 'CLOSED WON',
     callbackDate: '2026-09-15',
     leadSource: 'INCOMING LEAD',
     description: 'Anjali Requested me to add this lead in the name of Ravi raju',
@@ -46,7 +46,7 @@ export const INITIAL_DETAILED_CLIENTS: ActiveClientRecordDetailed[] = [
         authorName: 'Ravi R Raju',
         authorRole: 'Senior Advisor',
         timestamp: '11-Sep-2026 02:45 PM',
-        response: 'CLOSED OWN',
+        response: 'CLOSED WON',
         text: 'Spoke with Shihabudheen. Discussed Index Option strategy. Client confirmed 2-month subscription.'
       }
     ],
@@ -117,7 +117,7 @@ export const INITIAL_DETAILED_CLIENTS: ActiveClientRecordDetailed[] = [
     state: 'Maharashtra',
     city: 'Mumbai',
     address: 'Worli Sea Face, Mumbai',
-    response: 'CLOSED OWN',
+    response: 'CLOSED WON',
     callbackDate: '2026-09-20',
     leadSource: 'INCOMING LEAD',
     description: 'High net worth investor subscribed to INDEX OPTION premier plan',
@@ -131,7 +131,7 @@ export const INITIAL_DETAILED_CLIENTS: ActiveClientRecordDetailed[] = [
         authorName: 'Rohan Deshmukh',
         authorRole: 'Advisor',
         timestamp: '05-Sep-2026 10:15 AM',
-        response: 'CLOSED OWN',
+        response: 'CLOSED WON',
         text: 'Client confirmed subscription for Index Option. Transferred ₹25,000 via IMPS.'
       }
     ],

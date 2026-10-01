@@ -1,3 +1,4 @@
+import { appendLeadResponse, isClosedOwn, isClosedWon, selectRealLeads, validateLegacyAssignee, validateLegacyResponse, canEditLegacyLead, legacyKYCComplete, sanitizeLeadRecords } from '../crm/legacyWorkflow';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
   UserRole, 
@@ -5,6 +6,7 @@ import {
   AttendanceRecord, 
   LeaveRequest, 
   AdvisoryLead, 
+  LeadStatus, 
   TaskItem, 
   NotificationItem, 
   PayslipRecord,
@@ -26,6 +28,7 @@ import {
   KiteConfig,
   KYCDocumentItem,
   KYCDocumentStatus,
+  KYCDocumentType,
   CallReminder,
   CallReminderStatus,
   CompanyAnnouncement,
@@ -39,7 +42,17 @@ import {
   RACallRecord,
   CompanyBankDetails,
   LeadSourcePool,
-  LeadAssignmentHistory
+  LeadAssignmentHistory,
+  KYCCase,
+  KYCCaseStatus,
+  KYCAuditEntry,
+  LeadChangeEntry,
+  ROLE_PERMISSION_MATRIX,
+  GlobalDNDEntry,
+  LeadDispositionEvent,
+  ClientServiceSubscription,
+  InvoiceTaxBreakdown,
+  InvoiceData
 } from '../types';
 import { INITIAL_DETAILED_CLIENTS } from '../data/clientDatabase';
 import { DEFAULT_MARKET_WIDGET_CONFIG, DEFAULT_ROLE_PERMISSIONS, MARKET_INSTRUMENTS } from '../config/marketInstruments';
@@ -60,7 +73,8 @@ import {
   INITIAL_DAILY_STANDUPS, 
   INITIAL_TEAM_TARGETS,
   INITIAL_LEAD_SOURCE_POOLS,
-  INITIAL_ASSIGNMENT_HISTORY
+  INITIAL_ASSIGNMENT_HISTORY,
+  INITIAL_CONFIRMED_PAYMENTS_LIST
 } from '../data/initialData';
 import {
   INITIAL_KYC_DOCUMENTS,
@@ -83,6 +97,47 @@ import {
 } from '../data/credentials';
 import { pb, api, checkPocketBaseHealth } from '../api/pocketbase';
 import confetti from 'canvas-confetti';
+
+const dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
+  const request = indexedDB.open('ApexCRM', 1);
+  request.onupgradeneeded = (e) => {
+    const db = (e.target as IDBOpenDBRequest).result;
+    if (!db.objectStoreNames.contains('leads')) {
+      db.createObjectStore('leads');
+    }
+  };
+  request.onsuccess = () => resolve(request.result);
+  request.onerror = () => reject(request.error);
+});
+
+async function saveLeadsToIDB(leads: AdvisoryLead[]) {
+  try {
+    const db = await dbPromise;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('leads', 'readwrite');
+      tx.objectStore('leads').put(leads, 'all_leads');
+      tx.oncomplete = resolve;
+      tx.onerror = reject;
+    });
+  } catch (e) {
+    console.warn('[IDB] Failed to save leads', e);
+  }
+}
+
+async function getLeadsFromIDB(): Promise<AdvisoryLead[] | null> {
+  try {
+    const db = await dbPromise;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('leads', 'readonly');
+      const req = tx.objectStore('leads').get('all_leads');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = reject;
+    });
+  } catch (e) {
+    console.warn('[IDB] Failed to get leads', e);
+    return null;
+  }
+}
 
 export const isBirthdayToday = (dob?: string, targetDate: Date = new Date()): boolean => {
   if (!dob) return false;
@@ -119,6 +174,9 @@ interface AppContextType {
   toggleTheme: () => void;
   isSidebarCollapsed: boolean;
   toggleSidebar: () => void;
+  isMobileMenuOpen: boolean;
+  toggleMobileMenu: () => void;
+  closeMobileMenu: () => void;
   isCommandPaletteOpen: boolean;
   setCommandPaletteOpen: (open: boolean) => void;
   activeTab: string;
@@ -139,13 +197,14 @@ interface AppContextType {
   submitLeaveRequest: (leave: Omit<LeaveRequest, 'id' | 'status' | 'appliedAt' | 'avatar' | 'employeeName' | 'department'>) => void;
   updateLeaveStatus: (leaveId: string, status: 'Approved' | 'Declined', note?: string) => void;
   advisoryLeads: AdvisoryLead[];
+  setAdvisoryLeads: React.Dispatch<React.SetStateAction<AdvisoryLead[]>>;
   updateLeadStatus: (leadId: string, status: AdvisoryLead['status']) => void;
   bulkAddLeads: (leads: AdvisoryLead[]) => void;
   leadSourcePools: LeadSourcePool[];
   assignmentHistory: LeadAssignmentHistory[];
   allotLeadsBySourceToTeamLeader: (source: string, teamLeaderId: string, count: number) => { success: boolean; count: number; message: string };
   allotLeadsFromTeamPoolToEmployee: (teamLeaderId: string, source: string, employeeId: string, count: number) => { success: boolean; count: number; message: string };
-  updateLeadResponse: (leadId: string, response: string, note?: string, callbackDate?: string, callbackTime?: string) => void;
+  updateLeadResponse: (leadId: string, response: string, note?: string, callbackDate?: string, callbackTime?: string) => boolean;
   disposeLead: (leadId: string, reason: string) => void;
   addBulkSourceLeads: (source: string, count: number, leads?: Partial<AdvisoryLead>[]) => void;
   resetLeadStateToDefault: () => void;
@@ -186,7 +245,8 @@ interface AppContextType {
   addDailyStandup: (standup: Omit<DailyStandup, 'id'>) => void;
   setTeamTarget: (target: Omit<TeamTarget, 'id'>) => void;
   updateTeamTarget: (id: string, actualValue: number) => void;
-  reassignLead: (leadId: string, newEmployeeId: string, newEmployeeName: string) => void;
+  reassignLead: (leadId: string, newEmployeeId: string, newEmployeeName?: string, reason?: string) => void;
+  batchReassignLeads: (leadIds: string[], newEmployeeId: string, reason?: string) => { success: boolean; count: number; message: string };
 
   // Cross-Employee Client/Lead Search Alerts
   clientSearchAlerts: ClientSearchAlert[];
@@ -314,6 +374,36 @@ interface AppContextType {
   // ─── 12. Free Trial RA Limit & Retrial Workflow ──────────────────────
   activateClientRetrial: (clientId: string) => void;
   markClientConverted: (clientId: string) => void;
+
+  // ─── 13. KYC Case Lifecycle ──────────────────────────────────────────
+  kycCases: KYCCase[];
+  createKYCCase: (leadId: string, requiredDocs: KYCDocumentType[], channel?: string) => KYCCase | null;
+  submitKYCCase: (caseId: string) => void;
+  reviewKYCCase: (caseId: string, decision: 'Approved' | 'Rejected' | 'Needs Reupload', reason?: string) => void;
+  getKYCCaseForLead: (leadId: string) => KYCCase | undefined;
+  addKYCCaseDocument: (caseId: string, docType: KYCDocumentType, docId: string, maskedNumber?: string, fileName?: string) => void;
+
+  // ─── 14. Lead Change Audit ───────────────────────────────────────────
+  leadChangeLog: LeadChangeEntry[];
+  logLeadChange: (leadId: string, field: string, prevValue: string, newValue: string, reason?: string) => void;
+
+  // ─── 15. Role Permission Matrix Check ────────────────────────────────
+  hasMatrixPermission: (permKey: string) => boolean;
+
+  // ─── 16. Confirmed Payments & Client Conversion ──────────────────────
+  confirmedPayments: ConfirmedPaymentRecord[];
+  approveConfirmedPayment: (paymentId: string, utrNumber?: string, notes?: string) => { success: boolean; message: string };
+  rejectConfirmedPayment: (paymentId: string, reason: string) => void;
+  createConfirmedPayment: (payment: Omit<ConfirmedPaymentRecord, 'id' | 'date'>) => void;
+
+  // ─── 17. Global DND Registry & Append-Only Dispositions ─────────────
+  globalDNDList: GlobalDNDEntry[];
+  addToGlobalDND: (phone: string, reason: string, leadId?: string) => void;
+  isPhoneDND: (phone: string) => boolean;
+  addLeadDisposition: (leadId: string, response: string, note?: string, callbackDate?: string, callbackTime?: string) => boolean;
+
+  // ─── 18. Advisory Dispatch Gating Check (SEBI Compliance) ────────────
+  canDispatchAdvisoryToClient: (clientIdOrCode: string) => { allowed: boolean; reason?: string };
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -430,7 +520,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsAuthenticated(true);
     sessionStorage.setItem('apex_crm_authenticated', 'true');
     localStorage.setItem('apex_crm_authenticated', 'true');
-    setActiveTab('dashboard');
+    setActiveTabState('dashboard');
+
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
 
     // Birthday celebration popup logic on login:
     // If any employee has a birthday today or user has a birthday today, show the celebratory poster
@@ -458,16 +554,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsBirthdayCelebrationOpen(false);
     sessionStorage.removeItem('apex_crm_authenticated');
     localStorage.removeItem('apex_crm_authenticated');
-    setActiveTab('dashboard');
-    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-      try {
-        window.history.pushState({}, '', '/login');
-      } catch (_) {}
+    setActiveTabState('dashboard');
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      if (window.location.pathname !== '/login') {
+        try {
+          window.history.pushState({}, '', '/login');
+        } catch (_) {}
+      }
     }
     showToast('Logged out safely. Welcome back to Stocketics Portal.', 'info');
   };
 
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeTab, setActiveTabState] = useState<string>('dashboard');
+
+  const setActiveTab = useCallback((tab: string) => {
+    setActiveTabState(tab);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      const mainWrapper = document.querySelector('.main-wrapper');
+      if (mainWrapper) mainWrapper.scrollTop = 0;
+      const pageWrapper = document.querySelector('.page-content-wrapper');
+      if (pageWrapper) pageWrapper.scrollTop = 0;
+    }
+  }, []);
 
   const setRole = (newRole: UserRole) => {
     setRoleState(newRole);
@@ -491,32 +605,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const toggleMobileMenu = useCallback(() => setIsMobileMenuOpen(prev => !prev), []);
+  const closeMobileMenu = useCallback(() => setIsMobileMenuOpen(false), []);
+
   const [isCommandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
-  // Automatic migration: scrub any legacy cached real client data from localStorage
-  if (typeof window !== 'undefined') {
-    try {
-      const rawEmps = localStorage.getItem('apex_crm_employees');
-      const rawPayments = localStorage.getItem('apex_crm_confirmed_payments');
-      const rawCreds = localStorage.getItem('stocketics_crm_credentials');
-      if (
-        (rawEmps && (rawEmps.includes('Sindhu H S') || rawEmps.includes('Vinod Kumar') || rawEmps.includes('apexedge.in'))) ||
-        (rawPayments && (rawPayments.includes('9940721833') || rawPayments.includes('Naveen'))) ||
-        (rawCreds && (rawCreds.includes('Vinod Kumar') || rawCreds.includes('Sindhu H S')))
-      ) {
-        localStorage.removeItem('apex_crm_employees');
-        localStorage.removeItem('apex_crm_attendance');
-        localStorage.removeItem('apex_crm_leaves');
-        localStorage.removeItem('apex_crm_leads');
-        localStorage.removeItem('apex_crm_tasks');
-        localStorage.removeItem('apex_crm_kyc');
-        localStorage.removeItem('apex_crm_call_logs');
-        localStorage.removeItem('apex_crm_confirmed_payments');
-        localStorage.removeItem('stocketics_crm_credentials');
-        localStorage.removeItem('apex_crm_credentials');
-      }
-    } catch (_) {}
-  }
+  // Existing cached records are preserved until an explicit, backed-up migration.
 
   // Entities state with persistence
   const [employees, setEmployees] = useState<Employee[]>(() => {
@@ -571,7 +666,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.some(l => l.teamLeaderId || l.isTeamPool)) {
-          return parsed;
+          return sanitizeLeadRecords(parsed);
         }
       } catch (_) {}
     }
@@ -579,14 +674,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   useEffect(() => {
-    localStorage.setItem('apex_crm_leads', JSON.stringify(advisoryLeads));
+    async function loadIDB() {
+      const idbSaved = await getLeadsFromIDB();
+      if (idbSaved && Array.isArray(idbSaved) && idbSaved.length > 0) {
+        setAdvisoryLeads(sanitizeLeadRecords(idbSaved));
+      }
+    }
+    loadIDB();
+  }, []);
+
+  useEffect(() => {
+    saveLeadsToIDB(advisoryLeads).catch(() => {});
+    try {
+      localStorage.setItem('apex_crm_leads', JSON.stringify(advisoryLeads));
+    } catch (e: any) {
+      if (e.name === 'QuotaExceededError') {
+        console.warn('LocalStorage quota exceeded for leads. Safely falling back to IndexedDB.');
+        localStorage.removeItem('apex_crm_leads');
+      }
+    }
   }, [advisoryLeads]);
 
   // Lead Source Pools State
   const [leadSourcePools, setLeadSourcePools] = useState<LeadSourcePool[]>(() => {
     const saved = localStorage.getItem('apex_crm_source_pools');
     if (saved) {
-      try { return JSON.parse(saved); } catch (_) {}
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(pool => {
+            const initialMatch = INITIAL_LEAD_SOURCE_POOLS.find(
+              ip => ip.sourceName.trim().toLowerCase() === pool.sourceName.trim().toLowerCase()
+            );
+            if (initialMatch && pool.availableCount === 0 && initialMatch.availableCount > 0) {
+              return { ...pool, availableCount: initialMatch.availableCount };
+            }
+            return pool;
+          });
+        }
+      } catch (_) {}
     }
     return INITIAL_LEAD_SOURCE_POOLS;
   });
@@ -607,6 +733,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('apex_crm_assignment_history', JSON.stringify(assignmentHistory));
   }, [assignmentHistory]);
+
+  // ── Confirmed Payments State ──────────────────────────────────────────
+  const [confirmedPayments, setConfirmedPayments] = useState<ConfirmedPaymentRecord[]>(() => {
+    const saved = localStorage.getItem('apex_crm_confirmed_payments');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (_) {}
+    }
+    return INITIAL_CONFIRMED_PAYMENTS_LIST;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('apex_crm_confirmed_payments', JSON.stringify(confirmedPayments));
+  }, [confirmedPayments]);
+
+  // ── Global DND Blacklist Registry ─────────────────────────────────────
+  const [globalDNDList, setGlobalDNDList] = useState<GlobalDNDEntry[]>(() => {
+    const saved = localStorage.getItem('apex_crm_global_dnd');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (_) {}
+    }
+    return [
+      { id: 'dnd-1', phone: '9988776655', clientName: 'Amit Shah (Flagged)', reason: 'Customer requested DND on call', addedById: 'emp-1', addedByName: 'Rohit Sharma', addedAt: '2026-09-20' },
+      { id: 'dnd-2', phone: '9123456780', clientName: 'Sanjay Dutt', reason: 'Regulatory DND registry match', addedById: 'emp-2', addedByName: 'Priya Sharma', addedAt: '2026-09-22' }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('apex_crm_global_dnd', JSON.stringify(globalDNDList));
+  }, [globalDNDList]);
 
   const [tasks, setTasks] = useState<TaskItem[]>(() => {
     const saved = localStorage.getItem('apex_crm_tasks');
@@ -707,7 +865,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...updated[existingIdx],
           ...clientData,
           tabCategory: 'clients',
-          response: clientData.response || 'CLOSED OWN',
+          response: clientData.response || 'CLOSED WON',
           serviceName: clientData.serviceName || updated[existingIdx].serviceName || 'INDEX OPTION',
           startDate: clientData.startDate || updated[existingIdx].startDate || new Date().toISOString().slice(0, 10),
           endDate: clientData.endDate || updated[existingIdx].endDate || '2026-11-01',
@@ -717,7 +875,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               authorName: currentUser.name,
               authorRole: currentUser.title || currentUser.role,
               timestamp: `${nowStr} (Service Subscribed)`,
-              response: 'CLOSED OWN',
+              response: 'CLOSED WON',
               text: `Subscribed to service ${clientData.serviceName || 'INDEX OPTION'} from ${clientData.startDate || nowStr} to ${clientData.endDate || 'Ongoing'}.`
             },
             ...(updated[existingIdx].notesHistory || [])
@@ -734,7 +892,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           mobile: clientData.mobile || '',
           email: clientData.email || '',
           panNo: clientData.panNo || '',
-          response: clientData.response || 'CLOSED OWN',
+          response: clientData.response || 'CLOSED WON',
           leadSource: clientData.leadSource || 'ADVISORY UPGRADE',
           description: clientData.description || `Active service subscriber for ${clientData.serviceName || 'INDEX OPTION'}`,
           tabCategory: 'clients',
@@ -747,7 +905,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               authorName: currentUser.name,
               authorRole: currentUser.title || currentUser.role,
               timestamp: `${nowStr} (New Service Client)`,
-              response: 'CLOSED OWN',
+              response: 'CLOSED WON',
               text: `Client acquired with service: ${clientData.serviceName || 'INDEX OPTION'}.`
             }
           ],
@@ -968,13 +1126,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ─── Team Leader State ─────────────────────────────────────────────
   const [teams, setTeams] = useState<Team[]>(() => {
     const saved = localStorage.getItem('apex_crm_teams');
-    return saved ? JSON.parse(saved) : INITIAL_TEAMS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length >= 3) return parsed;
+      } catch (_) {}
+    }
+    return INITIAL_TEAMS;
   });
   useEffect(() => { localStorage.setItem('apex_crm_teams', JSON.stringify(teams)); }, [teams]);
 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => {
     const saved = localStorage.getItem('apex_crm_team_members');
-    return saved ? JSON.parse(saved) : INITIAL_TEAM_MEMBERS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length >= 4) return parsed;
+      } catch (_) {}
+    }
+    return INITIAL_TEAM_MEMBERS;
   });
   useEffect(() => { localStorage.setItem('apex_crm_team_members', JSON.stringify(teamMembers)); }, [teamMembers]);
 
@@ -1059,288 +1229,292 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('Target progress updated!', 'success');
   };
 
-  const reassignLead = (leadId: string, newEmployeeId: string, newEmployeeName: string) => {
-    let source = 'Direct';
-    let oldEmpName = 'Previous';
+  const reassignLead = (leadId: string, newEmployeeId: string, _newEmployeeName?: string, reason?: string) => {
+    batchReassignLeads([leadId], newEmployeeId, reason);
+  };
+
+  const batchReassignLeads = (leadIds: string[], newEmployeeId: string, reason?: string) => {
+    if (!leadIds || leadIds.length === 0) {
+      showToast('No leads selected for reassignment.', 'warning');
+      return { success: false, count: 0, message: 'No leads selected' };
+    }
+
+    const targetEmp = employees.find(e => e.id === newEmployeeId);
+    if (!targetEmp) {
+      showToast('Selected recipient employee was not found.', 'error');
+      return { success: false, count: 0, message: 'Invalid recipient' };
+    }
+
+    if (!['Active', 'Remote'].includes(targetEmp.status)) {
+      showToast(`${targetEmp.name} is currently inactive and cannot receive leads.`, 'error');
+      return { success: false, count: 0, message: 'Employee inactive' };
+    }
+
+    // Auto-detect destination team & team leader mapping for data integrity
+    const memberRecord = teamMembers.find(tm => tm.employeeId === newEmployeeId);
+    const targetTeam = memberRecord ? teams.find(t => t.id === memberRecord.teamId) : undefined;
+    const targetLeader = targetTeam ? employees.find(e => e.id === targetTeam.leaderId) : undefined;
+
+    const leadIdSet = new Set(leadIds);
+    const targetLeads = advisoryLeads.filter(l => leadIdSet.has(l.id));
+
+    if (targetLeads.length === 0) {
+      showToast('Selected leads could not be found.', 'error');
+      return { success: false, count: 0, message: 'Leads not found' };
+    }
+
+    const isManagerRole = ['manager', 'hr', 'admin'].includes(role);
+    const myTeamMemberIds = getTeamMemberIds(currentUser.id);
+
+    // Permission scoping: Managers can reassign any lead; Team Leaders reassign squad or team pool leads
+    const eligibleLeads = targetLeads.filter(l => {
+      if (isManagerRole) return true;
+      if (role === 'team_leader') {
+        return l.teamLeaderId === currentUser.id || myTeamMemberIds.includes(l.assignedToId) || l.assignedToId === currentUser.id;
+      }
+      return false;
+    });
+
+    if (eligibleLeads.length === 0) {
+      showToast('You do not have permission to reassign the selected lead(s).', 'error');
+      return { success: false, count: 0, message: 'Permission denied' };
+    }
+
+    const eligibleIds = new Set(eligibleLeads.map(l => l.id));
+    const nowFormatted = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const nowIso = new Date().toISOString();
+
     setAdvisoryLeads(prev => prev.map(lead => {
-      if (lead.id === leadId) {
-        source = lead.source || 'General';
-        oldEmpName = lead.assignedToName;
-        return { 
-          ...lead, 
-          assignedToId: newEmployeeId, 
-          assignedToName: newEmployeeName,
+      if (eligibleIds.has(lead.id)) {
+        return {
+          ...lead,
+          assignedToId: targetEmp.id,
+          assignedToName: targetEmp.name,
+          teamId: targetTeam?.id || lead.teamId,
+          teamLeaderId: targetLeader?.id || lead.teamLeaderId,
+          teamLeaderName: targetLeader?.name || lead.teamLeaderName,
           assignedById: currentUser.id,
           assignedByName: currentUser.name,
-          assignedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          assignedAt: nowFormatted,
           isTeamPool: false
         };
       }
       return lead;
     }));
 
-    const historyEntry: LeadAssignmentHistory = {
-      id: `lah-${Date.now().toString(36)}`,
-      leadId,
-      source,
-      fromName: oldEmpName,
-      toId: newEmployeeId,
-      toName: newEmployeeName,
+    const historyEntries: LeadAssignmentHistory[] = eligibleLeads.map(l => ({
+      id: `lah-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+      leadId: l.id,
+      leadName: l.clientName,
+      source: l.source || 'General',
+      fromId: l.assignedToId,
+      fromName: l.assignedToName || 'Unassigned',
+      toId: targetEmp.id,
+      toName: targetEmp.name,
       assignedById: currentUser.id,
       assignedByName: currentUser.name,
-      assignedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      assignedAt: nowFormatted,
       assignmentType: 'reassignment',
       leadCount: 1
-    };
-    setAssignmentHistory(prev => [historyEntry, ...prev]);
-    showToast(`Lead reassigned to ${newEmployeeName}!`, 'success');
-  };
-
-  // ── Multi-Tier Allotment: Manager to Team Leader ───────────────────────
-  const allotLeadsBySourceToTeamLeader = (source: string, teamLeaderId: string, count: number) => {
-    const leader = employees.find(e => e.id === teamLeaderId);
-    if (!leader) return { success: false, count: 0, message: 'Team Leader not found' };
-    const team = getTeamForLeader(teamLeaderId);
-    const teamId = team?.id || 'team-001';
-
-    // 1. Decrement available count in source pool
-    setLeadSourcePools(prev => prev.map(sp => {
-      if (sp.sourceName === source) {
-        return { ...sp, availableCount: Math.max(0, sp.availableCount - count) };
-      }
-      return sp;
     }));
+    setAssignmentHistory(prev => [...historyEntries, ...prev]);
 
-    // 2. Select or generate leads for this allotment
-    const nowStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    let remainingToAllocate = count;
-    setAdvisoryLeads(prev => {
-      const updated = prev.map(l => {
-        if (remainingToAllocate > 0 && l.source === source && (!l.teamLeaderId || l.assignedToId === '' || l.assignedToName === 'Unassigned' || l.assignedToName.includes('Unallocated'))) {
-          remainingToAllocate--;
-          return {
-            ...l,
-            teamId,
-            teamLeaderId,
-            teamLeaderName: leader.name,
-            isTeamPool: true,
-            assignedToId: teamLeaderId,
-            assignedToName: `${leader.name} (Team Pool)`,
-            assignedById: currentUser.id,
-            assignedByName: currentUser.name,
-            assignedAt: nowStr,
-            status: 'New Lead' as const,
-            response: 'Fresh'
-          };
-        }
-        return l;
-      });
-
-      // If we still need more leads to reach `count`, generate realistic ones
-      const extraLeads: AdvisoryLead[] = [];
-      const sampleCities = ['Bengaluru', 'Mysuru', 'Hyderabad', 'Hubli', 'Chennai', 'Vijayawada', 'Mangaluru', 'Coimbatore'];
-      const sampleBrackets = ['₹10 Lakhs - ₹25 Lakhs', '₹15 Lakhs - ₹30 Lakhs', '₹25 Lakhs - ₹50 Lakhs', '₹5 Lakhs - ₹10 Lakhs'];
-      const sampleServices: AdvisoryLead['serviceType'][] = ['Equity Premier', 'Options Strategy', 'Commodity Momentum', 'Hedge & PMS'];
-
-      for (let i = 0; i < remainingToAllocate; i++) {
-        const genId = `lead-${Date.now().toString(36)}-${i}-${Math.floor(Math.random() * 1000)}`;
-        extraLeads.push({
-          id: genId,
-          clientName: `Lead ${source.split(' ')[0]} #${Math.floor(1000 + Math.random() * 9000)}`,
-          phone: `+91 ${9000000000 + Math.floor(Math.random() * 999999999)}`,
-          email: `client.${genId}@leadsource.in`,
-          serviceType: sampleServices[i % sampleServices.length],
-          investmentBracket: sampleBrackets[i % sampleBrackets.length],
-          status: 'New Lead',
-          response: 'Fresh',
-          assignedToId: teamLeaderId,
-          assignedToName: `${leader.name} (Team Pool)`,
-          teamId,
-          teamLeaderId,
-          teamLeaderName: leader.name,
-          isTeamPool: true,
-          assignedById: currentUser.id,
-          assignedByName: currentUser.name,
-          assignedAt: nowStr,
-          lastContactDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-          expectedRevenue: 50000 + (i % 5) * 15000,
-          city: sampleCities[i % sampleCities.length],
-          source,
-          description: `Allotted from ${source} to ${leader.name}'s team pool.`
-        });
-      }
-
-      return [...extraLeads, ...updated];
-    });
-
-    // 3. Log assignment history
-    const historyEntry: LeadAssignmentHistory = {
-      id: `lah-${Date.now().toString(36)}`,
-      source,
-      fromId: currentUser.id,
-      fromName: `${currentUser.name} (Manager)`,
-      toId: teamLeaderId,
-      toName: `${leader.name} (Team Leader)`,
-      assignedById: currentUser.id,
-      assignedByName: currentUser.name,
-      assignedAt: nowStr,
-      assignmentType: 'manager_to_team',
-      leadCount: count
-    };
-    setAssignmentHistory(prev => [historyEntry, ...prev]);
-
-    // 4. Create in-app notification for Team Leader
-    const notif: NotificationItem = {
+    setNotifications(prev => [{
       id: `notif-${Date.now().toString(36)}`,
-      title: 'New Leads Allotted to Team Pool',
-      message: `${count} leads from source "${source}" have been allotted to your squad pool by ${currentUser.name}.`,
-      time: 'Just now',
-      type: 'lead_access',
+      title: 'Leads Reassigned',
+      message: `${eligibleLeads.length} lead${eligibleLeads.length > 1 ? 's were' : ' was'} reassigned to you by ${currentUser.name}.${reason ? ` Note: ${reason}` : ''}`,
+      time: nowIso,
+      type: 'lead_access' as const,
       read: false,
-      targetRole: 'team_leader',
-      targetUserId: teamLeaderId,
-      actionTab: 'lead-reassignment'
-    };
-    setNotifications(prev => [notif, ...prev]);
-
-    confetti({ particleCount: 70, spread: 80 });
-    showToast(`${count} Lead Alloted Successfully to ${leader.name}!`, 'success');
-
-    return { success: true, count, message: `${count} Lead Alloted Successfully` };
-  };
-
-  // ── Multi-Tier Allotment: Team Leader to Team Employee ──────────────────
-  const allotLeadsFromTeamPoolToEmployee = (teamLeaderId: string, source: string, employeeId: string, count: number) => {
-    const emp = employees.find(e => e.id === employeeId);
-    if (!emp) return { success: false, count: 0, message: 'Employee not found' };
-
-    let allocatedCount = 0;
-    const nowStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    setAdvisoryLeads(prev => {
-      let remaining = count;
-      return prev.map(l => {
-        if (
-          remaining > 0 &&
-          l.teamLeaderId === teamLeaderId &&
-          l.isTeamPool === true &&
-          (source === 'all' || !source || l.source === source)
-        ) {
-          remaining--;
-          allocatedCount++;
-          return {
-            ...l,
-            assignedToId: emp.id,
-            assignedToName: emp.name,
-            isTeamPool: false,
-            assignedById: currentUser.id,
-            assignedByName: currentUser.name,
-            assignedAt: nowStr,
-            status: 'New Lead' as const,
-            response: 'Fresh',
-            description: l.description ? `${l.description} | Assigned to ${emp.name}` : `Assigned to ${emp.name}`
-          };
-        }
-        return l;
-      });
-    });
-
-    // If there were fewer discrete pool leads than count, also generate the remainder
-    if (allocatedCount < count) {
-      const needed = count - allocatedCount;
-      const extraLeads: AdvisoryLead[] = [];
-      const leader = employees.find(e => e.id === teamLeaderId);
-      const team = getTeamForLeader(teamLeaderId);
-      const teamId = team?.id || 'team-001';
-      const actualSource = source && source !== 'all' ? source : 'D WEB KANNADA';
-
-      for (let i = 0; i < needed; i++) {
-        const genId = `lead-${Date.now().toString(36)}-${i}-${Math.floor(Math.random() * 1000)}`;
-        extraLeads.push({
-          id: genId,
-          clientName: `Lead ${actualSource.split(' ')[0]} #${Math.floor(1000 + Math.random() * 9000)}`,
-          phone: `+91 ${9000000000 + Math.floor(Math.random() * 999999999)}`,
-          email: `investor.${genId}@apexinvest.in`,
-          serviceType: 'Equity Premier',
-          investmentBracket: '₹10 Lakhs - ₹25 Lakhs',
-          status: 'New Lead',
-          response: 'Fresh',
-          assignedToId: emp.id,
-          assignedToName: emp.name,
-          teamId,
-          teamLeaderId,
-          teamLeaderName: leader?.name || 'Vikram Desai',
-          isTeamPool: false,
-          assignedById: currentUser.id,
-          assignedByName: currentUser.name,
-          assignedAt: nowStr,
-          lastContactDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-          expectedRevenue: 60000,
-          city: 'Bengaluru',
-          source: actualSource,
-          description: `Assigned to ${emp.name} by Team Leader.`
-        });
-        allocatedCount++;
-      }
-      setAdvisoryLeads(prev => [...extraLeads, ...prev]);
-    }
-
-    // History
-    const historyEntry: LeadAssignmentHistory = {
-      id: `lah-${Date.now().toString(36)}`,
-      source: source || 'Team Pool',
-      fromId: teamLeaderId,
-      fromName: `${currentUser.name} (Team Leader)`,
-      toId: emp.id,
-      toName: `${emp.name} (Advisor)`,
-      assignedById: currentUser.id,
-      assignedByName: currentUser.name,
-      assignedAt: nowStr,
-      assignmentType: 'team_to_employee',
-      leadCount: count
-    };
-    setAssignmentHistory(prev => [historyEntry, ...prev]);
-
-    // Notification to Employee
-    const notif: NotificationItem = {
-      id: `notif-${Date.now().toString(36)}`,
-      title: 'New Leads Assigned to You',
-      message: `${count} new leads have been assigned to your pipeline by Team Leader ${currentUser.name}.`,
-      time: 'Just now',
-      type: 'lead_access',
-      read: false,
-      targetUserId: emp.id,
+      targetUserId: targetEmp.id,
       actionTab: 'new-leads'
-    };
-    setNotifications(prev => [notif, ...prev]);
+    }, ...prev]);
 
-    confetti({ particleCount: 60, spread: 70 });
-    showToast(`${count} Lead Alloted Successfully to ${emp.name}!`, 'success');
+    confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+    showToast(
+      eligibleLeads.length === 1 
+        ? `Lead "${eligibleLeads[0].clientName}" reassigned to ${targetEmp.name}!` 
+        : `Successfully reassigned ${eligibleLeads.length} leads to ${targetEmp.name}!`, 
+      'success'
+    );
 
-    return { success: true, count, message: `${count} Lead Alloted Successfully` };
+    return { success: true, count: eligibleLeads.length, message: 'Leads successfully reassigned' };
   };
+
+  // Allocate existing records only; never manufacture inventory when a pool is short.
+  const commitLegacyAllocation = (selected: AdvisoryLead[], recipient: Employee, leader: Employee, team: Team, toEmployee: boolean) => {
+    const ids = new Set(selected.map(l => l.id));
+    const timestamp = new Date().toISOString();
+    setAdvisoryLeads(prev => {
+      const existingIds = new Set(prev.map(l => l.id));
+      const updatedExisting = prev.map(l => ids.has(l.id) ? {
+        ...l, teamId: team.id, teamLeaderId: leader.id, teamLeaderName: leader.name,
+        assignedToId: recipient.id, assignedToName: recipient.name,
+        isTeamPool: !toEmployee, assignedById: currentUser.id, assignedByName: currentUser.name, assignedAt: timestamp
+      } : l);
+      const newItems = selected.filter(l => !existingIds.has(l.id)).map(l => ({
+        ...l, teamId: team.id, teamLeaderId: leader.id, teamLeaderName: leader.name,
+        assignedToId: recipient.id, assignedToName: recipient.name,
+        isTeamPool: !toEmployee, assignedById: currentUser.id, assignedByName: currentUser.name, assignedAt: timestamp
+      }));
+      return [...newItems, ...updatedExisting];
+    });
+    setAssignmentHistory(prev => [...selected.map(l => ({
+      id: `lah-${crypto.randomUUID()}`, leadId: l.id, leadName: l.clientName,
+      source: l.source || 'General', fromId: l.assignedToId, fromName: l.assignedToName,
+      toId: recipient.id, toName: recipient.name, assignedById: currentUser.id,
+      assignedByName: currentUser.name, assignedAt: timestamp,
+      assignmentType: (toEmployee ? 'team_to_employee' : 'manager_to_team') as LeadAssignmentHistory['assignmentType'], leadCount: 1
+    })), ...prev]);
+    if (!toEmployee) {
+      const allottedSource = selected[0]?.source;
+      if (allottedSource) {
+        const normAllotted = allottedSource.trim().replace(/\s+/g, ' ').toLowerCase();
+        setLeadSourcePools(prev => prev.map(pool => {
+          const normPool = pool.sourceName.trim().replace(/\s+/g, ' ').toLowerCase();
+          if (normPool === normAllotted) {
+            return {
+              ...pool,
+              availableCount: Math.max(0, pool.availableCount - selected.length)
+            };
+          }
+          return pool;
+        }));
+      }
+    }
+    setNotifications(prev => [{ id: `notif-${crypto.randomUUID()}`, title: 'Leads assigned',
+      message: `${selected.length} existing leads assigned by ${currentUser.name}.`, time: timestamp,
+      type: 'lead_access' as const, read: false, targetUserId: recipient.id, actionTab: 'new-leads'
+    }, ...prev]);
+    showToast(`${selected.length} leads assigned to ${recipient.name}.`, 'success');
+    return { success: true, count: selected.length, message: 'Assignment saved in this portal.' };
+  };
+  const allotLeadsBySourceToTeamLeader = (source: string, teamLeaderId: string, count: number) => {
+    try {
+      const isPermitted = role === 'manager' || role === 'hr' || (role as string) === 'admin';
+      if (!isPermitted && !hasPermission('leads.assign.all')) {
+        throw new Error('Manager assignment permission is required.');
+      }
+      const leader = employees.find(e => e.id === teamLeaderId);
+      if (!leader) throw new Error('Selected team leader was not found.');
+      if (leader.id === currentUser.id || leader.name === currentUser.name) {
+        throw new Error('You cannot allot leads to yourself as manager. Please select an eligible Team Leader.');
+      }
+      let team = teams.find(t => t.leaderId === teamLeaderId && t.status === 'Active');
+      if (!team) {
+        team = teams.find(t => t.leaderId === teamLeaderId) || teams[0];
+      }
+      if (!team) {
+        team = {
+          id: `team-${leader.id}`,
+          name: `${leader.name}'s Squad`,
+          leaderId: leader.id,
+          department: 'Advisory Sales',
+          createdAt: new Date().toLocaleDateString('en-GB'),
+          status: 'Active'
+        };
+      }
+      const selected = selectRealLeads(advisoryLeads, source, count);
+      return commitLegacyAllocation(selected, leader, leader, team, false);
+    } catch (error) { return { success: false, count: 0, message: error instanceof Error ? error.message : 'Assignment failed.' }; }
+  };
+  const allotLeadsFromTeamPoolToEmployee = (teamLeaderId: string, source: string, employeeId: string, count: number) => {
+    try {
+      if (role !== 'team_leader' || teamLeaderId !== currentUser.id || !hasPermission('leads.assign.team')) throw new Error('Only this Team Leader can allocate their pool.');
+      const employee = employees.find(e => e.id === employeeId);
+      if (!employee) throw new Error('Selected employee was not found.');
+      const leader = employees.find(e => e.id === teamLeaderId) || (currentUser as Employee);
+      let team = teams.find(t => t.leaderId === teamLeaderId && t.status === 'Active');
+      if (!team) {
+        team = teams.find(t => t.leaderId === teamLeaderId) || teams[0];
+      }
+      if (!team) {
+        team = {
+          id: `team-${leader.id}`,
+          name: `${leader.name}'s Squad`,
+          leaderId: leader.id,
+          department: 'Advisory Sales',
+          createdAt: new Date().toLocaleDateString('en-GB'),
+          status: 'Active'
+        };
+      }
+      const selected = selectRealLeads(advisoryLeads, source, count, teamLeaderId);
+      return commitLegacyAllocation(selected, employee, leader as Employee, team, true);
+    } catch (error) { return { success: false, count: 0, message: error instanceof Error ? error.message : 'Assignment failed.' }; }
+  };
+  const addToGlobalDND = useCallback((phone: string, reason: string, leadId?: string) => {
+    const cleanPhone = phone.replace(/[\s\-\+]/g, '').slice(-10);
+    setGlobalDNDList(prev => {
+      if (prev.some(entry => entry.phone.replace(/[\s\-\+]/g, '').slice(-10) === cleanPhone)) {
+        return prev;
+      }
+      const newEntry: GlobalDNDEntry = {
+        id: `dnd-${Date.now()}`,
+        phone,
+        leadId,
+        reason,
+        addedById: currentUser.id,
+        addedByName: currentUser.name,
+        addedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+      };
+      return [newEntry, ...prev];
+    });
+    showToast(`Phone ${phone} added to Global DND Blacklist.`, 'warning');
+  }, [currentUser, showToast]);
+
+  const isPhoneDND = useCallback((phone: string) => {
+    const cleanPhone = phone.replace(/[\s\-\+]/g, '').slice(-10);
+    return globalDNDList.some(entry => entry.phone.replace(/[\s\-\+]/g, '').slice(-10) === cleanPhone);
+  }, [globalDNDList]);
 
   // ── Lead Response & Disposition Management ─────────────────────────────
-  const updateLeadResponse = (leadId: string, response: string, note?: string, callbackDate?: string, callbackTime?: string) => {
+  const addLeadDisposition = useCallback((leadId: string, response: string, note?: string, callbackDate?: string, callbackTime?: string) => {
+    const target = advisoryLeads.find(l => l.id === leadId);
+    if (!target || !canEditLegacyLead(role, currentUser.id, target, getTeamMemberIds(currentUser.id))) { showToast('This lead is outside your current ownership scope.', 'error'); return false; }
+    if (response === 'Call Back' && !callbackDate) { showToast('Choose a date and time for the next callback.', 'error'); return false; }
+    try { validateLegacyResponse(note, callbackDate, callbackTime); }
+    catch (error) { showToast(error instanceof Error ? error.message : 'Invalid response.', 'error'); return false; }
     const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const isDND = response === 'DND';
+
     setAdvisoryLeads(prev => prev.map(lead => {
       if (lead.id === leadId) {
         let newStatus: AdvisoryLead['status'] = lead.status;
-        if (response === 'Interested') {
+        if (isClosedOwn({ status: 'New Lead', response })) {
+          newStatus = lead.status === 'Converted' ? 'Converted' : 'In Contact';
+        } else if (response === 'Interested') {
           newStatus = 'Trial Active';
         } else if (response === 'Payment' || response === 'Converted') {
-          newStatus = 'Converted';
+          // Recording an outcome alone must not pretend a client was created.
+          newStatus = lead.status;
         } else if (response === 'Not Interested' || response === 'DND') {
           newStatus = 'Lost';
         } else if (response === 'Call Back' || response === 'Busy') {
           newStatus = 'In Contact';
         }
 
-        const isDND = response === 'DND';
+        const dispEvent: LeadDispositionEvent = {
+          id: `disp-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 5)}`,
+          leadId,
+          timestamp: new Date().toISOString(),
+          actorId: currentUser.id,
+          actorName: currentUser.name,
+          actorRole: role,
+          response,
+          note,
+          callbackDate,
+          callbackTime,
+          sentiment: response === 'Interested' || response === 'Payment' ? 'Positive' : response === 'Call Back' ? 'Neutral' : 'Challenging'
+        };
+
+        const updatedHistory = appendLeadResponse(lead, dispEvent);
         const newDescription = note 
           ? (lead.description ? `${note} | ${lead.description}` : note)
           : lead.description;
+
+        if (isDND) {
+          addToGlobalDND(lead.phone, note || 'Client requested DND during call', lead.id);
+        }
 
         return {
           ...lead,
@@ -1348,16 +1522,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           status: newStatus,
           modifiedToday: true,
           lastContactDate: todayStr,
-          callbackDate: callbackDate || lead.callbackDate,
-          callbackTime: callbackTime || lead.callbackTime,
+          callbackDate: callbackDate,
+          callbackTime: callbackTime,
           description: newDescription,
-          isDND: isDND || lead.isDND
+          isDND: isDND || lead.isDND,
+          dispositionHistory: updatedHistory
         };
       }
       return lead;
     }));
 
     showToast(`Lead updated: response marked as "${response}"!`, 'success');
+    return true;
+  }, [advisoryLeads, currentUser, role, teams, teamMembers, addToGlobalDND, showToast]);
+
+  const updateLeadResponse = (leadId: string, response: string, note?: string, callbackDate?: string, callbackTime?: string) => {
+    return addLeadDisposition(leadId, response, note, callbackDate, callbackTime);
   };
 
   const disposeLead = (leadId: string, reason: string) => {
@@ -1381,9 +1561,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addBulkSourceLeads = (source: string, count: number, leads?: Partial<AdvisoryLead>[]) => {
+    const cleanSource = source.trim().replace(/\s+/g, ' ');
+    let canonicalSource = cleanSource;
+
     setLeadSourcePools(prev => {
-      const matchIndex = prev.findIndex(sp => sp.sourceName.trim().toLowerCase() === source.trim().toLowerCase());
+      const matchIndex = prev.findIndex(sp => sp.sourceName.trim().replace(/\s+/g, ' ').toLowerCase() === cleanSource.toLowerCase());
       if (matchIndex !== -1) {
+        canonicalSource = prev[matchIndex].sourceName;
         return prev.map((sp, idx) => {
           if (idx === matchIndex) {
             return { 
@@ -1397,7 +1581,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } else {
         return [
           {
-            sourceName: source.trim(),
+            sourceName: cleanSource,
             availableCount: count,
             totalUploaded: count,
             language: 'General'
@@ -1408,9 +1592,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     if (leads && leads.length > 0) {
-      setAdvisoryLeads(prev => [...(leads as AdvisoryLead[]), ...prev]);
+      const normalizedLeads: AdvisoryLead[] = leads.map(l => ({
+        ...l,
+        source: canonicalSource,
+        isTeamPool: false,
+        assignedToId: '',
+        assignedToName: '',
+        teamLeaderId: '',
+        status: (l.status || 'New Lead') as LeadStatus,
+        response: l.response || 'Fresh'
+      } as AdvisoryLead));
+      setAdvisoryLeads(prev => [...normalizedLeads, ...prev]);
     }
-    showToast(`Added ${count.toLocaleString()} leads to pool under "${source}"!`, 'success');
+    showToast(`Added ${count.toLocaleString()} leads to pool under "${canonicalSource}"!`, 'success');
   };
 
   const resetLeadStateToDefault = () => {
@@ -2558,6 +2752,245 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('Client successfully marked as Converted! Full advisory access unlocked.', 'success');
   }, [showToast]);
 
+  // ─── 13. KYC Case Lifecycle ────────────────────────────────────────
+  const [kycCases, setKycCases] = useState<KYCCase[]>(() => {
+    const saved = localStorage.getItem('stocketics_kyc_cases');
+    if (saved) { try { return JSON.parse(saved); } catch (_) {} }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('stocketics_kyc_cases', JSON.stringify(kycCases));
+  }, [kycCases]);
+
+  const getKYCCaseForLead = useCallback((leadId: string): KYCCase | undefined => {
+    return kycCases.find(c => c.leadId === leadId && c.status !== 'Withdrawn');
+  }, [kycCases]);
+
+  const nowStamp = () => {
+    const d = new Date();
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const createKYCCase = useCallback((leadId: string, requiredDocs: KYCDocumentType[], channel?: string): KYCCase | null => {
+    requiredDocs = [...new Set<KYCDocumentType>(['PAN Card', 'Aadhaar Card', ...requiredDocs])];
+    // Idempotent: reuse existing open case
+    const existing = kycCases.find(c => c.leadId === leadId && !['Withdrawn', 'Rejected'].includes(c.status));
+    if (existing) {
+      showToast(`KYC case already exists for this lead (${existing.status}). Opening existing case.`, 'info');
+      return existing;
+    }
+
+    const lead = advisoryLeads.find(l => l.id === leadId);
+    if (!lead) { showToast('Lead not found.', 'error'); return null; }
+
+    const ts = nowStamp();
+    const newCase: KYCCase = {
+      id: `kyc-case-${Date.now().toString(36)}`,
+      leadId,
+      leadName: lead.clientName,
+      leadPhone: lead.phone,
+      leadEmail: lead.email,
+      assignedAdvisorId: lead.assignedToId,
+      assignedAdvisorName: lead.assignedToName,
+      teamId: lead.teamId,
+      teamLeaderId: lead.teamLeaderId,
+      status: channel ? 'Documents Requested' : 'Not Started',
+      requiredDocuments: requiredDocs,
+      documents: requiredDocs.map(dt => ({ type: dt, status: 'Requested' as const, version: 1 })),
+      requestChannel: channel,
+      requestedAt: channel ? ts : undefined,
+      policyNote: requiredDocs.length > 1
+        ? 'Compliance policy requires both PAN Card and Aadhaar Card for full onboarding.'
+        : 'Single identity document accepted under current policy.',
+      auditTrail: [{
+        id: `audit-${Date.now().toString(36)}`,
+        timestamp: ts,
+        action: 'Case Created',
+        actorId: currentUser.id,
+        actorName: currentUser.name,
+        actorRole: role,
+        detail: `KYC case created for ${lead.clientName}. Required: ${requiredDocs.join(', ')}.${channel ? ` Request sent via ${channel}.` : ''}`
+      }],
+      createdAt: ts,
+      updatedAt: ts
+    };
+
+    setKycCases(prev => [newCase, ...prev]);
+    confetti({ particleCount: 40, spread: 50 });
+    showToast(`KYC case started for ${lead.clientName}! Documents: ${requiredDocs.join(' & ')}`, 'success');
+    return newCase;
+  }, [kycCases, advisoryLeads, currentUser, role, showToast]);
+
+  const addKYCCaseDocument = useCallback((caseId: string, docType: KYCDocumentType, docId: string, maskedNumber?: string, fileName?: string) => {
+    const ts = nowStamp();
+    setKycCases(prev => prev.map(c => {
+      if (c.id === caseId) {
+        const updatedDocs = c.documents.map(d => {
+          if (d.type === docType) {
+            return { ...d, status: 'Uploaded' as const, documentId: docId, maskedNumber, fileName, uploadedAt: ts, version: d.version + (d.documentId ? 1 : 0) };
+          }
+          return d;
+        });
+        const allUploaded = updatedDocs.every(d => d.status === 'Uploaded' || d.status === 'Verified');
+        return {
+          ...c,
+          documents: updatedDocs,
+          status: allUploaded ? 'Draft' as const : 'Awaiting Documents' as const,
+          updatedAt: ts,
+          auditTrail: [...c.auditTrail, {
+            id: `audit-${Date.now().toString(36)}`,
+            timestamp: ts,
+            action: 'Document Uploaded',
+            actorId: currentUser.id,
+            actorName: currentUser.name,
+            actorRole: role,
+            detail: `${docType} uploaded${maskedNumber ? ` (${maskedNumber})` : ''}. File: ${fileName || 'N/A'}`
+          }]
+        };
+      }
+      return c;
+    }));
+  }, [currentUser, role]);
+
+  const submitKYCCase = useCallback((caseId: string) => {
+    const targetCase = kycCases.find(c => c.id === caseId);
+    if (!targetCase || !legacyKYCComplete(targetCase.documents, ['Uploaded', 'Verified'])) { showToast('Upload both PAN and Aadhaar before submitting KYC.', 'error'); return; }
+    if (!hasPermission('kyc.submit') || (role === 'employee' && targetCase.assignedAdvisorId !== currentUser.id) || (role === 'team_leader' && targetCase.teamLeaderId !== currentUser.id)) { showToast('You cannot submit this KYC case.', 'error'); return; }
+    const ts = nowStamp();
+    setKycCases(prev => prev.map(c => {
+      if (c.id === caseId) {
+        const uploadedDocs = c.documents.filter(d => d.status === 'Uploaded' || d.status === 'Verified');
+        if (uploadedDocs.length === 0) {
+          showToast('Cannot submit: no documents uploaded yet.', 'error');
+          return c;
+        }
+        const reviewer = c.teamLeaderId
+          ? employees.find(e => e.id === c.teamLeaderId)
+          : employees.find(e => e.role === 'manager' || e.role === 'Manager');
+        return {
+          ...c,
+          status: 'Pending Approval' as const,
+          submittedAt: ts,
+          updatedAt: ts,
+          documents: c.documents.map(d => d.status === 'Uploaded' ? { ...d, status: 'Pending Review' as const } : d),
+          auditTrail: [...c.auditTrail, {
+            id: `audit-${Date.now().toString(36)}`,
+            timestamp: ts,
+            action: 'Submitted for Approval',
+            actorId: currentUser.id,
+            actorName: currentUser.name,
+            actorRole: role,
+            detail: `Case submitted with ${uploadedDocs.length} document(s). Reviewer: ${reviewer?.name || 'Manager'}.`
+          }]
+        };
+      }
+      return c;
+    }));
+    confetti({ particleCount: 50, spread: 60 });
+    showToast('KYC case submitted for approval! Reviewer has been notified.', 'success');
+
+    // Notify reviewer
+    setNotifications(prev => [{
+      id: `notif-kyc-submit-${Date.now()}`,
+      title: 'KYC Case Submitted for Review',
+      message: `A KYC case has been submitted by ${currentUser.name}. Please review the documents.`,
+      time: 'Just now',
+      type: 'approval' as const,
+      read: false,
+      targetRole: 'manager' as const,
+      actionTab: 'kyc-list'
+    }, ...prev]);
+  }, [kycCases, currentUser, role, employees, rolePermissions, showToast]);
+
+  const reviewKYCCase = useCallback((caseId: string, decision: 'Approved' | 'Rejected' | 'Needs Reupload', reason?: string) => {
+    const targetCase = kycCases.find(c => c.id === caseId);
+    if (!targetCase || !hasPermission('kyc.review.all') || role !== 'manager') { showToast('Final KYC review requires an authorised Manager.', 'error'); return; }
+    if (decision !== 'Approved' && !reason?.trim()) { showToast('Enter a reason for rejection or reupload.', 'error'); return; }
+    if (decision === 'Approved' && !legacyKYCComplete(targetCase.documents, ['Pending Review', 'Verified'])) { showToast('Both PAN and Aadhaar must be submitted before verification.', 'error'); return; }
+    const ts = nowStamp();
+    const isDelegated = false;
+    setKycCases(prev => prev.map(c => {
+      if (c.id === caseId) {
+        let newDocStatuses = c.documents;
+        if (decision === 'Approved') {
+          newDocStatuses = c.documents.map(d => d.status === 'Pending Review' ? { ...d, status: 'Verified' as const } : d);
+        } else if (decision === 'Rejected') {
+          newDocStatuses = c.documents.map(d => d.status === 'Pending Review' ? { ...d, status: 'Rejected' as const } : d);
+        } else {
+          newDocStatuses = c.documents.map(d => d.status === 'Pending Review' ? { ...d, status: 'Needs Reupload' as const } : d);
+        }
+        return {
+          ...c,
+          status: decision === 'Approved' ? 'Approved' as const : decision === 'Rejected' ? 'Rejected' as const : 'Needs Reupload' as const,
+          reviewerId: currentUser.id,
+          reviewerName: currentUser.name,
+          reviewDecision: decision,
+          reviewReason: reason,
+          reviewedAt: ts,
+          isDelegatedReview: isDelegated,
+          documents: newDocStatuses,
+          updatedAt: ts,
+          auditTrail: [...c.auditTrail, {
+            id: `audit-${Date.now().toString(36)}`,
+            timestamp: ts,
+            action: `Review: ${decision}`,
+            actorId: currentUser.id,
+            actorName: currentUser.name,
+            actorRole: role,
+            detail: `${decision} by ${currentUser.name}${isDelegated ? ' (Delegated Team Approval)' : ''}.${reason ? ` Reason: ${reason}` : ''}`,
+            isDelegated
+          }]
+        };
+      }
+      return c;
+    }));
+
+    if (decision === 'Approved') {
+      confetti({ particleCount: 70, spread: 80 });
+      showToast('KYC case approved! Client onboarding can proceed.', 'success');
+    } else if (decision === 'Rejected') {
+      showToast(`KYC case rejected.${reason ? ` Reason: ${reason}` : ''}`, 'error');
+    } else {
+      showToast(`Documents require reupload.${reason ? ` Note: ${reason}` : ''}`, 'warning');
+    }
+  }, [kycCases, currentUser, role, rolePermissions, showToast]);
+
+  // ─── 14. Lead Change Audit ─────────────────────────────────────────
+  const [leadChangeLog, setLeadChangeLog] = useState<LeadChangeEntry[]>(() => {
+    const saved = localStorage.getItem('stocketics_lead_changelog');
+    if (saved) { try { return JSON.parse(saved); } catch (_) {} }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('stocketics_lead_changelog', JSON.stringify(leadChangeLog));
+  }, [leadChangeLog]);
+
+  const logLeadChange = useCallback((leadId: string, field: string, prevValue: string, newValue: string, reason?: string) => {
+    const entry: LeadChangeEntry = {
+      id: `lce-${Date.now().toString(36)}`,
+      leadId,
+      timestamp: nowStamp(),
+      actorId: currentUser.id,
+      actorName: currentUser.name,
+      actorRole: role,
+      field,
+      previousValue: prevValue,
+      newValue,
+      reason
+    };
+    setLeadChangeLog(prev => [entry, ...prev].slice(0, 500));
+  }, [currentUser, role]);
+
+  // ─── 15. Role Permission Matrix Check ──────────────────────────────
+  const hasMatrixPermission = useCallback((permKey: string): boolean => {
+    const matrix = ROLE_PERMISSION_MATRIX[role];
+    if (!matrix) return false;
+    return (matrix as unknown as Record<string, boolean>)[permKey] === true;
+  }, [role]);
+
+
   const updateLeaveStatus = (leaveId: string, status: 'Approved' | 'Declined', note?: string) => {
     const req = leaveRequests.find(l => l.id === leaveId);
     setLeaveRequests(prev => prev.map(l => {
@@ -2604,6 +3037,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateLeadStatus = (leadId: string, status: AdvisoryLead['status']) => {
+    const target = advisoryLeads.find(lead => lead.id === leadId);
+    if (!target || !canEditLegacyLead(role, currentUser.id, target, getTeamMemberIds(currentUser.id))) { showToast('This lead is outside your ownership scope.', 'error'); return; }
+    if (status === 'Converted' || target.status === 'Converted') { showToast('Use the connected CRM conversion workflow to preserve client history.', 'error'); return; }
     setAdvisoryLeads(prev => prev.map(lead => {
       if (lead.id === leadId) {
         return { ...lead, status };
@@ -2648,6 +3084,292 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // ─── 16. Confirmed Payments & Client Conversion ──────────────────────
+  const approveConfirmedPayment = useCallback((paymentId: string, utrNumber?: string, notes?: string) => {
+    // Check permission: manager role or role with 'approve.payments'
+    if (role !== 'manager' && !ROLE_PERMISSION_MATRIX[role]?.['approve.payments']) {
+      showToast('Permission Denied: Only Manager / Finance can approve payments and issue invoices.', 'error');
+      return { success: false, message: 'Permission Denied' };
+    }
+
+    const targetPayment = confirmedPayments.find(p => p.id === paymentId);
+    if (!targetPayment) {
+      return { success: false, message: 'Payment record not found' };
+    }
+
+    const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const nowIso = new Date().toISOString();
+    const resolvedUtr = utrNumber || targetPayment.utrNumber || `UTR-${Date.now().toString().slice(-8)}`;
+
+    // Calculate 18% GST breakdown (SAC: 997152)
+    const grossAmount = targetPayment.amount;
+    const taxableValue = Math.round((grossAmount / 1.18) * 100) / 100;
+    const totalGstAmount = Math.round((grossAmount - taxableValue) * 100) / 100;
+    const cgstAmount = Math.round((totalGstAmount / 2) * 100) / 100;
+    const sgstAmount = Math.round((totalGstAmount - cgstAmount) * 100) / 100;
+
+    const generatedInvoiceNo = targetPayment.invoiceData?.invoiceNo || `INV-26-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    const newInvoiceData: InvoiceData = targetPayment.invoiceData || {
+      invoiceNo: generatedInvoiceNo,
+      invoiceDate: `${todayStr} 00:00:00`,
+      dueDate: new Date(Date.now() + 30 * 86400000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      clientName: targetPayment.clientName,
+      email: `${targetPayment.clientName.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
+      streetAddress: 'Corporate Office / Client Address',
+      city: 'MUMBAI',
+      phone: targetPayment.mobile,
+      pancard: 'AAACS' + Math.floor(1000 + Math.random() * 9000) + 'K',
+      itemDescription: targetPayment.description || 'INVESTMENT ADVISORY SERVICES',
+      subType: 'PREMIER',
+      fromDate: todayStr,
+      toDate: new Date(Date.now() + 90 * 86400000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      totalGross: grossAmount,
+      discount: 0,
+      adjustment: 0,
+      netAmount: taxableValue,
+      gstAmount: totalGstAmount,
+      paidAmount: grossAmount,
+      dueAmount: 0,
+      paymentMode: 'Online Transfer',
+      bankName: targetPayment.bank || 'HDFC BANK',
+      paymentDetail: `UTR: ${resolvedUtr}`,
+      taxBreakdown: {
+        sacCode: '997152',
+        taxableValue,
+        cgstRate: 9,
+        cgstAmount,
+        sgstRate: 9,
+        sgstAmount,
+        igstRate: 18,
+        igstAmount: 0,
+        totalGstAmount,
+        netPayable: grossAmount
+      }
+    };
+
+    // Update payment record to Approved
+    setConfirmedPayments(prev => prev.map(p => {
+      if (p.id === paymentId) {
+        return {
+          ...p,
+          status: 'Approved',
+          utrNumber: resolvedUtr,
+          verifiedBy: currentUser.name,
+          verifiedById: currentUser.id,
+          verifiedDate: todayStr,
+          invoiceCreated: true,
+          invoiceData: newInvoiceData,
+          description: notes ? `${notes} | ${p.description}` : p.description
+        };
+      }
+      return p;
+    }));
+
+    // Auto-create or merge with Client Master Record (Resolving Q01 & Q02 deduplication)
+    const cleanMobile = targetPayment.mobile.replace(/[\s\-\+]/g, '').slice(-10);
+    setDetailedClients(prev => {
+      const existingClientIdx = prev.findIndex(c => c.mobile.replace(/[\s\-\+]/g, '').slice(-10) === cleanMobile);
+      const serviceName = targetPayment.description || 'EQUITY PREMIER';
+      const startDate = new Date().toISOString().slice(0, 10);
+      const endDate = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10);
+
+      const newSub: ClientServiceSubscription = {
+        id: `sub-${Date.now()}`,
+        serviceName,
+        serviceCategory: 'Equity Cash',
+        startDate,
+        endDate,
+        status: 'Active',
+        invoiceNo: generatedInvoiceNo,
+        paidAmount: grossAmount,
+        assignedAdvisorId: currentUser.id,
+        assignedAdvisorName: targetPayment.ownerName || currentUser.name,
+        createdAt: nowIso
+      };
+
+      if (existingClientIdx >= 0) {
+        const updated = [...prev];
+        const existing = updated[existingClientIdx];
+        updated[existingClientIdx] = {
+          ...existing,
+          tabCategory: 'clients',
+          serviceName,
+          startDate,
+          endDate,
+          invoices: [
+            {
+              id: `inv-rec-${Date.now()}`,
+              invoiceNo: generatedInvoiceNo,
+              products: serviceName,
+              startDate,
+              endDate,
+              approveDate: todayStr,
+              paidAmt: grossAmount,
+              status: 'Active',
+              isHold: false,
+              paymentMode: 'Online',
+              bankName: targetPayment.bank,
+              paymentDate: todayStr,
+              description: `Payment Approved (UTR: ${resolvedUtr})`
+            },
+            ...(existing.invoices || [])
+          ],
+          serviceSubscriptions: [
+            newSub,
+            ...(existing.serviceSubscriptions || [])
+          ],
+          notesHistory: [
+            {
+              id: `note-${Date.now()}`,
+              authorName: currentUser.name,
+              authorRole: role,
+              timestamp: `${todayStr} (Payment Approved)`,
+              response: 'CONVERTED / PAID',
+              text: `Payment of ₹${grossAmount.toLocaleString('en-IN')} approved with UTR: ${resolvedUtr}. Subscribed to ${serviceName}.`
+            },
+            ...(existing.notesHistory || [])
+          ]
+        };
+        return updated;
+      } else {
+        const seq = Math.floor(1000 + Math.random() * 9000);
+        const newClient: ActiveClientRecordDetailed = {
+          id: `client-pay-${targetPayment.id}`,
+          clientCode: `STK-26-EQP-${seq}`,
+          ownerName: targetPayment.ownerName || currentUser.name,
+          generatorName: targetPayment.ownerName || currentUser.name,
+          clientName: targetPayment.clientName,
+          mobile: targetPayment.mobile,
+          email: `${targetPayment.clientName.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
+          panNo: 'AAACS' + seq + 'K',
+          response: 'CONVERTED / PAID',
+          leadSource: 'PAYMENT CONVERSION',
+          description: `Converted client from approved payment ${targetPayment.id} (₹${grossAmount.toLocaleString('en-IN')})`,
+          tabCategory: 'clients',
+          serviceName,
+          startDate,
+          endDate,
+          notesHistory: [
+            {
+              id: `note-${Date.now()}`,
+              authorName: currentUser.name,
+              authorRole: role,
+              timestamp: `${todayStr} (Client Onboarded)`,
+              response: 'CONVERTED / PAID',
+              text: `Payment of ₹${grossAmount.toLocaleString('en-IN')} approved by ${currentUser.name}. Generated Tax Invoice ${generatedInvoiceNo}.`
+            }
+          ],
+          freeTrials: [],
+          invoices: [
+            {
+              id: `inv-rec-${Date.now()}`,
+              invoiceNo: generatedInvoiceNo,
+              products: serviceName,
+              startDate,
+              endDate,
+              approveDate: todayStr,
+              paidAmt: grossAmount,
+              status: 'Active',
+              isHold: false,
+              paymentMode: 'Online',
+              bankName: targetPayment.bank,
+              paymentDate: todayStr,
+              description: `Payment Approved (UTR: ${resolvedUtr})`
+            }
+          ],
+          kycData: {
+            fullName: targetPayment.clientName,
+            mobile: targetPayment.mobile,
+            email: `${targetPayment.clientName.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
+            panNo: 'AAACS' + seq + 'K',
+            formType: 'Individual',
+            status: 'Pending Approval'
+          },
+          serviceSubscriptions: [newSub]
+        };
+        return [newClient, ...prev];
+      }
+    });
+
+    // Also update any matching AdvisoryLead to Converted
+    setAdvisoryLeads(prev => prev.map(l => {
+      if (l.phone.includes(cleanMobile) || cleanMobile.includes(l.phone.replace(/[\s\-\+]/g, '').slice(-10))) {
+        return {
+          ...l,
+          status: 'Converted',
+          response: 'Payment',
+          modifiedToday: true
+        };
+      }
+      return l;
+    }));
+
+    confetti({ particleCount: 75, spread: 80 });
+    showToast(`Payment Approved! Invoice ${generatedInvoiceNo} created and Client Master updated.`, 'success');
+    return { success: true, message: `Payment approved and invoice ${generatedInvoiceNo} generated.` };
+  }, [role, confirmedPayments, currentUser, showToast]);
+
+  const rejectConfirmedPayment = useCallback((paymentId: string, reason: string) => {
+    if (role !== 'manager' && !ROLE_PERMISSION_MATRIX[role]?.['approve.payments']) {
+      showToast('Permission Denied: Only Manager / Finance can reject payments.', 'error');
+      return;
+    }
+    setConfirmedPayments(prev => prev.map(p => {
+      if (p.id === paymentId) {
+        return {
+          ...p,
+          status: 'Rejected',
+          reason: reason || p.reason,
+          verifiedBy: currentUser.name,
+          verifiedById: currentUser.id,
+          verifiedDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        };
+      }
+      return p;
+    }));
+    showToast(`Payment rejected: ${reason}`, 'info');
+  }, [role, currentUser, showToast]);
+
+  const createConfirmedPayment = useCallback((paymentData: Omit<ConfirmedPaymentRecord, 'id' | 'date'>) => {
+    const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const newPayment: ConfirmedPaymentRecord = {
+      ...paymentData,
+      id: `pay-${Date.now().toString().slice(-6)}`,
+      date: todayStr
+    };
+    setConfirmedPayments(prev => [newPayment, ...prev]);
+    showToast(`Confirmed payment recorded for ${paymentData.clientName} (₹${paymentData.amount.toLocaleString('en-IN')})!`, 'success');
+  }, [showToast]);
+
+  // ─── 18. Advisory Dispatch Gating Check (Compliance Safeguard Q05) ──
+  const canDispatchAdvisoryToClient = useCallback((clientIdOrCode: string): { allowed: boolean; reason?: string } => {
+    const client = detailedClients.find(c => c.id === clientIdOrCode || c.clientCode === clientIdOrCode || c.mobile === clientIdOrCode);
+    if (!client) {
+      return { allowed: false, reason: 'Client record not found.' };
+    }
+
+    const cleanMobile = client.mobile.replace(/[\s\-\+]/g, '').slice(-10);
+    const kCase = kycCases.find(c => c.leadPhone.replace(/[\s\-\+]/g, '').slice(-10) === cleanMobile || c.leadName.toLowerCase() === client.clientName.toLowerCase());
+    const isKYCApproved = client.kycData?.status === 'Approved' || kCase?.status === 'Approved';
+
+    if (!isKYCApproved) {
+      return {
+        allowed: false,
+        reason: `Advisory dispatch halted for "${client.clientName}": KYC status is "${client.kycData?.status || kCase?.status || 'Pending Approval'}". SEBI regulatory compliance requires verified KYC before recommendation signals can be sent.`
+      };
+    }
+
+    if (client.isDND) {
+      return {
+        allowed: false,
+        reason: `Advisory dispatch halted: Client "${client.clientName}" is registered on the DND registry.`
+      };
+    }
+
+    return { allowed: true };
+  }, [detailedClients, kycCases]);
+
   return (
     <AppContext.Provider value={{
       role,
@@ -2657,6 +3379,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       toggleTheme,
       isSidebarCollapsed,
       toggleSidebar,
+      isMobileMenuOpen,
+      toggleMobileMenu,
+      closeMobileMenu,
       isCommandPaletteOpen,
       setCommandPaletteOpen,
       activeTab,
@@ -2673,6 +3398,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       submitLeaveRequest,
       updateLeaveStatus,
       advisoryLeads,
+      setAdvisoryLeads,
       updateLeadStatus,
       bulkAddLeads,
       leadSourcePools,
@@ -2717,6 +3443,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setTeamTarget,
       updateTeamTarget,
       reassignLead,
+      batchReassignLeads,
       clientSearchAlerts,
       triggerClientSearchAlert,
       acknowledgeSearchAlert,
@@ -2795,6 +3522,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // 12. Free Trial & Retrial
       activateClientRetrial,
       markClientConverted,
+      // 13. KYC Case Lifecycle
+      kycCases,
+      createKYCCase,
+      submitKYCCase,
+      reviewKYCCase,
+      getKYCCaseForLead,
+      addKYCCaseDocument,
+      // 14. Lead Change Audit
+      leadChangeLog,
+      logLeadChange,
+      // 15. Role Permission Matrix
+      hasMatrixPermission,
+      // 16. Confirmed Payments & Client Conversion
+      confirmedPayments,
+      approveConfirmedPayment,
+      rejectConfirmedPayment,
+      createConfirmedPayment,
+      // 17. Global DND Registry & Append-Only Dispositions
+      globalDNDList,
+      addToGlobalDND,
+      isPhoneDND,
+      addLeadDisposition,
+      // 18. Advisory Dispatch Gating Check (Compliance)
+      canDispatchAdvisoryToClient,
     }}>
       {children}
     </AppContext.Provider>

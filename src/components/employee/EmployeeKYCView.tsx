@@ -24,9 +24,12 @@ import {
   X,
   ExternalLink,
   ShieldAlert,
-  ArrowRight
+  ArrowRight,
+  Fingerprint,
+  Lock
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { LeadKYCOnboardingModal } from '../common/LeadKYCOnboardingModal';
 
 export const EmployeeKYCView: React.FC = () => {
   const {
@@ -37,7 +40,11 @@ export const EmployeeKYCView: React.FC = () => {
     currentUser,
     showToast,
     theme,
-    setActiveTab
+    setActiveTab,
+    kycCases,
+    createKYCCase,
+    addKYCCaseDocument,
+    submitKYCCase
   } = useApp();
 
   const isDark = theme === 'dark';
@@ -51,15 +58,40 @@ export const EmployeeKYCView: React.FC = () => {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [reuploadDocId, setReuploadDocId] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<KYCDocumentItem | null>(null);
+  const [onboardLead, setOnboardLead] = useState<any | null>(null);
 
-  // Form states
+  // Form states - Dual upload for both PAN and Aadhaar
   const [selectedClientId, setSelectedClientId] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientMobile, setClientMobile] = useState('');
+
+  // PAN Card State
+  const [panNumber, setPanNumber] = useState('');
+  const [panFile, setPanFile] = useState<File | null>(null);
+  const [isPanDragging, setIsPanDragging] = useState(false);
+
+  // Aadhaar Card State
+  const [aadhaarNumber, setAadhaarNumber] = useState('');
+  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
+  const [isAadhaarDragging, setIsAadhaarDragging] = useState(false);
+
+  // Fallback single document states (for re-uploading a specific rejected doc)
   const [documentType, setDocumentType] = useState<KYCDocumentType>('PAN Card');
-  const [documentNumber, setDocumentNumber] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [singleDocNumber, setSingleDocNumber] = useState('');
+  const [singleFile, setSingleFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Validation helpers
+  const validatePan = (pan: string) => /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan.toUpperCase());
+  const validateAadhaar = (aadhaar: string) => aadhaar.replace(/\D/g, '').length === 12;
+  const maskAadhaar = (val: string) => {
+    const digits = val.replace(/\D/g, '').slice(0, 12);
+    if (digits.length <= 4) return digits;
+    if (digits.length <= 8) return `XXXX-${digits.slice(4)}`;
+    return `XXXX-XXXX-${digits.slice(8)}`;
+  };
+
+  const isBothValid = validatePan(panNumber) && validateAadhaar(aadhaarNumber);
 
   // Dynamic counts for KPI and Filter Pills
   const counts = useMemo(() => {
@@ -124,43 +156,118 @@ export const EmployeeKYCView: React.FC = () => {
   const handleUploadSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!clientName.trim() || !clientMobile.trim()) {
-      showToast('Please provide client name and mobile number.', 'error');
-      return;
-    }
-    if (!documentNumber.trim()) {
-      showToast('Please enter the document ID or account number.', 'error');
+      showToast('Please provide client full name and mobile number.', 'error');
       return;
     }
 
-    const fileName = selectedFile
-      ? selectedFile.name
-      : `${documentType.toLowerCase().replace(/\s+/g, '_')}_verified_scan.pdf`;
-    const fileSize = selectedFile
-      ? `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`
-      : '1.4 MB';
+    // 1. Single Document Re-upload Path
+    if (reuploadDocId) {
+      if (!singleDocNumber.trim()) {
+        showToast('Please enter the document ID / account number.', 'error');
+        return;
+      }
 
+      const fileName = singleFile
+        ? singleFile.name
+        : `${documentType.toLowerCase().replace(/\s+/g, '_')}_verified_scan.pdf`;
+      const fileSize = singleFile
+        ? `${(singleFile.size / (1024 * 1024)).toFixed(1)} MB`
+        : '1.4 MB';
+
+      uploadKYCDocument({
+        clientId: selectedClientId || `client-${Date.now()}`,
+        clientName: clientName.trim(),
+        clientMobile: clientMobile.trim(),
+        documentType,
+        documentNumber: singleDocNumber.trim().toUpperCase(),
+        fileUrl: '#',
+        fileName,
+        fileSize,
+        uploadedBy: currentUser.name,
+        uploadedById: currentUser.id
+      });
+
+      confetti({ particleCount: 50, spread: 60 });
+      showToast(`Re-uploaded ${documentType} successfully for ${clientName}!`, 'success');
+
+      setUploadModalOpen(false);
+      setReuploadDocId(null);
+      setSingleFile(null);
+      setSingleDocNumber('');
+      return;
+    }
+
+    // 2. Dual Document Submission (BOTH PAN AND AADHAAR ARE REQUIRED!)
+    const cleanPan = panNumber.trim().toUpperCase();
+    if (!validatePan(cleanPan)) {
+      showToast('Valid 10-character PAN Card (e.g. ABCDE1234F) is required!', 'error');
+      return;
+    }
+
+    const cleanAadhaar = aadhaarNumber.replace(/\D/g, '');
+    if (cleanAadhaar.length !== 12) {
+      showToast('Valid 12-digit Aadhaar Card number is required!', 'error');
+      return;
+    }
+
+    const clientId = selectedClientId || `client-${Date.now()}`;
+    const panFileName = panFile ? panFile.name : `PAN_${cleanPan}.pdf`;
+    const panFileSize = panFile ? `${(panFile.size / (1024 * 1024)).toFixed(1)} MB` : '1.2 MB';
+
+    const maskedAadhaar = `XXXX-XXXX-${cleanAadhaar.slice(8)}`;
+    const aadhaarFileName = aadhaarFile ? aadhaarFile.name : `Aadhaar_${cleanAadhaar.slice(8)}_masked.pdf`;
+    const aadhaarFileSize = aadhaarFile ? `${(aadhaarFile.size / (1024 * 1024)).toFixed(1)} MB` : '1.5 MB';
+
+    // Upload PAN Card to vault
     uploadKYCDocument({
-      clientId: selectedClientId || `client-${Date.now()}`,
+      clientId,
       clientName: clientName.trim(),
       clientMobile: clientMobile.trim(),
-      documentType,
-      documentNumber: documentNumber.trim().toUpperCase(),
+      documentType: 'PAN Card',
+      documentNumber: cleanPan,
       fileUrl: '#',
-      fileName,
-      fileSize,
+      fileName: panFileName,
+      fileSize: panFileSize,
       uploadedBy: currentUser.name,
       uploadedById: currentUser.id
     });
 
-    confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
-    showToast(`Document uploaded successfully for ${clientName}!`, 'success');
+    // Upload Aadhaar Card to vault
+    uploadKYCDocument({
+      clientId,
+      clientName: clientName.trim(),
+      clientMobile: clientMobile.trim(),
+      documentType: 'Aadhaar Card',
+      documentNumber: maskedAadhaar,
+      fileUrl: '#',
+      fileName: aadhaarFileName,
+      fileSize: aadhaarFileSize,
+      uploadedBy: currentUser.name,
+      uploadedById: currentUser.id
+    });
+
+    // Link to central KYC cases pipeline for TL/Manager sign-off
+    const existingCase = kycCases.find(c => c.leadId === clientId || c.leadPhone === clientMobile.trim());
+    const kCase = existingCase || createKYCCase(clientId, ['PAN Card', 'Aadhaar Card']);
+    if (kCase) {
+      addKYCCaseDocument(kCase.id, 'PAN Card', `doc-pan-${Date.now()}`, cleanPan, panFileName);
+      addKYCCaseDocument(kCase.id, 'Aadhaar Card', `doc-aadhaar-${Date.now()}`, maskedAadhaar, aadhaarFileName);
+      submitKYCCase(kCase.id);
+    }
+
+    confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } });
+    showToast(`Both PAN Card and Aadhaar Card submitted for compliance review!`, 'success');
 
     setUploadModalOpen(false);
-    setSelectedFile(null);
-    setDocumentNumber('');
     setSelectedClientId('');
     setClientName('');
     setClientMobile('');
+    setPanNumber('');
+    setPanFile(null);
+    setAadhaarNumber('');
+    setAadhaarFile(null);
+    setSingleDocNumber('');
+    setSingleFile(null);
     if (reuploadDocId) {
       setReuploadDocId(null);
     }
@@ -171,7 +278,8 @@ export const EmployeeKYCView: React.FC = () => {
     setClientName(doc.clientName);
     setClientMobile(doc.clientMobile || '9876543210');
     setDocumentType(doc.documentType);
-    setDocumentNumber(doc.documentNumber || '');
+    setSingleDocNumber(doc.documentNumber || '');
+    setSingleFile(null);
     setReuploadDocId(doc.id);
     setUploadModalOpen(true);
   };
@@ -183,16 +291,17 @@ export const EmployeeKYCView: React.FC = () => {
           <span style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 5,
-            padding: '3px 8px',
-            borderRadius: 6,
-            fontSize: '0.74rem',
+            gap: 4,
+            padding: '2px 7px',
+            borderRadius: 5,
+            fontSize: '0.70rem',
             fontWeight: 700,
+            whiteSpace: 'nowrap',
             background: isDark ? 'rgba(56, 189, 248, 0.15)' : '#e0f2fe',
             color: isDark ? '#38bdf8' : '#0369a1',
             border: isDark ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid #bae6fd'
           }}>
-            <CreditCard size={12} />
+            <CreditCard size={11} />
             PAN Card
           </span>
         );
@@ -201,16 +310,17 @@ export const EmployeeKYCView: React.FC = () => {
           <span style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 5,
-            padding: '3px 8px',
-            borderRadius: 6,
-            fontSize: '0.74rem',
+            gap: 4,
+            padding: '2px 7px',
+            borderRadius: 5,
+            fontSize: '0.70rem',
             fontWeight: 700,
+            whiteSpace: 'nowrap',
             background: isDark ? 'rgba(168, 85, 247, 0.15)' : '#f3e8ff',
             color: isDark ? '#c084fc' : '#7e22ce',
             border: isDark ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid #e9d5ff'
           }}>
-            <ShieldCheck size={12} />
+            <ShieldCheck size={11} />
             Aadhaar Card
           </span>
         );
@@ -219,16 +329,17 @@ export const EmployeeKYCView: React.FC = () => {
           <span style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 5,
-            padding: '3px 8px',
-            borderRadius: 6,
-            fontSize: '0.74rem',
+            gap: 4,
+            padding: '2px 7px',
+            borderRadius: 5,
+            fontSize: '0.70rem',
             fontWeight: 700,
+            whiteSpace: 'nowrap',
             background: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7',
             color: isDark ? '#fbbf24' : '#92400e',
             border: isDark ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid #fde68a'
           }}>
-            <Building size={12} />
+            <Building size={11} />
             Bank Proof
           </span>
         );
@@ -237,16 +348,17 @@ export const EmployeeKYCView: React.FC = () => {
           <span style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 5,
-            padding: '3px 8px',
-            borderRadius: 6,
-            fontSize: '0.74rem',
+            gap: 4,
+            padding: '2px 7px',
+            borderRadius: 5,
+            fontSize: '0.70rem',
             fontWeight: 700,
+            whiteSpace: 'nowrap',
             background: isDark ? 'rgba(20, 184, 166, 0.15)' : '#ccfbf1',
             color: isDark ? '#2dd4bf' : '#0f766e',
             border: isDark ? '1px solid rgba(20, 184, 166, 0.3)' : '1px solid #99f6e4'
           }}>
-            <FileCheck size={12} />
+            <FileCheck size={11} />
             Address Proof
           </span>
         );
@@ -255,16 +367,17 @@ export const EmployeeKYCView: React.FC = () => {
           <span style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 5,
-            padding: '3px 8px',
-            borderRadius: 6,
-            fontSize: '0.74rem',
+            gap: 4,
+            padding: '2px 7px',
+            borderRadius: 5,
+            fontSize: '0.70rem',
             fontWeight: 700,
+            whiteSpace: 'nowrap',
             background: isDark ? 'rgba(148, 163, 184, 0.15)' : '#f1f5f9',
             color: isDark ? '#cbd5e1' : '#334155',
             border: isDark ? '1px solid rgba(148, 163, 184, 0.3)' : '1px solid #e2e8f0'
           }}>
-            <FileText size={12} />
+            <FileText size={11} />
             {type}
           </span>
         );
@@ -279,16 +392,17 @@ export const EmployeeKYCView: React.FC = () => {
             display: 'inline-flex',
             alignItems: 'center',
             gap: 4,
+            whiteSpace: 'nowrap',
             background: isDark ? 'rgba(16, 185, 129, 0.18)' : '#ecfdf5',
             color: isDark ? '#34d399' : '#047857',
             border: isDark ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #a7f3d0',
-            padding: '3px 9px',
+            padding: '2.5px 8px',
             borderRadius: 14,
-            fontSize: '0.73rem',
+            fontSize: '0.72rem',
             fontWeight: 800,
             letterSpacing: '0.2px'
           }}>
-            <CheckCircle2 size={13} /> Verified
+            <CheckCircle2 size={12} /> Verified
           </span>
         );
       case 'Pending':
@@ -297,16 +411,17 @@ export const EmployeeKYCView: React.FC = () => {
             display: 'inline-flex',
             alignItems: 'center',
             gap: 4,
+            whiteSpace: 'nowrap',
             background: isDark ? 'rgba(245, 158, 11, 0.18)' : '#fffbeb',
             color: isDark ? '#fbbf24' : '#b45309',
             border: isDark ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid #fde68a',
-            padding: '3px 9px',
+            padding: '2.5px 8px',
             borderRadius: 14,
-            fontSize: '0.73rem',
+            fontSize: '0.72rem',
             fontWeight: 800,
             letterSpacing: '0.2px'
           }}>
-            <Clock size={13} /> Pending Review
+            <Clock size={12} /> Pending Review
           </span>
         );
       case 'Rejected':
@@ -315,16 +430,17 @@ export const EmployeeKYCView: React.FC = () => {
             display: 'inline-flex',
             alignItems: 'center',
             gap: 4,
+            whiteSpace: 'nowrap',
             background: isDark ? 'rgba(239, 68, 68, 0.18)' : '#fef2f2',
             color: isDark ? '#f87171' : '#b91c1c',
             border: isDark ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid #fecaca',
-            padding: '3px 9px',
+            padding: '2.5px 8px',
             borderRadius: 14,
-            fontSize: '0.73rem',
+            fontSize: '0.72rem',
             fontWeight: 800,
             letterSpacing: '0.2px'
           }}>
-            <XCircle size={13} /> Rejected
+            <XCircle size={12} /> Rejected
           </span>
         );
       case 'Needs Reupload':
@@ -333,16 +449,17 @@ export const EmployeeKYCView: React.FC = () => {
             display: 'inline-flex',
             alignItems: 'center',
             gap: 4,
+            whiteSpace: 'nowrap',
             background: isDark ? 'rgba(168, 85, 247, 0.18)' : '#faf5ff',
             color: isDark ? '#c084fc' : '#6b21a8',
             border: isDark ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid #e9d5ff',
-            padding: '3px 9px',
+            padding: '2.5px 8px',
             borderRadius: 14,
-            fontSize: '0.73rem',
+            fontSize: '0.72rem',
             fontWeight: 800,
             letterSpacing: '0.2px'
           }}>
-            <RefreshCw size={13} /> Needs Re-upload
+            <RefreshCw size={12} /> Needs Re-upload
           </span>
         );
     }
@@ -449,11 +566,45 @@ export const EmployeeKYCView: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button
             onClick={() => {
+              const myLeads = advisoryLeads.filter(l => l.assignedToId === currentUser.id);
+              if (myLeads.length > 0) {
+                setOnboardLead(myLeads[0]);
+              } else if (advisoryLeads.length > 0) {
+                setOnboardLead(advisoryLeads[0]);
+              } else {
+                showToast('No leads available to onboard.', 'info');
+              }
+            }}
+            style={{
+              background: isDark ? 'rgba(56, 189, 248, 0.12)' : '#f0f9ff',
+              color: isDark ? '#38bdf8' : '#0284c7',
+              border: `1.5px solid ${isDark ? 'rgba(56, 189, 248, 0.3)' : '#bae6fd'}`,
+              borderRadius: 10,
+              padding: '11px 18px',
+              fontSize: '0.88rem',
+              fontWeight: 800,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            title="Start or manage end-to-end KYC case onboarding for your leads"
+          >
+            <ShieldCheck size={18} strokeWidth={2.4} /> Lead KYC Journey
+          </button>
+          <button
+            onClick={() => {
               setSelectedClientId('');
               setClientName('');
               setClientMobile('');
-              setDocumentNumber('');
-              setSelectedFile(null);
+              setPanNumber('');
+              setPanFile(null);
+              setAadhaarNumber('');
+              setAadhaarFile(null);
+              setSingleDocNumber('');
+              setSingleFile(null);
+              setReuploadDocId(null);
               setUploadModalOpen(true);
             }}
             style={{
@@ -914,31 +1065,31 @@ export const EmployeeKYCView: React.FC = () => {
           boxShadow: isDark ? '0 10px 30px rgba(0,0,0,0.5)' : '0 4px 16px rgba(0, 0, 0, 0.04)'
         }}
       >
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <div style={{ overflowX: 'auto', width: '100%' }}>
+          <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', textAlign: 'left', minWidth: 0 }}>
             <thead>
               <tr
                 style={{
-                  background: isDark ? '#1e293b' : '#f1f5f9',
-                  borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '2px solid #cbd5e1'
+                  background: isDark ? '#1e293b' : '#f8fafc',
+                  borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1.5px solid #e2e8f0'
                 }}
               >
-                <th style={{ padding: '14px 18px', color: isDark ? '#f1f5f9' : '#1e293b', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <th style={{ width: '17%', padding: '8px 10px', color: isDark ? '#f1f5f9' : '#475569', fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Client Details
                 </th>
-                <th style={{ padding: '14px 18px', color: isDark ? '#f1f5f9' : '#1e293b', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <th style={{ width: '16%', padding: '8px 10px', color: isDark ? '#f1f5f9' : '#475569', fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Document Type
                 </th>
-                <th style={{ padding: '14px 18px', color: isDark ? '#f1f5f9' : '#1e293b', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <th style={{ width: '14%', padding: '8px 10px', color: isDark ? '#f1f5f9' : '#475569', fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Document ID / Number
                 </th>
-                <th style={{ padding: '14px 18px', color: isDark ? '#f1f5f9' : '#1e293b', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <th style={{ width: '16%', padding: '8px 10px', color: isDark ? '#f1f5f9' : '#475569', fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   File Attachment
                 </th>
-                <th style={{ padding: '14px 18px', color: isDark ? '#f1f5f9' : '#1e293b', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Status & Compliance Review
+                <th style={{ width: '17%', padding: '8px 10px', color: isDark ? '#f1f5f9' : '#475569', fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Status & Review
                 </th>
-                <th style={{ padding: '14px 18px', color: isDark ? '#f1f5f9' : '#1e293b', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right' }}>
+                <th style={{ width: '20%', padding: '8px 10px', color: isDark ? '#f1f5f9' : '#475569', fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' }}>
                   Actions
                 </th>
               </tr>
@@ -946,13 +1097,13 @@ export const EmployeeKYCView: React.FC = () => {
             <tbody>
               {filteredDocs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: '48px 16px', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-                      <ShieldAlert size={40} color={isDark ? '#64748b' : '#94a3b8'} />
-                      <div style={{ fontSize: '1rem', fontWeight: 800, color: isDark ? '#f8fafc' : '#1e293b' }}>
+                  <td colSpan={6} style={{ padding: '36px 16px', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                      <ShieldAlert size={36} color={isDark ? '#64748b' : '#94a3b8'} />
+                      <div style={{ fontSize: '0.92rem', fontWeight: 800, color: isDark ? '#f8fafc' : '#1e293b' }}>
                         No KYC documents match your filter criteria
                       </div>
-                      <div style={{ fontSize: '0.82rem', color: isDark ? '#94a3b8' : '#64748b' }}>
+                      <div style={{ fontSize: '0.78rem', color: isDark ? '#94a3b8' : '#64748b' }}>
                         Try clearing your search query or switching to another status tab.
                       </div>
                       <button
@@ -962,13 +1113,13 @@ export const EmployeeKYCView: React.FC = () => {
                           setTypeFilter('all');
                         }}
                         style={{
-                          marginTop: 8,
+                          marginTop: 6,
                           background: isDark ? 'rgba(255,255,255,0.08)' : '#f1f5f9',
                           border: `1px solid ${isDark ? 'rgba(255,255,255,0.15)' : '#cbd5e1'}`,
                           color: isDark ? '#fff' : '#0f172a',
-                          padding: '6px 14px',
-                          borderRadius: 8,
-                          fontSize: '0.8rem',
+                          padding: '5px 12px',
+                          borderRadius: 6,
+                          fontSize: '0.78rem',
                           fontWeight: 700,
                           cursor: 'pointer'
                         }}
@@ -1001,78 +1152,82 @@ export const EmployeeKYCView: React.FC = () => {
                     <tr
                       key={doc.id}
                       style={{
-                        borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.07)' : '1px solid #e2e8f0',
+                        borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.07)' : '1px solid #f1f5f9',
                         background: idx % 2 === 1
-                          ? (isDark ? 'rgba(255, 255, 255, 0.015)' : '#fafafa')
+                          ? (isDark ? 'rgba(255, 255, 255, 0.015)' : '#fafbfe')
                           : 'transparent',
                         transition: 'background 0.15s ease'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc';
+                        e.currentTarget.style.background = isDark ? 'rgba(255, 255, 255, 0.04)' : '#f0f7ff';
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.background = idx % 2 === 1
-                          ? (isDark ? 'rgba(255, 255, 255, 0.015)' : '#fafafa')
+                          ? (isDark ? 'rgba(255, 255, 255, 0.015)' : '#fafbfe')
                           : 'transparent';
                       }}
                     >
                       {/* Column 1: Client Details */}
-                      <td style={{ padding: '14px 18px', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <td style={{ padding: '6px 10px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
                           <div
                             style={{
-                              width: 38,
-                              height: 38,
-                              borderRadius: 10,
-                              background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                              width: 28,
+                              height: 28,
+                              borderRadius: 6,
+                              background: '#161e47',
                               color: '#ffffff',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              fontSize: '0.85rem',
+                              fontSize: '0.74rem',
                               fontWeight: 800,
-                              boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)',
                               flexShrink: 0
                             }}
                           >
                             {initials}
                           </div>
-                          <div>
-                            <div style={{ fontWeight: 800, fontSize: '0.92rem', color: isDark ? '#ffffff' : '#0f172a' }}>
+                          <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.80rem', color: isDark ? '#ffffff' : '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {doc.clientName}
                             </div>
-                            <div style={{ fontSize: '0.78rem', fontWeight: 600, color: isDark ? '#94a3b8' : '#475569', marginTop: 2 }}>
-                              📞 +91 {phoneDisplay}
+                            <div style={{ fontSize: '0.70rem', color: '#64748b', whiteSpace: 'nowrap' }}>
+                              +91 {phoneDisplay}
                             </div>
                           </div>
                         </div>
                       </td>
 
                       {/* Column 2: Document Type */}
-                      <td style={{ padding: '14px 18px', verticalAlign: 'middle' }}>
-                        <div>
+                      <td style={{ padding: '6px 10px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                        <div style={{ minWidth: 0, overflow: 'hidden' }}>
                           {getDocTypeBadge(doc.documentType)}
-                          <div style={{ fontSize: '0.74rem', color: isDark ? '#94a3b8' : '#64748b', marginTop: 5, fontWeight: 500 }}>
-                            Uploaded by <strong style={{ color: isDark ? '#cbd5e1' : '#334155' }}>{doc.uploadedBy}</strong>
+                          <div style={{ fontSize: '0.67rem', color: '#64748b', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            By <strong style={{ color: isDark ? '#cbd5e1' : '#334155' }}>{doc.uploadedBy}</strong>
                           </div>
                         </div>
                       </td>
 
                       {/* Column 3: Document ID / Number with Copy Button */}
-                      <td style={{ padding: '14px 18px', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <td style={{ padding: '6px 10px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: '100%', whiteSpace: 'nowrap' }}>
                           <code
                             style={{
                               background: isDark ? 'rgba(15, 23, 42, 0.8)' : '#f8fafc',
                               border: isDark ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid #cbd5e1',
-                              padding: '4px 9px',
-                              borderRadius: 6,
-                              color: isDark ? '#38bdf8' : '#1e3a8a',
-                              fontSize: '0.84rem',
+                              padding: '2px 5px',
+                              borderRadius: 4,
+                              color: isDark ? '#38bdf8' : '#0369a1',
+                              fontSize: '0.74rem',
                               fontWeight: 800,
                               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                              letterSpacing: '0.5px'
+                              letterSpacing: '0.2px',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              maxWidth: '110px'
                             }}
+                            title={fallbackDocNumber}
                           >
                             {fallbackDocNumber}
                           </code>
@@ -1082,171 +1237,196 @@ export const EmployeeKYCView: React.FC = () => {
                               background: copiedId === doc.id ? '#10b981' : (isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9'),
                               color: copiedId === doc.id ? '#fff' : (isDark ? '#94a3b8' : '#475569'),
                               border: `1px solid ${copiedId === doc.id ? '#10b981' : (isDark ? 'rgba(255,255,255,0.12)' : '#cbd5e1')}`,
-                              borderRadius: 6,
-                              padding: '4px 6px',
+                              borderRadius: 4,
+                              width: 20,
+                              height: 20,
+                              padding: 0,
                               cursor: 'pointer',
-                              display: 'flex',
+                              display: 'inline-flex',
                               alignItems: 'center',
                               justifyContent: 'center',
+                              flexShrink: 0,
                               transition: 'all 0.15s ease'
                             }}
                             title="Copy Document ID"
                           >
-                            {copiedId === doc.id ? <Check size={12} strokeWidth={3} /> : <Copy size={12} />}
+                            {copiedId === doc.id ? <Check size={10} strokeWidth={3} /> : <Copy size={10} />}
                           </button>
                         </div>
                       </td>
 
                       {/* Column 4: File Attachment */}
-                      <td style={{ padding: '14px 18px', verticalAlign: 'middle' }}>
+                      <td style={{ padding: '6px 10px', verticalAlign: 'middle', overflow: 'hidden' }}>
                         <div
                           onClick={() => setPreviewDoc(doc)}
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: 8,
-                            padding: '5px 10px',
+                            gap: 5,
+                            padding: '2.5px 7px',
                             background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
                             border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0'}`,
-                            borderRadius: 8,
+                            borderRadius: 5,
                             cursor: 'pointer',
+                            maxWidth: '100%',
+                            overflow: 'hidden',
                             transition: 'all 0.15s ease'
                           }}
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = '#2563eb';
-                            e.currentTarget.style.background = isDark ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff';
+                            e.currentTarget.style.borderColor = '#0284c7';
+                            e.currentTarget.style.background = isDark ? 'rgba(2, 132, 199, 0.15)' : '#f0f9ff';
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.borderColor = isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0';
                             e.currentTarget.style.background = isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc';
                           }}
-                          title="Click to preview file"
+                          title={`${doc.fileName} (${doc.fileSize || '1.4 MB'}) - Click to view`}
                         >
                           <div
                             style={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: 6,
+                              width: 18,
+                              height: 18,
+                              borderRadius: 3.5,
                               background: '#ef4444',
                               color: '#fff',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              fontSize: '0.65rem',
-                              fontWeight: 800
+                              fontSize: '0.55rem',
+                              fontWeight: 800,
+                              flexShrink: 0
                             }}
                           >
                             PDF
                           </div>
-                          <div>
-                            <div style={{ color: isDark ? '#ffffff' : '#0f172a', fontSize: '0.82rem', fontWeight: 700 }}>
+                          <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                            <div style={{ color: isDark ? '#ffffff' : '#0f172a', fontSize: '0.74rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {doc.fileName}
                             </div>
-                            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: isDark ? '#94a3b8' : '#64748b' }}>
-                              {doc.fileSize || '1.4 MB'} • Click to view
+                            <div style={{ fontSize: '0.66rem', fontWeight: 600, color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                              {doc.fileSize || '1.4 MB'}
                             </div>
                           </div>
                         </div>
                       </td>
 
                       {/* Column 5: Status & Compliance Review */}
-                      <td style={{ padding: '14px 18px', verticalAlign: 'middle' }}>
-                        <div>
-                          <div style={{ marginBottom: 4 }}>
+                      <td style={{ padding: '6px 10px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                        <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                          <div>
                             {getStatusBadge(doc.status)}
                           </div>
                           {doc.remarks && (
                             <div
+                              title={doc.remarks}
                               style={{
-                                fontSize: '0.78rem',
+                                fontSize: '0.70rem',
                                 color: doc.status === 'Rejected'
                                   ? '#dc2626'
-                                  : (isDark ? '#e2e8f0' : '#1e293b'),
+                                  : (isDark ? '#e2e8f0' : '#334155'),
                                 background: doc.status === 'Rejected'
                                   ? (isDark ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2')
-                                  : (isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc'),
+                                  : (isDark ? 'rgba(255, 255, 255, 0.04)' : '#f1f5f9'),
                                 border: `1px solid ${doc.status === 'Rejected' ? '#fca5a5' : (isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0')}`,
-                                borderRadius: 6,
-                                padding: '4px 8px',
-                                maxWidth: 280,
-                                lineHeight: 1.35,
-                                fontWeight: 600,
-                                marginTop: 4
+                                borderRadius: 4,
+                                padding: '1.5px 5px',
+                                maxWidth: '100%',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                marginTop: 2,
+                                lineHeight: 1.3
                               }}
                             >
-                              {doc.remarks}
+                              💬 {doc.remarks}
                             </div>
                           )}
                           {doc.reviewedBy && (
-                            <div style={{ fontSize: '0.72rem', color: isDark ? '#94a3b8' : '#64748b', marginTop: 4, fontWeight: 500 }}>
-                              By <strong style={{ color: isDark ? '#cbd5e1' : '#334155' }}>{doc.reviewedBy}</strong> on {doc.reviewedAt || '2026-09-10 14:30'}
+                            <div style={{ fontSize: '0.66rem', color: '#94a3b8', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              By {doc.reviewedBy} • {doc.reviewedAt?.split(' ')[0] || '2026-09-10'}
                             </div>
                           )}
                         </div>
                       </td>
 
                       {/* Column 6: Actions */}
-                      <td style={{ padding: '14px 18px', verticalAlign: 'middle', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                      <td style={{ padding: '6px 8px', verticalAlign: 'middle', textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, whiteSpace: 'nowrap' }}>
                           <button
                             onClick={() => setPreviewDoc(doc)}
                             style={{
-                              background: isDark ? 'rgba(56, 189, 248, 0.15)' : '#eff6ff',
-                              color: isDark ? '#38bdf8' : '#1d4ed8',
-                              border: isDark ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid #bfdbfe',
-                              borderRadius: 8,
-                              padding: '6px 12px',
+                              background: isDark ? 'rgba(56, 189, 248, 0.12)' : '#f0f9ff',
+                              color: isDark ? '#38bdf8' : '#0284c7',
+                              border: isDark ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid #bae6fd',
+                              borderRadius: 5,
+                              padding: '3px 7px',
+                              height: 24,
                               cursor: 'pointer',
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: 5,
-                              fontSize: '0.8rem',
-                              fontWeight: 800,
-                              transition: 'all 0.15s ease'
+                              gap: 3.5,
+                              fontSize: '0.71rem',
+                              fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.15s ease',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.background = '#2563eb';
+                              e.currentTarget.style.background = '#0284c7';
                               e.currentTarget.style.color = '#ffffff';
-                              e.currentTarget.style.borderColor = '#2563eb';
+                              e.currentTarget.style.borderColor = '#0284c7';
+                              e.currentTarget.style.transform = 'translateY(-1px)';
+                              e.currentTarget.style.boxShadow = '0 2px 6px rgba(2, 132, 199, 0.25)';
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.background = isDark ? 'rgba(56, 189, 248, 0.15)' : '#eff6ff';
-                              e.currentTarget.style.color = isDark ? '#38bdf8' : '#1d4ed8';
-                              e.currentTarget.style.borderColor = isDark ? '1px solid rgba(56, 189, 248, 0.35)' : '#bfdbfe';
+                              e.currentTarget.style.background = isDark ? 'rgba(56, 189, 248, 0.12)' : '#f0f9ff';
+                              e.currentTarget.style.color = isDark ? '#38bdf8' : '#0284c7';
+                              e.currentTarget.style.borderColor = isDark ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid #bae6fd';
+                              e.currentTarget.style.transform = 'translateY(0)';
+                              e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.02)';
                             }}
                             title="Inspect KYC Document Details"
                           >
-                            <Eye size={14} /> View
+                            <Eye size={11} strokeWidth={2.2} /> View
                           </button>
 
                           {(doc.status === 'Rejected' || doc.status === 'Needs Reupload') && (
                             <button
                               onClick={() => handleStartReupload(doc)}
                               style={{
-                                background: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
-                                color: '#dc2626',
-                                border: '1px solid rgba(239, 68, 68, 0.35)',
-                                borderRadius: 8,
-                                padding: '6px 12px',
+                                background: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fff1f2',
+                                color: '#e11d48',
+                                border: isDark ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid #fecdd3',
+                                borderRadius: 5,
+                                padding: '3px 7px',
+                                height: 24,
                                 cursor: 'pointer',
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 5,
-                                fontSize: '0.8rem',
-                                fontWeight: 800,
-                                transition: 'all 0.15s ease'
+                                gap: 3.5,
+                                fontSize: '0.71rem',
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                                transition: 'all 0.15s ease',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
                               }}
                               onMouseEnter={(e) => {
-                                e.currentTarget.style.background = '#dc2626';
+                                e.currentTarget.style.background = '#e11d48';
                                 e.currentTarget.style.color = '#ffffff';
+                                e.currentTarget.style.borderColor = '#e11d48';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                                e.currentTarget.style.boxShadow = '0 2px 6px rgba(225, 29, 72, 0.25)';
                               }}
                               onMouseLeave={(e) => {
-                                e.currentTarget.style.background = isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2';
-                                e.currentTarget.style.color = '#dc2626';
+                                e.currentTarget.style.background = isDark ? 'rgba(239, 68, 68, 0.12)' : '#fff1f2';
+                                e.currentTarget.style.color = '#e11d48';
+                                e.currentTarget.style.borderColor = isDark ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid #fecdd3';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.02)';
                               }}
                               title="Re-upload correct document"
                             >
-                              <RefreshCw size={14} /> Re-upload
+                              <RefreshCw size={10} strokeWidth={2.2} /> Re-upload
                             </button>
                           )}
                         </div>
@@ -1539,8 +1719,8 @@ export const EmployeeKYCView: React.FC = () => {
             left: 0,
             right: 0,
             bottom: 0,
-            background: isDark ? 'rgba(10, 17, 40, 0.85)' : 'rgba(15, 23, 42, 0.55)',
-            backdropFilter: 'blur(8px)',
+            background: isDark ? 'rgba(10, 17, 40, 0.85)' : 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(10px)',
             zIndex: 99999,
             display: 'flex',
             alignItems: 'center',
@@ -1554,36 +1734,48 @@ export const EmployeeKYCView: React.FC = () => {
           <div
             style={{
               width: '100%',
-              maxWidth: 550,
+              maxWidth: reuploadDocId ? 560 : 840,
+              maxHeight: '94vh',
+              overflowY: 'auto',
               background: isDark ? '#0f172a' : '#ffffff',
-              border: `1px solid ${isDark ? 'rgba(59, 130, 246, 0.3)' : '#e2e8f0'}`,
-              borderRadius: 20,
+              border: `1.5px solid ${isDark ? 'rgba(59, 130, 246, 0.35)' : '#cbd5e1'}`,
+              borderRadius: 22,
               padding: 26,
               color: isDark ? '#ffffff' : '#0f172a',
-              boxShadow: isDark ? '0 25px 60px rgba(0,0,0,0.8)' : '0 20px 50px rgba(0,0,0,0.15)'
+              boxShadow: isDark ? '0 25px 65px rgba(0,0,0,0.85)' : '0 20px 50px rgba(0,0,0,0.18)'
             }}
           >
             {/* Modal Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0'}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div style={{
-                  width: 42,
-                  height: 42,
+                  width: 44,
+                  height: 44,
                   borderRadius: 12,
-                  background: 'linear-gradient(135deg, #0284c7, #2563eb)',
+                  background: reuploadDocId
+                    ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                    : 'linear-gradient(135deg, #0284c7, #2563eb)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#fff'
+                  color: '#fff',
+                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
                 }}>
-                  <Upload size={22} />
+                  {reuploadDocId ? <RefreshCw size={22} /> : <ShieldCheck size={24} />}
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 900, color: isDark ? '#ffffff' : '#0f172a' }}>
-                    {reuploadDocId ? 'Re-upload KYC Document' : 'Upload Client KYC Document'}
+                  <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: isDark ? '#ffffff' : '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {reuploadDocId ? `Re-upload KYC Document: ${documentType}` : 'Mandatory Dual KYC Document Submission'}
+                    {!reuploadDocId && (
+                      <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 6, background: '#16a34a', color: '#fff' }}>
+                        SEBI & PMLA MANDATED
+                      </span>
+                    )}
                   </h3>
-                  <span style={{ fontSize: '0.78rem', color: isDark ? '#94a3b8' : '#64748b' }}>
-                    SEBI & PMLA mandated client identity and banking proofs
+                  <span style={{ fontSize: '0.8rem', color: isDark ? '#94a3b8' : '#64748b' }}>
+                    {reuploadDocId
+                      ? 'Replace and re-submit the rejected document for immediate compliance re-verification'
+                      : 'Dual requirement: Both PAN Card (Identity/Tax) and Aadhaar Card (UIDAI Address) must be submitted together'}
                   </span>
                 </div>
               </div>
@@ -1593,7 +1785,7 @@ export const EmployeeKYCView: React.FC = () => {
                   background: isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9',
                   border: 'none',
                   borderRadius: 8,
-                  padding: 6,
+                  padding: 8,
                   color: isDark ? '#94a3b8' : '#64748b',
                   cursor: 'pointer'
                 }}
@@ -1603,106 +1795,24 @@ export const EmployeeKYCView: React.FC = () => {
             </div>
 
             <form onSubmit={handleUploadSubmit}>
-              {/* Client Selector */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: isDark ? '#cbd5e1' : '#334155', display: 'block', marginBottom: 5 }}>
-                  Select Client from Active Database
-                </label>
-                <select
-                  value={selectedClientId}
-                  onChange={(e) => handleSelectClient(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: isDark ? 'rgba(30, 41, 59, 0.8)' : '#ffffff',
-                    border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.15)' : '#cbd5e1'}`,
-                    borderRadius: 10,
-                    padding: '10px 12px',
-                    color: isDark ? '#ffffff' : '#0f172a',
-                    fontSize: '0.88rem',
-                    fontWeight: 600,
-                    outline: 'none'
-                  }}
-                >
-                  <option value="" style={{ background: isDark ? '#1e293b' : '#ffffff', color: isDark ? '#fff' : '#0f172a' }}>
-                    -- Select Client or enter manually below --
-                  </option>
-                  {detailedClients.map(c => (
-                    <option key={c.id} value={c.id} style={{ background: isDark ? '#1e293b' : '#ffffff', color: isDark ? '#fff' : '#0f172a' }}>
-                      {c.clientName} ({c.mobile}) - Client
-                    </option>
-                  ))}
-                  {advisoryLeads.map(l => (
-                    <option key={l.id} value={l.id} style={{ background: isDark ? '#1e293b' : '#ffffff', color: isDark ? '#fff' : '#0f172a' }}>
-                      {l.clientName} ({l.phone}) - Lead
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Client Name & Mobile */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-                <div>
+              {/* Client Selection & Contact Information */}
+              <div style={{
+                background: isDark ? 'rgba(30, 41, 59, 0.5)' : '#f8fafc',
+                border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0'}`,
+                borderRadius: 14,
+                padding: '16px',
+                marginBottom: 20
+              }}>
+                <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: '0.8rem', fontWeight: 700, color: isDark ? '#cbd5e1' : '#334155', display: 'block', marginBottom: 5 }}>
-                    Client Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Ramesh Patel"
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      background: isDark ? 'rgba(30, 41, 59, 0.8)' : '#ffffff',
-                      border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.15)' : '#cbd5e1'}`,
-                      borderRadius: 10,
-                      padding: '10px 12px',
-                      color: isDark ? '#ffffff' : '#0f172a',
-                      fontSize: '0.88rem',
-                      fontWeight: 600,
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: isDark ? '#cbd5e1' : '#334155', display: 'block', marginBottom: 5 }}>
-                    Mobile Number *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. 9876543210"
-                    value={clientMobile}
-                    onChange={(e) => setClientMobile(e.target.value)}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      background: isDark ? 'rgba(30, 41, 59, 0.8)' : '#ffffff',
-                      border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.15)' : '#cbd5e1'}`,
-                      borderRadius: 10,
-                      padding: '10px 12px',
-                      color: isDark ? '#ffffff' : '#0f172a',
-                      fontSize: '0.88rem',
-                      fontWeight: 600,
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Document Category & ID */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: isDark ? '#cbd5e1' : '#334155', display: 'block', marginBottom: 5 }}>
-                    Document Category *
+                    Select Client or Lead from Active Database
                   </label>
                   <select
-                    value={documentType}
-                    onChange={(e) => setDocumentType(e.target.value as KYCDocumentType)}
+                    value={selectedClientId}
+                    onChange={(e) => handleSelectClient(e.target.value)}
                     style={{
                       width: '100%',
-                      background: isDark ? 'rgba(30, 41, 59, 0.8)' : '#ffffff',
+                      background: isDark ? '#1e293b' : '#ffffff',
                       border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.15)' : '#cbd5e1'}`,
                       borderRadius: 10,
                       padding: '10px 12px',
@@ -1712,101 +1822,574 @@ export const EmployeeKYCView: React.FC = () => {
                       outline: 'none'
                     }}
                   >
-                    <option value="PAN Card">PAN Card</option>
-                    <option value="Aadhaar Card">Aadhaar Card</option>
-                    <option value="Bank Proof">Bank Proof (Cheque/Statement)</option>
-                    <option value="Address Proof">Address Proof</option>
-                    <option value="Other">Other Proof</option>
+                    <option value="" style={{ background: isDark ? '#1e293b' : '#ffffff', color: isDark ? '#fff' : '#0f172a' }}>
+                      -- Select Client / Lead or type details below --
+                    </option>
+                    <optgroup label="Active Portfolio Clients">
+                      {detailedClients.map(c => (
+                        <option key={c.id} value={c.id} style={{ background: isDark ? '#1e293b' : '#ffffff', color: isDark ? '#fff' : '#0f172a' }}>
+                          {c.clientName} ({c.mobile}) - Client
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Advisory Leads">
+                      {advisoryLeads.map(l => (
+                        <option key={l.id} value={l.id} style={{ background: isDark ? '#1e293b' : '#ffffff', color: isDark ? '#fff' : '#0f172a' }}>
+                          {l.clientName} ({l.phone}) - {l.status} Lead
+                        </option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
 
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: isDark ? '#cbd5e1' : '#334155', display: 'block', marginBottom: 5 }}>
-                    Document ID / Account No *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. ABCDE1234F"
-                    value={documentNumber}
-                    onChange={(e) => setDocumentNumber(e.target.value.toUpperCase())}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: isDark ? '#cbd5e1' : '#334155', display: 'block', marginBottom: 5 }}>
+                      Client Legal Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Ramesh Patel"
+                      value={clientName}
+                      onChange={(e) => setClientName(e.target.value)}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        background: isDark ? '#1e293b' : '#ffffff',
+                        border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.15)' : '#cbd5e1'}`,
+                        borderRadius: 10,
+                        padding: '10px 12px',
+                        color: isDark ? '#ffffff' : '#0f172a',
+                        fontSize: '0.88rem',
+                        fontWeight: 600,
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: isDark ? '#cbd5e1' : '#334155', display: 'block', marginBottom: 5 }}>
+                      Registered Mobile Number *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 9876543210"
+                      value={clientMobile}
+                      onChange={(e) => setClientMobile(e.target.value)}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        background: isDark ? '#1e293b' : '#ffffff',
+                        border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.15)' : '#cbd5e1'}`,
+                        borderRadius: 10,
+                        padding: '10px 12px',
+                        color: isDark ? '#ffffff' : '#0f172a',
+                        fontSize: '0.88rem',
+                        fontWeight: 600,
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ─── PATH A: SINGLE DOCUMENT RE-UPLOAD (When fixing a specific rejected document) ─── */}
+              {reuploadDocId ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{
+                    background: 'rgba(245, 158, 11, 0.1)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    borderRadius: 10,
+                    padding: '12px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    fontSize: '0.85rem',
+                    color: '#d97706'
+                  }}>
+                    <AlertCircle size={18} />
+                    <span>
+                      You are re-uploading <strong>{documentType}</strong> specifically. Enter the updated document number and attach a new scan.
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 700, color: isDark ? '#cbd5e1' : '#334155', display: 'block', marginBottom: 5 }}>
+                        Document Category
+                      </label>
+                      <input
+                        type="text"
+                        readOnly
+                        value={documentType}
+                        style={{
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          background: isDark ? 'rgba(30, 41, 59, 0.4)' : '#f1f5f9',
+                          border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.1)' : '#cbd5e1'}`,
+                          borderRadius: 10,
+                          padding: '10px 12px',
+                          color: isDark ? '#94a3b8' : '#64748b',
+                          fontSize: '0.88rem',
+                          fontWeight: 700,
+                          cursor: 'not-allowed'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 700, color: isDark ? '#cbd5e1' : '#334155', display: 'block', marginBottom: 5 }}>
+                        Document ID / Account No *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. ABCDE1234F or XXXX-XXXX-1234"
+                        value={singleDocNumber}
+                        onChange={(e) => setSingleDocNumber(e.target.value.toUpperCase())}
+                        style={{
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          background: isDark ? '#1e293b' : '#ffffff',
+                          border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.15)' : '#cbd5e1'}`,
+                          borderRadius: 10,
+                          padding: '10px 12px',
+                          color: isDark ? '#ffffff' : '#0f172a',
+                          fontSize: '0.88rem',
+                          fontWeight: 700,
+                          letterSpacing: '0.5px',
+                          fontFamily: 'monospace',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Single Document File Dropzone */}
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: isDark ? '#cbd5e1' : '#334155', display: 'block', marginBottom: 6 }}>
+                      Upload Corrected Document Scan (PDF, JPG, PNG) *
+                    </label>
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                          setSingleFile(e.dataTransfer.files[0]);
+                        }
+                      }}
+                      style={{
+                        border: `2px dashed ${isDragging ? '#2563eb' : (isDark ? 'rgba(56, 189, 248, 0.3)' : '#cbd5e1')}`,
+                        borderRadius: 12,
+                        padding: '22px 16px',
+                        textAlign: 'center',
+                        background: isDragging
+                          ? (isDark ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff')
+                          : (isDark ? 'rgba(30, 41, 59, 0.4)' : '#f8fafc'),
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onClick={() => document.getElementById('employee-single-file-input')?.click()}
+                    >
+                      <Upload size={32} color={isDark ? '#38bdf8' : '#2563eb'} style={{ margin: '0 auto 8px' }} />
+                      <div style={{ fontSize: '0.88rem', fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a' }}>
+                        {singleFile ? (
+                          <span style={{ color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <CheckCircle2 size={16} /> {singleFile.name} ({(singleFile.size / 1024).toFixed(0)} KB)
+                          </span>
+                        ) : (
+                          'Click to select replacement scan or drag & drop here'
+                        )}
+                      </div>
+                      <div style={{ fontSize: '0.74rem', color: isDark ? '#94a3b8' : '#64748b', marginTop: 4 }}>
+                        Supported formats: PDF, JPG, PNG up to 10MB
+                      </div>
+                      <input
+                        id="employee-single-file-input"
+                        type="file"
+                        accept=".pdf,.png,.jpg,.jpeg"
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setSingleFile(e.target.files[0]);
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* ─── PATH B: DUAL MANDATORY KYC SUBMISSION (BOTH PAN AND AADHAAR REQUIRED) ─── */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+                  {/* Regulatory Banner & Progress Bar */}
+                  <div
                     style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      background: isDark ? 'rgba(30, 41, 59, 0.8)' : '#ffffff',
-                      border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.15)' : '#cbd5e1'}`,
-                      borderRadius: 10,
-                      padding: '10px 12px',
-                      color: isDark ? '#ffffff' : '#0f172a',
-                      fontSize: '0.88rem',
-                      fontWeight: 700,
-                      letterSpacing: '0.5px',
-                      fontFamily: 'monospace',
-                      outline: 'none'
+                      background: isBothValid
+                        ? (isDark ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.08)')
+                        : (isDark ? 'rgba(2, 132, 199, 0.15)' : 'rgba(2, 132, 199, 0.08)'),
+                      border: `1.5px solid ${isBothValid ? '#16a34a' : isDark ? 'rgba(56, 189, 248, 0.3)' : '#bae6fd'}`,
+                      borderRadius: 12,
+                      padding: '14px 18px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 10
                     }}
-                  />
-                </div>
-              </div>
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.85rem' }}>
+                        <ShieldCheck size={20} color={isBothValid ? '#16a34a' : '#0284c7'} />
+                        <span style={{ color: isDark ? '#f1f5f9' : '#0f172a', fontWeight: 600 }}>
+                          <strong>SEBI Master Circular:</strong> Advisory onboarding strictly requires <strong>both PAN Card</strong> (Income Tax/SEBI) and <strong>Aadhaar Card</strong> (UIDAI Masked Identity).
+                        </span>
+                      </div>
+                      <div style={{
+                        fontSize: '0.8rem',
+                        fontWeight: 800,
+                        padding: '3px 10px',
+                        borderRadius: 12,
+                        background: isBothValid ? 'rgba(22, 163, 74, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                        color: isBothValid ? '#16a34a' : '#d97706'
+                      }}>
+                        {(validatePan(panNumber) ? 1 : 0) + (validateAadhaar(aadhaarNumber) ? 1 : 0)} / 2 Documents Ready
+                      </div>
+                    </div>
 
-              {/* File Upload Drag-and-drop zone */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: isDark ? '#cbd5e1' : '#334155', display: 'block', marginBottom: 6 }}>
-                  Upload Document Scan (PDF, PNG, JPG) *
-                </label>
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setIsDragging(true);
-                  }}
-                  onDragLeave={() => setIsDragging(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setIsDragging(false);
-                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                      setSelectedFile(e.dataTransfer.files[0]);
-                    }
-                  }}
-                  style={{
-                    border: `2px dashed ${isDragging ? '#2563eb' : (isDark ? 'rgba(56, 189, 248, 0.3)' : '#cbd5e1')}`,
-                    borderRadius: 12,
-                    padding: '22px 16px',
-                    textAlign: 'center',
-                    background: isDragging
-                      ? (isDark ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff')
-                      : (isDark ? 'rgba(30, 41, 59, 0.4)' : '#f8fafc'),
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onClick={() => document.getElementById('kyc-file-input')?.click()}
-                >
-                  <Upload size={32} color={isDark ? '#38bdf8' : '#2563eb'} style={{ margin: '0 auto 8px' }} />
-                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a' }}>
-                    {selectedFile ? (
-                      <span style={{ color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        <CheckCircle2 size={16} /> {selectedFile.name} ({(selectedFile.size / 1024).toFixed(0)} KB)
-                      </span>
-                    ) : (
-                      'Click to select document or drag & drop here'
-                    )}
+                    {/* Progress Bar */}
+                    <div style={{ width: '100%', height: 6, background: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0', borderRadius: 4, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          width: isBothValid
+                            ? '100%'
+                            : (validatePan(panNumber) || validateAadhaar(aadhaarNumber)) ? '50%' : '5%',
+                          height: '100%',
+                          background: isBothValid
+                            ? 'linear-gradient(90deg, #16a34a, #22c55e)'
+                            : 'linear-gradient(90deg, #0284c7, #2563eb)',
+                          transition: 'width 0.3s ease'
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.74rem', color: isDark ? '#94a3b8' : '#64748b', marginTop: 4 }}>
-                    Supported formats: PDF, JPG, PNG up to 10MB (Clear & Unmasked)
-                  </div>
-                  <input
-                    id="kyc-file-input"
-                    type="file"
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        setSelectedFile(e.target.files[0]);
-                      }
-                    }}
-                  />
-                </div>
-              </div>
 
-              {/* Form Actions */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
+                  {/* Dual Cards Container: Side-by-Side on Desktop */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 16 }}>
+
+                    {/* ── CARD 1: PAN CARD (MANDATORY) ── */}
+                    <div
+                      style={{
+                        background: isDark ? 'rgba(30, 41, 59, 0.5)' : '#ffffff',
+                        border: `1.5px solid ${validatePan(panNumber) ? '#16a34a' : isDark ? '#334155' : '#cbd5e1'}`,
+                        borderRadius: 14,
+                        padding: 18,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 14,
+                        boxShadow: validatePan(panNumber) ? '0 0 14px rgba(22, 163, 74, 0.15)' : 'none',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {/* Card Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: 10,
+                              background: validatePan(panNumber) ? 'rgba(22, 163, 74, 0.15)' : 'rgba(2, 132, 199, 0.15)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <CreditCard size={20} color={validatePan(panNumber) ? '#16a34a' : '#0284c7'} />
+                          </div>
+                          <div>
+                            <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
+                              1. PAN Card
+                            </h4>
+                            <span style={{ fontSize: '0.74rem', color: isDark ? '#94a3b8' : '#64748b' }}>
+                              Identity & Income Tax Proof
+                            </span>
+                          </div>
+                        </div>
+
+                        <span
+                          style={{
+                            fontSize: '0.74rem',
+                            fontWeight: 800,
+                            padding: '3px 9px',
+                            borderRadius: 10,
+                            background: validatePan(panNumber) ? 'rgba(22, 163, 74, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                            color: validatePan(panNumber) ? '#16a34a' : '#d97706',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}
+                        >
+                          {validatePan(panNumber) ? (
+                            <>
+                              <Check size={13} strokeWidth={3} /> Ready ✓
+                            </>
+                          ) : (
+                            'Required 1/2'
+                          )}
+                        </span>
+                      </div>
+
+                      {/* PAN Number Input */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 5, color: isDark ? '#cbd5e1' : '#334155' }}>
+                          Permanent Account Number (PAN) *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. ABCDE1234F"
+                          value={panNumber}
+                          onChange={(e) => setPanNumber(e.target.value.toUpperCase().slice(0, 10))}
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '10px 12px',
+                            borderRadius: 8,
+                            border: `1.5px solid ${validatePan(panNumber) ? '#16a34a' : isDark ? '#475569' : '#cbd5e1'}`,
+                            background: isDark ? '#1e293b' : '#ffffff',
+                            color: isDark ? '#ffffff' : '#0f172a',
+                            fontSize: '0.95rem',
+                            fontFamily: 'monospace',
+                            fontWeight: 800,
+                            letterSpacing: '1px',
+                            outline: 'none'
+                          }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.73rem', marginTop: 4 }}>
+                          <span style={{ color: validatePan(panNumber) ? '#16a34a' : '#64748b' }}>
+                            {validatePan(panNumber) ? '✓ Valid 10-char PAN format' : 'Format: 5 letters, 4 numbers, 1 letter'}
+                          </span>
+                          <span style={{ color: '#94a3b8' }}>{panNumber.length}/10</span>
+                        </div>
+                      </div>
+
+                      {/* PAN Dropzone */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 5, color: isDark ? '#cbd5e1' : '#334155' }}>
+                          Upload PAN Card Scan (PDF, JPG, PNG) *
+                        </label>
+                        <div
+                          onDragOver={(e) => { e.preventDefault(); setIsPanDragging(true); }}
+                          onDragLeave={() => setIsPanDragging(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setIsPanDragging(false);
+                            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                              setPanFile(e.dataTransfer.files[0]);
+                            }
+                          }}
+                          onClick={() => document.getElementById('employee-pan-file')?.click()}
+                          style={{
+                            border: `2px dashed ${isPanDragging ? '#2563eb' : (panFile ? '#16a34a' : isDark ? '#475569' : '#cbd5e1')}`,
+                            borderRadius: 10,
+                            padding: '16px 12px',
+                            textAlign: 'center',
+                            background: isPanDragging
+                              ? (isDark ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff')
+                              : panFile
+                              ? (isDark ? 'rgba(22, 163, 74, 0.1)' : '#f0fdf4')
+                              : (isDark ? 'rgba(15, 23, 42, 0.4)' : '#f8fafc'),
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <Upload size={24} color={panFile ? '#16a34a' : (isDark ? '#38bdf8' : '#2563eb')} style={{ margin: '0 auto 6px' }} />
+                          <div style={{ fontSize: '0.84rem', fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a' }}>
+                            {panFile ? (
+                              <span style={{ color: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                <CheckCircle2 size={15} /> {panFile.name} ({(panFile.size / 1024).toFixed(0)} KB)
+                              </span>
+                            ) : (
+                              'Click to select PAN scan or drag & drop'
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                            Supports PDF, JPG, PNG up to 10MB
+                          </div>
+                          <input
+                            id="employee-pan-file"
+                            type="file"
+                            accept=".pdf,.png,.jpg,.jpeg"
+                            style={{ display: 'none' }}
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                setPanFile(e.target.files[0]);
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── CARD 2: AADHAAR CARD (MANDATORY) ── */}
+                    <div
+                      style={{
+                        background: isDark ? 'rgba(30, 41, 59, 0.5)' : '#ffffff',
+                        border: `1.5px solid ${validateAadhaar(aadhaarNumber) ? '#16a34a' : isDark ? '#334155' : '#cbd5e1'}`,
+                        borderRadius: 14,
+                        padding: 18,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 14,
+                        boxShadow: validateAadhaar(aadhaarNumber) ? '0 0 14px rgba(22, 163, 74, 0.15)' : 'none',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {/* Card Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: 10,
+                              background: validateAadhaar(aadhaarNumber) ? 'rgba(22, 163, 74, 0.15)' : 'rgba(147, 51, 234, 0.15)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <Fingerprint size={20} color={validateAadhaar(aadhaarNumber) ? '#16a34a' : '#a855f7'} />
+                          </div>
+                          <div>
+                            <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
+                              2. Aadhaar Card
+                            </h4>
+                            <span style={{ fontSize: '0.74rem', color: isDark ? '#94a3b8' : '#64748b' }}>
+                              UIDAI Address Proof (Masked)
+                            </span>
+                          </div>
+                        </div>
+
+                        <span
+                          style={{
+                            fontSize: '0.74rem',
+                            fontWeight: 800,
+                            padding: '3px 9px',
+                            borderRadius: 10,
+                            background: validateAadhaar(aadhaarNumber) ? 'rgba(22, 163, 74, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                            color: validateAadhaar(aadhaarNumber) ? '#16a34a' : '#d97706',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}
+                        >
+                          {validateAadhaar(aadhaarNumber) ? (
+                            <>
+                              <Check size={13} strokeWidth={3} /> Ready ✓
+                            </>
+                          ) : (
+                            'Required 2/2'
+                          )}
+                        </span>
+                      </div>
+
+                      {/* Aadhaar Number Input */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 5, color: isDark ? '#cbd5e1' : '#334155' }}>
+                          12-Digit Aadhaar Number (UIDAI) *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="XXXX-XXXX-1234"
+                          value={maskAadhaar(aadhaarNumber)}
+                          onChange={(e) => setAadhaarNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '10px 12px',
+                            borderRadius: 8,
+                            border: `1.5px solid ${validateAadhaar(aadhaarNumber) ? '#16a34a' : isDark ? '#475569' : '#cbd5e1'}`,
+                            background: isDark ? '#1e293b' : '#ffffff',
+                            color: isDark ? '#ffffff' : '#0f172a',
+                            fontSize: '0.95rem',
+                            fontFamily: 'monospace',
+                            fontWeight: 800,
+                            letterSpacing: '1px',
+                            outline: 'none'
+                          }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.73rem', marginTop: 4 }}>
+                          <span style={{ color: validateAadhaar(aadhaarNumber) ? '#16a34a' : '#64748b' }}>
+                            {validateAadhaar(aadhaarNumber) ? '✓ 12-digit UIDAI format with 8-digit privacy mask' : 'Format: 12 numeric digits'}
+                          </span>
+                          <span style={{ color: '#94a3b8' }}>{aadhaarNumber.length}/12</span>
+                        </div>
+                      </div>
+
+                      {/* Aadhaar Dropzone */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 5, color: isDark ? '#cbd5e1' : '#334155' }}>
+                          Upload Aadhaar Card Scan (PDF, JPG, PNG) *
+                        </label>
+                        <div
+                          onDragOver={(e) => { e.preventDefault(); setIsAadhaarDragging(true); }}
+                          onDragLeave={() => setIsAadhaarDragging(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setIsAadhaarDragging(false);
+                            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                              setAadhaarFile(e.dataTransfer.files[0]);
+                            }
+                          }}
+                          onClick={() => document.getElementById('employee-aadhaar-file')?.click()}
+                          style={{
+                            border: `2px dashed ${isAadhaarDragging ? '#2563eb' : (aadhaarFile ? '#16a34a' : isDark ? '#475569' : '#cbd5e1')}`,
+                            borderRadius: 10,
+                            padding: '16px 12px',
+                            textAlign: 'center',
+                            background: isAadhaarDragging
+                              ? (isDark ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff')
+                              : aadhaarFile
+                              ? (isDark ? 'rgba(22, 163, 74, 0.1)' : '#f0fdf4')
+                              : (isDark ? 'rgba(15, 23, 42, 0.4)' : '#f8fafc'),
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <Upload size={24} color={aadhaarFile ? '#16a34a' : (isDark ? '#38bdf8' : '#2563eb')} style={{ margin: '0 auto 6px' }} />
+                          <div style={{ fontSize: '0.84rem', fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a' }}>
+                            {aadhaarFile ? (
+                              <span style={{ color: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                <CheckCircle2 size={15} /> {aadhaarFile.name} ({(aadhaarFile.size / 1024).toFixed(0)} KB)
+                              </span>
+                            ) : (
+                              'Click to select Aadhaar scan or drag & drop'
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                            Supports PDF, JPG, PNG up to 10MB
+                          </div>
+                          <input
+                            id="employee-aadhaar-file"
+                            type="file"
+                            accept=".pdf,.png,.jpg,.jpeg"
+                            style={{ display: 'none' }}
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                setAadhaarFile(e.target.files[0]);
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Form Action Buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, marginTop: 22, paddingTop: 16, borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0'}` }}>
                 <button
                   type="button"
                   onClick={() => setUploadModalOpen(false)}
@@ -1823,26 +2406,72 @@ export const EmployeeKYCView: React.FC = () => {
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  style={{
-                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: 10,
-                    padding: '10px 22px',
-                    fontSize: '0.88rem',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.4)'
-                  }}
-                >
-                  Submit for Compliance Review
-                </button>
+
+                {reuploadDocId ? (
+                  <button
+                    type="submit"
+                    style={{
+                      background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: 10,
+                      padding: '10px 22px',
+                      fontSize: '0.88rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      boxShadow: '0 4px 14px rgba(217, 119, 6, 0.4)'
+                    }}
+                  >
+                    <RefreshCw size={16} /> Submit Corrected Document
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!isBothValid}
+                    style={{
+                      background: isBothValid
+                        ? 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)'
+                        : isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0',
+                      color: isBothValid ? '#ffffff' : isDark ? '#64748b' : '#94a3b8',
+                      border: 'none',
+                      borderRadius: 10,
+                      padding: '11px 24px',
+                      fontSize: '0.88rem',
+                      fontWeight: 800,
+                      cursor: isBothValid ? 'pointer' : 'not-allowed',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      boxShadow: isBothValid ? '0 4px 16px rgba(22, 163, 74, 0.4)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {isBothValid ? (
+                      <>
+                        <ShieldCheck size={18} /> Submit Both Documents for Compliance Review
+                      </>
+                    ) : (
+                      <>
+                        <Lock size={16} /> Both PAN Card & Aadhaar Card Required ({(validatePan(panNumber) ? 1 : 0) + (validateAadhaar(aadhaarNumber) ? 1 : 0)}/2)
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </form>
           </div>
         </div>
+      )}
+
+      {onboardLead && (
+        <LeadKYCOnboardingModal
+          lead={onboardLead}
+          isOpen={!!onboardLead}
+          onClose={() => setOnboardLead(null)}
+        />
       )}
     </div>
   );

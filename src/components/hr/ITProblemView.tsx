@@ -13,7 +13,8 @@ import {
   Clock,
   CheckCircle2,
   Sparkles,
-  Filter
+  Filter,
+  ArrowLeft
 } from 'lucide-react';
 
 export interface ITTicket {
@@ -272,21 +273,39 @@ export const ITProblemView: React.FC = () => {
           {/* Add IT Problem Button: Available for Employee, TL, Manager, HR */}
           <button 
             type="button"
-            className="btn-ref-blue"
+            className="btn-ref-blue action-btn-interactive"
             onClick={() => setIsAddModalOpen(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: 6,
+              fontWeight: 600,
+              borderRadius: '8px',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer'
+            }}
           >
             <Plus size={16} />
-            <span>+ Add IT Problem</span>
+            <span>Add IT Problem</span>
           </button>
 
           <button 
             type="button"
-            className="btn-ref-back"
+            className="btn-ref-back action-btn-interactive"
             onClick={() => setActiveTab('dashboard')}
             title="Return to Dashboard"
+            style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: 5,
+              fontWeight: 600,
+              borderRadius: '8px',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer'
+            }}
           >
-            <span>&lt;&lt; Back</span>
+            <ArrowLeft size={14} />
+            <span>Back</span>
           </button>
         </div>
       </div>
@@ -622,7 +641,7 @@ export const ITProblemView: React.FC = () => {
                   <Plus size={18} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>+ Log New IT Problem</h3>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Log New IT Problem</h3>
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                     Reporting as: <strong style={{ color: '#0284c7' }}>{currentUserName}</strong> ({role.toUpperCase()})
                   </span>

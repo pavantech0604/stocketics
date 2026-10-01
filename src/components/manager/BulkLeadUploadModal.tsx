@@ -37,7 +37,7 @@ const MOCK_CAMPAIGN_BATCH = [
 ];
 
 export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen, onClose }) => {
-  const { employees, bulkAddLeads, showToast, setActiveTab, addBulkSourceLeads, leadSourcePools } = useApp();
+  const { employees, bulkAddLeads, showToast, setActiveTab, addBulkSourceLeads, leadSourcePools, advisoryLeads } = useApp();
 
   // Mode: Deposit into Lead Source Pool OR Directly Distribute to Advisors
   const [destinationMode, setDestinationMode] = useState<'pool' | 'direct'>('pool');
@@ -327,6 +327,16 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
 
         if (parsed.length > 0) {
           setParsedLeads(parsed);
+          const detectedSourceVal = parsed.find(p => p.source && p.source.trim())?.source;
+          if (detectedSourceVal) {
+            const normDet = detectedSourceVal.trim().replace(/\s+/g, ' ').toLowerCase();
+            const matched = leadSourcePools.find(p => p.sourceName.trim().replace(/\s+/g, ' ').toLowerCase() === normDet);
+            if (matched) {
+              setSelectedSource(matched.sourceName);
+            } else {
+              setSelectedSource(detectedSourceVal.trim().replace(/\s+/g, ' '));
+            }
+          }
           showToast(`Successfully analyzed & extracted ${parsed.length} client leads from ${file.name}!`, 'success');
         } else {
           setParsedLeads(MOCK_CAMPAIGN_BATCH);
@@ -395,26 +405,45 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
       return;
     }
 
+    // --- DUPLICATE DETECTION ---
+    const existingPhones = new Set(advisoryLeads.map(l => l.phone).filter(Boolean));
+    const uniqueLeads = parsedLeads.filter(lead => !lead.phone || !existingPhones.has(lead.phone));
+    
+    const duplicatesSkipped = parsedLeads.length - uniqueLeads.length;
+    
+    if (uniqueLeads.length === 0) {
+      showToast(`Upload cancelled. All ${parsedLeads.length} leads are duplicates of existing records.`, 'error');
+      return;
+    }
+
     if (destinationMode === 'pool') {
-      const sourceLeads: Partial<AdvisoryLead>[] = parsedLeads.map((item, idx) => ({
+      const normSelected = selectedSource.trim().replace(/\s+/g, ' ').toLowerCase();
+      const matchedPool = leadSourcePools.find(p => p.sourceName.trim().replace(/\s+/g, ' ').toLowerCase() === normSelected);
+      const canonicalSource = matchedPool ? matchedPool.sourceName : selectedSource.trim().replace(/\s+/g, ' ');
+
+      const sourceLeads: Partial<AdvisoryLead>[] = uniqueLeads.map((item, idx) => ({
         id: `lead-pool-${Date.now()}-${idx + 1}`,
         clientName: item.name || '',
         phone: item.phone || '',
         email: item.email || '',
-        serviceType: (item.service as AdvisoryService) || '',
-        investmentBracket: item.bracket || '',
+        serviceType: (item.service as AdvisoryService) || 'Equity Premier',
+        investmentBracket: item.bracket || '₹5 Lakhs - ₹10 Lakhs',
         status: (item.response ? 'In Contact' : 'New Lead') as LeadStatus,
-        response: item.response || '',
+        response: item.response || 'Fresh',
         description: item.description || '',
-        expectedRevenue: item.revenue || 0,
+        expectedRevenue: item.revenue || 25000,
         city: item.city || '',
-        source: item.source || selectedSource,
-        assignedToName: item.ownerName || '',
+        source: canonicalSource,
+        assignedToId: undefined,
+        assignedToName: '',
+        teamLeaderId: undefined,
+        isTeamPool: false,
         lastContactDate: item.date || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
       }));
 
-      addBulkSourceLeads(selectedSource, sourceLeads.length, sourceLeads);
-      showToast(`Successfully deposited ${parsedLeads.length} vendor leads into "${selectedSource}" pool!`, 'success');
+      addBulkSourceLeads(canonicalSource, sourceLeads.length, sourceLeads);
+      sessionStorage.setItem('apex_crm_last_uploaded_source', canonicalSource);
+      showToast(`Successfully deposited ${uniqueLeads.length} unique leads into "${canonicalSource}" pool! ${duplicatesSkipped > 0 ? `(Skipped ${duplicatesSkipped} duplicates)` : ''}`, 'success');
       setParsedLeads([]);
       setFileName('');
       onClose();
@@ -428,7 +457,7 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
     }
 
     // Assign leads sequentially across selected employees
-    const createdLeads: AdvisoryLead[] = parsedLeads.map((item, idx) => {
+    const createdLeads: AdvisoryLead[] = uniqueLeads.map((item, idx) => {
       const assignedEmp = activeAdvisors[idx % activeAdvisors.length];
       const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
       return {
@@ -451,7 +480,7 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
     });
 
     bulkAddLeads(createdLeads);
-    showToast(`Dispersed ${createdLeads.length} leads across ${activeAdvisors.length} advisors!`, 'success');
+    showToast(`Dispersed ${createdLeads.length} leads across ${activeAdvisors.length} advisors! ${duplicatesSkipped > 0 ? `(Skipped ${duplicatesSkipped} duplicates)` : ''}`, 'success');
     setParsedLeads([]);
     setFileName('');
     onClose();
@@ -707,6 +736,9 @@ export const BulkLeadUploadModal: React.FC<BulkLeadUploadModalProps> = ({ isOpen
                         {pool.sourceName} ({pool.availableCount.toLocaleString()} Leads Available)
                       </option>
                     ))}
+                    {!leadSourcePools.some(p => p.sourceName.trim().replace(/\s+/g, ' ').toLowerCase() === selectedSource.trim().replace(/\s+/g, ' ').toLowerCase()) && (
+                      <option value={selectedSource}>{selectedSource} (New Detected Pool)</option>
+                    )}
                   </select>
                 </div>
 

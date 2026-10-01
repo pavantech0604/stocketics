@@ -141,7 +141,7 @@ export const RACallsDashboardView: React.FC = () => {
     const todayStr = new Date().toISOString().slice(0, 10);
     return detailedClients.filter(c => {
       const isTrial = c.trialStatus?.includes('Active') || c.trialStatus?.includes('Trial');
-      const isClient = c.tabCategory === 'clients' || c.trialStatus === 'Converted' || c.response === 'CLOSED OWN';
+      const isClient = c.tabCategory === 'clients' || c.trialStatus === 'Converted' || c.response === 'CLOSED WON' || c.response === 'CLOSED OWN';
       const isNotExpired = !c.endDate || c.endDate >= todayStr;
       return (isTrial || isClient) && isNotExpired;
     });
