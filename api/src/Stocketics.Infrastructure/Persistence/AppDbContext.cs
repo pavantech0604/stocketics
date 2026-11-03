@@ -12,6 +12,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<AppSetting> Settings => Set<AppSetting>();
 
+    public DbSet<Lead> Leads => Set<Lead>();
+    public DbSet<LeadActivity> LeadActivities => Set<LeadActivity>();
+    public DbSet<LeadFollowUp> LeadFollowUps => Set<LeadFollowUp>();
+    public DbSet<LeadAssignment> LeadAssignments => Set<LeadAssignment>();
+    public DbSet<LeadRequest> LeadRequests => Set<LeadRequest>();
+    public DbSet<LeadRequestEvent> LeadRequestEvents => Set<LeadRequestEvent>();
+    public DbSet<LeadRequestAllocation> LeadRequestAllocations => Set<LeadRequestAllocation>();
+    public DbSet<DndNumber> DndNumbers => Set<DndNumber>();
+    public DbSet<Client> Clients => Set<Client>();
+    public DbSet<ClientNote> ClientNotes => Set<ClientNote>();
+    public DbSet<ClientSubscription> ClientSubscriptions => Set<ClientSubscription>();
+    public DbSet<ClientTrial> ClientTrials => Set<ClientTrial>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
@@ -85,9 +100,193 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             e.Property(x => x.Key).HasMaxLength(100);
         });
 
+        ConfigureCrm(b);
+
+        // Ids are assigned in code (Guid.NewGuid()). Declaring them non-generated makes EF insert any such
+        // entity, including ones added through a tracked parent's collection; otherwise EF can mistake a
+        // pre-set key for an existing row and issue an UPDATE that matches nothing.
+        foreach (var type in b.Model.GetEntityTypes().Where(t => typeof(Entity).IsAssignableFrom(t.ClrType)).ToList())
+            b.Entity(type.ClrType).Property(nameof(Entity.Id)).ValueGeneratedNever();
+
         foreach (var entity in b.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
+            {
                 property.SetColumnName(ToSnakeCase(property.Name));
+
+                // SQLite stores DateTimeOffset as text and cannot compare/order it server-side. Store it as a
+                // sortable integer instead (dev/tests only; PostgreSQL uses native timestamptz).
+                if (Database.IsSqlite() && (property.ClrType == typeof(DateTimeOffset) || property.ClrType == typeof(DateTimeOffset?)))
+                    property.SetValueConverter(new Microsoft.EntityFrameworkCore.Storage.ValueConversion.DateTimeOffsetToBinaryConverter());
+            }
+    }
+
+    private static void ConfigureCrm(ModelBuilder b)
+    {
+        void OwnerFks<T>(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<T> e) where T : CrmOwned
+        {
+            e.HasOne<Employee>().WithMany().HasForeignKey(x => x.OwnerId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Employee>().WithMany().HasForeignKey(x => x.TeamLeaderId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Employee>().WithMany().HasForeignKey(x => x.ManagerId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.OwnerId);
+            e.HasIndex(x => x.TeamLeaderId);
+            e.HasIndex(x => x.ManagerId);
+            e.Property(x => x.Version).IsConcurrencyToken();
+        }
+
+        b.Entity<Lead>(e =>
+        {
+            e.ToTable("leads");
+            e.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Phone).HasMaxLength(10).IsRequired();
+            e.Property(x => x.Email).HasMaxLength(254);
+            e.Property(x => x.State).HasMaxLength(60).IsRequired();
+            e.Property(x => x.City).HasMaxLength(120);
+            e.Property(x => x.Source).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Campaign).HasMaxLength(120);
+            e.Property(x => x.Description).HasMaxLength(2000);
+            e.Property(x => x.Priority).HasMaxLength(10).IsRequired();
+            e.Property(x => x.Status).HasMaxLength(20).IsRequired();
+            e.Property(x => x.LastResponse).HasMaxLength(2000);
+            // The database, not just the service, guarantees no two leads share a contact.
+            e.HasIndex(x => x.Phone).IsUnique();
+            e.HasIndex(x => x.Email).IsUnique();
+            e.HasIndex(x => new { x.OwnerId, x.Status });
+            e.HasIndex(x => x.NextFollowUpAt);
+            OwnerFks(e);
+        });
+
+        b.Entity<LeadActivity>(e =>
+        {
+            e.ToTable("lead_activities");
+            e.Property(x => x.Type).HasMaxLength(30).IsRequired();
+            e.Property(x => x.Note).HasMaxLength(2000);
+            e.Property(x => x.Outcome).HasMaxLength(120);
+            e.Property(x => x.ActorName).HasMaxLength(120);
+            e.Property(x => x.ActorRole).HasMaxLength(30);
+            e.Property(x => x.StatusAtTime).HasMaxLength(20);
+            e.HasOne<Lead>().WithMany().HasForeignKey(x => x.LeadId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.LeadId);
+        });
+
+        b.Entity<LeadFollowUp>(e =>
+        {
+            e.ToTable("lead_followups");
+            e.Property(x => x.Status).HasMaxLength(20).IsRequired();
+            e.Property(x => x.Response).HasMaxLength(2000);
+            e.HasOne<Lead>().WithMany().HasForeignKey(x => x.LeadId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.LeadId, x.Status });
+            e.HasIndex(x => new { x.Status, x.DueAt });
+        });
+
+        b.Entity<LeadAssignment>(e =>
+        {
+            e.ToTable("lead_assignments");
+            e.Property(x => x.ActorName).HasMaxLength(120);
+            e.Property(x => x.Reason).HasMaxLength(500);
+            e.Property(x => x.Type).HasMaxLength(30).IsRequired();
+            e.Property(x => x.Source).HasMaxLength(30).IsRequired();
+            e.HasOne<Lead>().WithMany().HasForeignKey(x => x.LeadId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.LeadId);
+        });
+
+        b.Entity<LeadRequest>(e =>
+        {
+            e.ToTable("lead_requests", t => t.HasCheckConstraint("ck_lead_requests_count", "\"count\" > 0"));
+            e.Property(x => x.State).HasMaxLength(60).IsRequired();
+            e.Property(x => x.Remarks).HasMaxLength(1000);
+            e.Property(x => x.Status).HasMaxLength(30).IsRequired();
+            e.Property(x => x.Version).IsConcurrencyToken();
+            e.HasOne<Employee>().WithMany().HasForeignKey(x => x.OwnerId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Employee>().WithMany().HasForeignKey(x => x.TeamLeaderId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Employee>().WithMany().HasForeignKey(x => x.ManagerId).OnDelete(DeleteBehavior.Restrict);
+            e.HasMany(x => x.Events).WithOne().HasForeignKey(x => x.RequestId).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Allocations).WithOne().HasForeignKey(x => x.RequestId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.OwnerId, x.Status });
+            e.HasIndex(x => x.TeamLeaderId);
+        });
+        b.Entity<LeadRequestEvent>(e =>
+        {
+            e.ToTable("lead_request_events");
+            e.Property(x => x.Action).HasMaxLength(30).IsRequired();
+            e.Property(x => x.ActorName).HasMaxLength(120);
+            e.Property(x => x.Note).HasMaxLength(1000);
+        });
+        b.Entity<LeadRequestAllocation>(e =>
+        {
+            e.ToTable("lead_request_allocations");
+            e.HasKey(x => new { x.RequestId, x.LeadId });
+            e.HasOne<Lead>().WithMany().HasForeignKey(x => x.LeadId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        b.Entity<DndNumber>(e =>
+        {
+            e.ToTable("dnd_numbers");
+            e.Property(x => x.Phone).HasMaxLength(10).IsRequired();
+            e.Property(x => x.ClientName).HasMaxLength(120);
+            e.Property(x => x.Reason).HasMaxLength(500);
+            e.Property(x => x.AddedByName).HasMaxLength(120);
+            e.HasIndex(x => x.Phone).IsUnique();
+        });
+
+        b.Entity<Client>(e =>
+        {
+            e.ToTable("clients");
+            e.Property(x => x.ClientCode).HasMaxLength(20).IsRequired();
+            e.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Phone).HasMaxLength(10).IsRequired();
+            e.Property(x => x.Email).HasMaxLength(254);
+            e.Property(x => x.State).HasMaxLength(60);
+            e.Property(x => x.City).HasMaxLength(120);
+            e.Property(x => x.Source).HasMaxLength(120);
+            e.Property(x => x.Campaign).HasMaxLength(120);
+            e.Property(x => x.Status).HasMaxLength(20).IsRequired();
+            e.HasOne<Lead>().WithOne().HasForeignKey<Client>(x => x.LeadId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.LeadId).IsUnique();
+            e.HasIndex(x => x.Phone).IsUnique();
+            e.HasIndex(x => x.Email).IsUnique();
+            e.HasIndex(x => x.ClientCode).IsUnique();
+            e.HasMany(x => x.Notes).WithOne().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Subscriptions).WithOne().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Trials).WithOne().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Cascade);
+            OwnerFks(e);
+        });
+        b.Entity<ClientNote>(e =>
+        {
+            e.ToTable("client_notes");
+            e.Property(x => x.AuthorName).HasMaxLength(120);
+            e.Property(x => x.AuthorRole).HasMaxLength(30);
+            e.Property(x => x.Response).HasMaxLength(120);
+            e.Property(x => x.Text).HasMaxLength(2000);
+        });
+        b.Entity<ClientSubscription>(e =>
+        {
+            e.ToTable("client_subscriptions", t => t.HasCheckConstraint("ck_client_subscriptions_dates", "end_date >= start_date"));
+            e.Property(x => x.ServiceName).HasMaxLength(120).IsRequired();
+            e.Property(x => x.ServiceCategory).HasMaxLength(120);
+            e.Property(x => x.Status).HasMaxLength(20).IsRequired();
+            e.Property(x => x.InvoiceNo).HasMaxLength(60);
+            e.Property(x => x.PaidAmount).HasPrecision(18, 2);
+        });
+        b.Entity<ClientTrial>(e =>
+        {
+            e.ToTable("client_trials", t => t.HasCheckConstraint("ck_client_trials_dates", "end_date >= start_date"));
+            e.Property(x => x.Product).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Status).HasMaxLength(20).IsRequired();
+        });
+
+        b.Entity<Notification>(e =>
+        {
+            e.ToTable("notifications");
+            e.Property(x => x.Title).HasMaxLength(300).IsRequired();
+            e.HasIndex(x => new { x.UserId, x.IsRead });
+        });
+
+        b.Entity<ImportBatch>(e =>
+        {
+            e.ToTable("import_batches");
+            e.Property(x => x.FileName).HasMaxLength(200);
+            e.Property(x => x.ActorName).HasMaxLength(120);
+        });
     }
 
     private static string ToSnakeCase(string name)

@@ -91,6 +91,25 @@ public sealed class TestClient(HttpClient http)
 
     public Task<HttpResponseMessage> PutAsync(string url, object? body = null) => Send(HttpMethod.Put, url, body, withCsrf: true);
 
+    public Task<HttpResponseMessage> DeleteAsync(string url) => Send(HttpMethod.Delete, url, null, withCsrf: true);
+
+    public async Task<T> GetJsonAsync<T>(string url)
+    {
+        var res = await Http.GetAsync(url);
+        if (!res.IsSuccessStatusCode)
+            throw new InvalidOperationException($"GET {url} -> {(int)res.StatusCode} {await res.Content.ReadAsStringAsync()}");
+        return (await res.Content.ReadFromJsonAsync<T>())!;
+    }
+
+    /// <summary>POST that must succeed; returns the body or throws with the server's error for easy diagnosis.</summary>
+    public async Task<T> PostJsonAsync<T>(string url, object? body = null)
+    {
+        var res = await PostAsync(url, body);
+        if (!res.IsSuccessStatusCode)
+            throw new InvalidOperationException($"POST {url} -> {(int)res.StatusCode} {await res.Content.ReadAsStringAsync()}");
+        return (await res.Content.ReadFromJsonAsync<T>())!;
+    }
+
     /// <summary>For asserting that the API rejects a mutating call that lacks the CSRF header.</summary>
     public Task<HttpResponseMessage> PostWithoutCsrfAsync(string url, object? body = null) => Send(HttpMethod.Post, url, body, withCsrf: false);
 

@@ -1,8 +1,13 @@
 # Stocketics API (ASP.NET Core 10 + PostgreSQL)
 
-Backend for the Stocketics CRM, replacing PocketBase. This is **Slice 1: Foundation** from
-`../ARCHITECTURE_PROPOSAL.md`: authentication, roles/permissions, employee/user admin, audit log, error
-handling. Leads, clients, KYC, payments, HR, etc. arrive in later slices.
+Backend for the Stocketics CRM, replacing PocketBase, built in the slices from `../ARCHITECTURE_PROPOSAL.md`:
+
+- **Slice 1, Foundation:** authentication, roles/permissions, employee/user admin, audit log, error handling.
+- **Slice 2, Leads and clients:** leads, assignment, responses and follow-ups, lead requests, DND, clients,
+  bulk import (from parsed rows), CRM settings, notifications. The business rules are ported from
+  `backend/pb_hooks/crm.js`.
+
+KYC, payments, HR, teams, market data and reports arrive in later slices.
 
 ## Layout
 
@@ -12,7 +17,7 @@ api/
   src/Stocketics.Application     DTOs, service interfaces, exceptions, phone/email normalisation
   src/Stocketics.Infrastructure  EF Core DbContext, migrations, Identity, service implementations, seeding
   src/Stocketics.Api             controllers, auth/CSRF/rate-limit/error middleware, Program.cs
-  tests/Stocketics.Tests         68 tests (unit + integration against the real API)
+  tests/Stocketics.Tests         148 tests (unit + integration against the real API)
 ```
 
 ## Run it without PostgreSQL (development)
@@ -88,6 +93,36 @@ account exists or not; 5 bad passwords lock the account for 15 minutes (423).
 Errors are RFC 9457 ProblemDetails; validation errors carry `errors: { field: [messages] }`. Salary is returned
 only to callers with `admin.payroll`.
 
+### CRM endpoints (slice 2)
+
+| Method & path | Rule of thumb |
+| --- | --- |
+| `GET /leads` (`q, status, state, source, priority, ownerId, teamLeaderId, unassigned, archived, dueFrom, dueTo, page, pageSize`) | Scoped by `leads.view.*`; archived hidden unless `archived=true` |
+| `GET /leads/{id}` | Lead + timeline + follow-ups + assignment history + client id; 403 outside your scope |
+| `POST /leads` | `leads.edit.all` (managers, admin, HR). Rejects duplicate phone/email across leads **and** clients |
+| `PUT /leads/{id}` | Needs `version`; cascades contact changes to the lead's client |
+| `POST /leads/assign` | Manager/admin/HR to a team leader or employee; team leader to their employees. Reason required for reassignments and direct-to-employee. Optional `requestId` fulfils an approved request |
+| `POST /leads/{id}/responses` | Record a call; optional `nextDue` (future only, needs an owner), `followUpId` to complete one, `correctsActivityId` to correct an earlier entry |
+| `POST /leads/{id}/status` · `/archive` · `/restore` · `/convert` | Qualifying needs an owner and a recorded call; Lost needs a reason; convert needs Qualified and creates the client |
+| `POST /leads/import`, `GET /leads/imports[/{id}]` | 1 to 1000 parsed rows; every row gets Created/Duplicate/Failed with a reason; one transaction |
+| `GET/POST /lead-requests`, `POST /lead-requests/{id}/review` | Employee asks the team leader for N leads in a state; review lifecycle; drafts are private |
+| `GET /clients[/{id}]`, `POST /clients/{id}/status\|notes\|subscriptions\|trials` | Clients come from conversion; same scoping as leads |
+| `GET/POST /dnd`, `DELETE /dnd/{id}` | Do-Not-Disturb list; flags leads and clients by phone; only `leads.edit.all` can lift it |
+| `GET/PUT /settings/crm` | Read by anyone; PUT needs `admin.settings`. Sources can be added, never removed |
+| `GET /notifications`, `POST /notifications/{id}/read` | Your own only |
+
+**Visibility** follows the permission matrix: `leads.view.all` sees everything, `.team` sees leads where you are
+the owner, team leader or manager, `.own` only your own. Employee, team leader and manager are linked through
+`Employee.ManagerId` (employee's manager is a team leader, whose manager is a manager). Every lead carries
+`ownerId/teamLeaderId/managerId`, kept consistent by assignment.
+
+**Concurrency:** every change to a lead, client or request carries the `version` you read; a stale value returns
+409. Two simultaneous creates of the same contact also return 409 (the database has unique indexes on phone
+and email, so this holds even if two requests race).
+
+A background job (every 5 minutes, `Reminders:Enabled` / `Reminders:IntervalMinutes`) notifies the owner,
+team leader and manager once when a follow-up falls due.
+
 Guard rails enforced in the service layer (not just the UI): only an admin can create/modify/reset an admin or
 grant the admin role; nobody can deactivate or re-role themselves; the last active admin can't be removed;
 the admin role can't lose `admin.roles`; manager chains can't loop.
@@ -122,9 +157,26 @@ SQLite (dev/tests) uses `EnsureCreated` from the same model instead of migration
 - **Validation** uses DataAnnotations plus service-level rules, not FluentValidation, for now.
 - `Employee.Id` equals `User.Id` (1:1), so the API has a single identifier per person.
 - Employees list scoping is "self + direct reports" until Teams exist (Slice 5).
+- Slice 2 uses one append-only `lead_activities` timeline (as crm.js does) instead of the separate
+  `lead_responses` / `lead_changes` tables in the proposal; lead assignments keep their own table.
+- Lead visibility uses the **permission matrix** (managers hold `leads.view.all`), so a manager can see another
+  manager's leads. crm.js limited a manager to their own. Remove `leads.view.all` from the manager role in
+  `/permissions` if that is not wanted; no code change is needed.
+
+## Decisions still open
+
+- **Status vocabulary.** The API uses the crm.js statuses (New, In Contact, Qualified, Lost, Converted). The legacy
+  portal shows New Lead / In Contact / Trial Active / Converted / Lost. Mapping them (and what "Trial Active"
+  means for the pipeline) needs your call.
+- **DND semantics.** DND is a flag that follows the phone number. Whether it should also block follow-ups,
+  calls or dispatch was not in the code I could read, so nothing is blocked yet.
+- **Client code format** is `CL-` + 8 hex characters (unique-indexed). Say if you need a sequential format.
+- **Search alerts** (cross-employee client search notifications) are not built.
 
 ## Not done yet
 
-Leads/clients/KYC/payments/HR/teams/market modules; Excel import (needs the real files); frontend screens still
-use the legacy login. Removing the hard-coded credentials in `src/data/credentials.ts` and switching the login
-screen to `authApi.login` is the next frontend step. Backups and the Nginx deployment are Slice 8.
+KYC, payments/invoices, HR, teams, market data, reports; **server-side parsing of uploaded Excel/CSV files**
+(needs the real files; the import engine and per-row history are ready for it); frontend screens still use the
+legacy login and local state. Removing the hard-coded credentials in `src/data/credentials.ts` and switching
+screens to `src/api/client.ts` / `src/api/crm.ts` is the next frontend step. Backups and the Nginx deployment
+are Slice 8.

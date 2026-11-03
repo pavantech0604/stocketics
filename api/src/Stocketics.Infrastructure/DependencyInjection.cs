@@ -79,6 +79,17 @@ public static class DependencyInjection
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IEmployeeService, EmployeeService>();
+
+        services.AddScoped<CrmAccess>();
+        services.AddScoped<ICrmSettingsService, CrmSettingsService>();
+        services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<ILeadService, LeadService>();
+        services.AddScoped<ILeadImportService, LeadImportService>();
+        services.AddScoped<IDndService, DndService>();
+        services.AddScoped<ILeadRequestService, LeadRequestService>();
+        services.AddScoped<IClientService, ClientService>();
+        services.AddScoped<FollowUpReminderProcessor>();
+        services.AddHostedService<FollowUpReminderService>();
         return services;
     }
 
