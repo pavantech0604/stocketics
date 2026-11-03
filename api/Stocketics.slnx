@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Stocketics.Api/Stocketics.Api.csproj" />
+    <Project Path="src/Stocketics.Application/Stocketics.Application.csproj" />
+    <Project Path="src/Stocketics.Domain/Stocketics.Domain.csproj" />
+    <Project Path="src/Stocketics.Infrastructure/Stocketics.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Stocketics.Tests/Stocketics.Tests.csproj" />
+  </Folder>
+</Solution>

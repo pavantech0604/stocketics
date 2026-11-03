@@ -1,0 +1,41 @@
+# Local development stack: PostgreSQL + API.
+#   cp .env.example .env   (then edit the passwords)
+#   docker compose up --build
+#
+# NOT YET RUN: Docker was not installed on the machine where this was written, so this file has been
+# reviewed but never executed. Expect to fix small things on first `up`.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: stocketics
+      POSTGRES_USER: stocketics
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stocketics -d stocketics"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # Published to localhost only, for psql/pgAdmin; never to the network.
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      Database__Provider: Postgres
+      ConnectionStrings__Default: Host=db;Database=stocketics;Username=stocketics;Password=${POSTGRES_PASSWORD}
+      # Plain http on localhost in this dev stack. Production runs behind TLS and leaves this true.
+      Auth__RequireHttpsCookies: "false"
+      Seed__AdminEmail: ${SEED_ADMIN_EMAIL:?set SEED_ADMIN_EMAIL in .env}
+      Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:?set SEED_ADMIN_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:5073:8080"
+
+volumes:
+  pgdata:
